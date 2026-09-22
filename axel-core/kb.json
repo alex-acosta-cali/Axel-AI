@@ -1,0 +1,10 @@
+{
+  "negocio": "Negocio piloto AXEL",
+  "saludo": "Hola, soy AXEL. Puedo darte horarios, ubicación o tomar tus datos. ¿En qué te ayudo?",
+  "faqs": [
+    {"q": ["horario", "horarios", "abren", "cierran"], "a": "Atendemos de lunes a sábado, 9:00 a 18:00."},
+    {"q": ["dirección", "direccion", "ubicación", "ubicacion", "donde"], "a": "Estamos en Cali. Dime tu barrio y te orientamos."},
+    {"q": ["precio", "cuanto", "cuánto", "vale"], "a": "Dime el servicio o producto y te respondo con el precio de lista."},
+    {"q": ["pago", "transferencia", "efectivo"], "a": "Aceptamos efectivo y transferencia."}
+  ]
+}
