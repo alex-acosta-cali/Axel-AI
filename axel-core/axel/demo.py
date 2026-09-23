@@ -5,6 +5,7 @@ from __future__ import annotations
 import html
 import json
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import parse_qs
 
 from axel.envelope import Envelope
 from axel.memory import Memory
@@ -57,6 +58,10 @@ th{{background:#222}} .ok{{color:#8f8}}
 <h1>AXEL AI OS — panel local</h1>
 <p class="ok">Servidor en http://127.0.0.1:8090 — esto no es WhatsApp, es tu PC.</p>
 <p>GitHub: github.com/alex-acosta-cali/Axel-AI</p>
+<form method="post" action="/panel" style="margin:16px 0">
+<input name="text" placeholder="Escribe a AXEL (ej. horario o reembolso)" style="width:70%;padding:8px" />
+<button type="submit" style="padding:8px 14px">Enviar</button>
+</form>
 <table>
 <tr><th>Cuando</th><th>Canal</th><th>Agente</th><th>Nivel</th><th>Aprobación</th><th>Entró</th><th>Respondió</th></tr>
 {tabla}
@@ -81,17 +86,7 @@ th{{background:#222}} .ok{{color:#8f8}}
             return
         self._json(404, {"error": "not_found"})
 
-    def do_POST(self) -> None:
-        if self.path != "/webhooks/test":
-            self._json(404, {"error": "not_found"})
-            return
-        length = int(self.headers.get("Content-Length", "0"))
-        raw = self.rfile.read(length) or b"{}"
-        try:
-            data = json.loads(raw)
-        except json.JSONDecodeError:
-            self._json(400, {"error": "json_invalido", "hint": "usa scripts/enviar_prueba.ps1"})
-            return
+    def _run(self, data: dict) -> dict:
         env = Envelope(
             channel=data.get("channel", "test"),
             channel_user_id=data.get("channel_user_id", "tester"),
@@ -100,8 +95,28 @@ th{{background:#222}} .ok{{color:#8f8}}
             email=data.get("email"),
             name=data.get("name"),
         )
-        out = process(env, memory)
-        self._json(200, out.model_dump())
+        return process(env, memory).model_dump()
+
+    def do_POST(self) -> None:
+        length = int(self.headers.get("Content-Length", "0"))
+        raw = self.rfile.read(length) or b""
+        if self.path == "/panel":
+            form = parse_qs(raw.decode("utf-8", "replace"))
+            text = (form.get("text") or [""])[0]
+            self._run({"text": text, "channel": "panel", "channel_user_id": "alex_pc"})
+            self.send_response(303)
+            self.send_header("Location", "/")
+            self.end_headers()
+            return
+        if self.path != "/webhooks/test":
+            self._json(404, {"error": "not_found"})
+            return
+        try:
+            data = json.loads(raw or b"{}")
+        except json.JSONDecodeError:
+            self._json(400, {"error": "json_invalido", "hint": "usa scripts/enviar_prueba.ps1"})
+            return
+        self._json(200, self._run(data))
 
     def log_message(self, fmt: str, *args) -> None:
         print("%s - %s" % (self.address_string(), fmt % args))
