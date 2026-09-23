@@ -1,4 +1,4 @@
-"""Servidor minimo sin FastAPI (por si pip falla). Preferir uvicorn axel.main:app."""
+"""Servidor minimo sin FastAPI. Escucha en http://127.0.0.1:8090"""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(raw)
 
-    def do_GET(self) -> None:  # noqa: N802
+    def do_GET(self) -> None:
         if self.path == "/health":
             self._json(200, {"ok": True, "service": "axel-core-demo"})
             return
@@ -35,12 +35,17 @@ class Handler(BaseHTTPRequestHandler):
             return
         self._json(404, {"error": "not_found"})
 
-    def do_POST(self) -> None:  # noqa: N802
+    def do_POST(self) -> None:
         if self.path != "/webhooks/test":
             self._json(404, {"error": "not_found"})
             return
         length = int(self.headers.get("Content-Length", "0"))
-        data = json.loads(self.rfile.read(length) or b"{}")
+        raw = self.rfile.read(length) or b"{}"
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            self._json(400, {"error": "json_invalido", "hint": "usa scripts/enviar_prueba.ps1"})
+            return
         env = Envelope(
             channel=data.get("channel", "test"),
             channel_user_id=data.get("channel_user_id", "tester"),
