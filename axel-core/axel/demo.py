@@ -47,6 +47,21 @@ class Handler(BaseHTTPRequestHandler):
                 "</tr>"
             )
         tabla = "".join(items) or "<tr><td colspan='7'>Sin eventos aún. Corre scripts/enviar_prueba.ps1</td></tr>"
+        pend = []
+        for p in memory.list_pending():
+            eid = html.escape(str(p.get("event_id") or ""))
+            pend.append(
+                "<tr>"
+                f"<td>{eid}</td>"
+                f"<td>{html.escape(str(p.get('intent') or ''))}</td>"
+                f"<td>{html.escape(str(p.get('requested_action') or ''))}</td>"
+                f"<td><form method='post' action='/decidir' style='display:inline'>"
+                f"<input type='hidden' name='event_id' value='{eid}'/>"
+                f"<button name='decision' value='approved'>Aprobar</button> "
+                f"<button name='decision' value='rejected'>Rechazar</button>"
+                f"</form></td></tr>"
+            )
+        pendientes = "".join(pend) or "<tr><td colspan='4'>Nada pendiente</td></tr>"
         return f"""<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><title>AXEL vivo</title>
 <style>
@@ -62,6 +77,12 @@ th{{background:#222}} .ok{{color:#8f8}}
 <input name="text" placeholder="Escribe a AXEL (ej. horario o reembolso)" style="width:70%;padding:8px" />
 <button type="submit" style="padding:8px 14px">Enviar</button>
 </form>
+<h2>Pendientes del dueño</h2>
+<table>
+<tr><th>Evento</th><th>Intent</th><th>Pedido</th><th>Decisión</th></tr>
+{pendientes}
+</table>
+<h2>Últimos mensajes</h2>
 <table>
 <tr><th>Cuando</th><th>Canal</th><th>Agente</th><th>Nivel</th><th>Aprobación</th><th>Entró</th><th>Respondió</th></tr>
 {tabla}
@@ -104,6 +125,15 @@ th{{background:#222}} .ok{{color:#8f8}}
             form = parse_qs(raw.decode("utf-8", "replace"))
             text = (form.get("text") or [""])[0]
             self._run({"text": text, "channel": "panel", "channel_user_id": "alex_pc"})
+            self.send_response(303)
+            self.send_header("Location", "/")
+            self.end_headers()
+            return
+        if self.path == "/decidir":
+            form = parse_qs(raw.decode("utf-8", "replace"))
+            event_id = (form.get("event_id") or [""])[0]
+            decision = (form.get("decision") or [""])[0]
+            memory.resolve_pending(event_id, decision)
             self.send_response(303)
             self.send_header("Location", "/")
             self.end_headers()

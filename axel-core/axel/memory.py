@@ -290,3 +290,16 @@ class Memory:
                 "SELECT * FROM pending_approvals WHERE status = 'pending' ORDER BY created_at DESC"
             ).fetchall()
         return [dict(r) for r in rows]
+
+    def resolve_pending(self, event_id: str, status: str) -> None:
+        if status not in {"approved", "rejected"}:
+            return
+        with self._conn() as conn:
+            conn.execute(
+                "UPDATE pending_approvals SET status = ? WHERE event_id = ?",
+                (status, event_id),
+            )
+            conn.execute(
+                "UPDATE audit_events SET approval_status = ? WHERE event_id = ?",
+                (status, event_id),
+            )

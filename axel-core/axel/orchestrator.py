@@ -21,8 +21,14 @@ INTENTS = [
 ]
 
 
+def _norm(text: str) -> str:
+    raw = (text or "").lower().strip()
+    table = str.maketrans("áéíóúü", "aeiouu")
+    return raw.translate(table)
+
+
 def classify_intent(text: str) -> str:
-    raw = (text or "").strip()
+    raw = _norm(text)
     if not raw:
         return "pregunta"
     for name, pattern in INTENTS:
