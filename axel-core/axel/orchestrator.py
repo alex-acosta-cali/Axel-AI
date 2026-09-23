@@ -12,7 +12,7 @@ from axel.router_model import route
 
 INTENTS = [
     ("queja", re.compile(r"queja|reclamo|molesto|pésimo|pesimo|nunca más|abogado", re.I)),
-    ("reembolso", re.compile(r"reembolso|devolver plata|devoluci", re.I)),
+    ("reembolso", re.compile(r"reembols|rembols|devolver plata|devoluci", re.I)),
     ("cancelar", re.compile(r"cancelar (la )?cita|anular reserva", re.I)),
     ("reprogramar", re.compile(r"cambiar (la )?cita|reprogram", re.I)),
     ("reserva", re.compile(r"reserva|agendar|cita|turno|disponib", re.I)),
