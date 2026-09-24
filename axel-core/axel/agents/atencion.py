@@ -6,8 +6,15 @@ from axel import knowledge_base as kb
 
 def handle(env: Envelope) -> Envelope:
     text = (env.text or "").strip()
-    if env.intent == "datos" and env.name:
-        env.reply_text = f"Quedó tu nombre: {env.name}."
+    if env.intent == "datos":
+        if env.phone and env.name:
+            env.reply_text = f"Quedó tu nombre: {env.name} y tu celular: {env.phone}."
+        elif env.phone:
+            env.reply_text = f"Quedó tu celular: {env.phone}."
+        elif env.name:
+            env.reply_text = f"Quedó tu nombre: {env.name}."
+        else:
+            env.reply_text = "Recibí tus datos."
         env.result = "ok"
         return env
     faq = kb.answer(text)

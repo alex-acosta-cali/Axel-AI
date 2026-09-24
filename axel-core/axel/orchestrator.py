@@ -72,6 +72,16 @@ def process(env: Envelope, memory: Memory) -> Envelope:
         memory.set_customer_name(env.customer_id, nombre)
         env.name = nombre
         env.intent = "datos"
+    tel = re.search(
+        r"(?:mi celular|mi telefono|mi teléfono|celular|whatsapp|el numero|el número)?\D*((?:3\d{9})|(?:\d{10}))",
+        env.text or "",
+        re.I,
+    )
+    if tel and env.intent in {"pregunta", "saludo", "datos"}:
+        numero = tel.group(1)
+        memory.set_customer_phone(env.customer_id, numero)
+        env.phone = numero[-10:]
+        env.intent = "datos"
     open_task = memory.get_open_task(env.customer_id)
     if open_task == "reserva" and env.intent in {"pregunta", "saludo"}:
         env.intent = "reserva"

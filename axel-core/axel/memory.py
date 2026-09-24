@@ -324,6 +324,17 @@ class Memory:
                 (name, customer_id),
             )
 
+    def set_customer_phone(self, customer_id: str, phone: str) -> None:
+        phone = "".join(ch for ch in (phone or "") if ch.isdigit())
+        if len(phone) < 10:
+            return
+        phone = phone[-10:]
+        with self._conn() as conn:
+            conn.execute(
+                "UPDATE customers SET phone = ?, updated_at = datetime('now') WHERE customer_id = ?",
+                (phone, customer_id),
+            )
+
     def set_open_task(self, customer_id: str, task: str) -> None:
         with self._conn() as conn:
             conn.execute(
