@@ -82,6 +82,16 @@ def process(env: Envelope, memory: Memory) -> Envelope:
         memory.set_customer_phone(env.customer_id, numero)
         env.phone = numero[-10:]
         env.intent = "datos"
+    mail = re.search(
+        r"([A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,})",
+        env.text or "",
+        re.I,
+    )
+    if mail and env.intent in {"pregunta", "saludo", "datos"}:
+        correo = mail.group(1).lower()
+        memory.set_customer_email(env.customer_id, correo)
+        env.email = correo
+        env.intent = "datos"
     open_task = memory.get_open_task(env.customer_id)
     if open_task == "reserva" and env.intent in {"pregunta", "saludo"}:
         env.intent = "reserva"

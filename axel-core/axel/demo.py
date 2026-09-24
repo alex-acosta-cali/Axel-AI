@@ -62,6 +62,13 @@ class Handler(BaseHTTPRequestHandler):
                 f"</form></td></tr>"
             )
         pendientes = "".join(pend) or "<tr><td colspan='4'>Nada pendiente</td></tr>"
+        ficha = memory.find_by_identity("panel", "alex_pc")
+        ficha_html = (
+            f"Nombre: {html.escape(str(ficha.get('name') or '—'))} · "
+            f"Celular: {html.escape(str(ficha.get('phone') or '—'))} · "
+            f"Correo: {html.escape(str(ficha.get('email') or '—'))} · "
+            f"ID: {html.escape(str(ficha.get('customer_id') or '—'))}"
+        )
         citas = []
         for c in memory.list_confirmed_reservas(8):
             citas.append(
@@ -83,6 +90,7 @@ th{{background:#222}} .ok{{color:#8f8}}
 <h1>AXEL AI OS — panel local</h1>
 <p class="ok">Servidor en http://127.0.0.1:8090 — esto no es WhatsApp, es tu PC.</p>
 <p>GitHub: github.com/alex-acosta-cali/Axel-AI</p>
+<p><b>Ficha de quien escribe en este panel:</b> {ficha_html}</p>
 <form method="post" action="/panel" style="margin:16px 0">
 <input name="text" placeholder="Escribe a AXEL (ej. horario o reembolso)" style="width:70%;padding:8px" />
 <button type="submit" style="padding:8px 14px">Enviar</button>

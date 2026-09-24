@@ -7,14 +7,14 @@ from axel import knowledge_base as kb
 def handle(env: Envelope) -> Envelope:
     text = (env.text or "").strip()
     if env.intent == "datos":
-        if env.phone and env.name:
-            env.reply_text = f"Quedó tu nombre: {env.name} y tu celular: {env.phone}."
-        elif env.phone:
-            env.reply_text = f"Quedó tu celular: {env.phone}."
-        elif env.name:
-            env.reply_text = f"Quedó tu nombre: {env.name}."
-        else:
-            env.reply_text = "Recibí tus datos."
+        partes = []
+        if env.name:
+            partes.append(f"nombre: {env.name}")
+        if env.phone:
+            partes.append(f"celular: {env.phone}")
+        if env.email:
+            partes.append(f"correo: {env.email}")
+        env.reply_text = ("Quedó tu " + " y ".join(partes) + ".") if partes else "Recibí tus datos."
         env.result = "ok"
         return env
     faq = kb.answer(text)

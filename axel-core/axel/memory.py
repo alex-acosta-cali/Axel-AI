@@ -324,6 +324,28 @@ class Memory:
                 (name, customer_id),
             )
 
+    def find_by_identity(self, channel: str, channel_user_id: str) -> dict[str, Any]:
+        with self._conn() as conn:
+            row = conn.execute(
+                """
+                SELECT c.* FROM identities i
+                JOIN customers c ON c.customer_id = i.customer_id
+                WHERE i.channel = ? AND i.channel_user_id = ?
+                """,
+                (channel, channel_user_id),
+            ).fetchone()
+        return dict(row) if row else {}
+
+    def set_customer_email(self, customer_id: str, email: str) -> None:
+        email = (email or "").strip().lower()
+        if "@" not in email or "." not in email.split("@")[-1]:
+            return
+        with self._conn() as conn:
+            conn.execute(
+                "UPDATE customers SET email = ?, updated_at = datetime('now') WHERE customer_id = ?",
+                (email[:120], customer_id),
+            )
+
     def set_customer_phone(self, customer_id: str, phone: str) -> None:
         phone = "".join(ch for ch in (phone or "") if ch.isdigit())
         if len(phone) < 10:
