@@ -200,6 +200,24 @@ class Memory:
             ).fetchall()
         return [dict(r) for r in rows]
 
+    def cancel_last_reserva(self, customer_id: str) -> dict[str, Any] | None:
+        with self._conn() as conn:
+            row = conn.execute(
+                """
+                SELECT summary_id, summary FROM conversation_summaries
+                WHERE customer_id = ? AND intent = 'reserva' AND result = 'ok'
+                ORDER BY summary_id DESC LIMIT 1
+                """,
+                (customer_id,),
+            ).fetchone()
+            if not row:
+                return None
+            conn.execute(
+                "UPDATE conversation_summaries SET result = 'cancelled' WHERE summary_id = ?",
+                (row["summary_id"],),
+            )
+            return {"summary": row["summary"]}
+
     def save_turn(
         self,
         *,
@@ -279,6 +297,18 @@ class Memory:
                 (event_id,),
             ).fetchone()
         return dict(row) if row else None
+
+    def has_pending(self, customer_id: str, intent: str) -> bool:
+        with self._conn() as conn:
+            row = conn.execute(
+                """
+                SELECT event_id FROM pending_approvals
+                WHERE customer_id = ? AND intent = ? AND status = 'pending'
+                LIMIT 1
+                """,
+                (customer_id, intent),
+            ).fetchone()
+        return bool(row)
 
     def save_pending_approval(self, data: dict[str, Any]) -> None:
         with self._conn() as conn:

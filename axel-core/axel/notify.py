@@ -18,6 +18,15 @@ def owner_alert(env: Envelope) -> str:
 
 
 def notify_owner(env: Envelope, memory: Memory) -> str:
+    if memory.has_pending(env.customer_id or "", env.intent or ""):
+        env.owner_notified = True
+        env.reply_text = (
+            "Ese pedido ya está con el dueño. No lo duplico. "
+            "Cuando decida, te avisamos."
+        )
+        env.result = "pending"
+        env.approval_status = "pending_owner"
+        return "duplicate"
     text = owner_alert(env)
     memory.save_pending_approval(
         {
