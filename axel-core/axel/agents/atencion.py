@@ -6,6 +6,10 @@ from axel import knowledge_base as kb
 
 def handle(env: Envelope) -> Envelope:
     text = (env.text or "").strip()
+    if env.intent == "datos" and env.name:
+        env.reply_text = f"Quedó tu nombre: {env.name}."
+        env.result = "ok"
+        return env
     faq = kb.answer(text)
     if faq:
         env.reply_text = faq

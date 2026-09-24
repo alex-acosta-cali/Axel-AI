@@ -67,7 +67,7 @@ class Handler(BaseHTTPRequestHandler):
             citas.append(
                 "<tr>"
                 f"<td>{html.escape(str(c.get('created_at') or ''))}</td>"
-                f"<td>{html.escape(str(c.get('customer_id') or ''))}</td>"
+                f"<td>{html.escape(str(c.get('name') or c.get('customer_id') or ''))}</td>"
                 f"<td>{html.escape(str(c.get('summary') or ''))}</td>"
                 "</tr>"
             )

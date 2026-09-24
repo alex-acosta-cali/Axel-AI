@@ -66,6 +66,12 @@ def process(env: Envelope, memory: Memory) -> Envelope:
     env.payload["history"] = history
 
     env.intent = classify_intent(env.text)
+    llamado = re.search(r"(?:me llamo|mi nombre es)\s+([a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]{2,30})", env.text or "", re.I)
+    if llamado:
+        nombre = llamado.group(1).strip().title()
+        memory.set_customer_name(env.customer_id, nombre)
+        env.name = nombre
+        env.intent = "datos"
     open_task = memory.get_open_task(env.customer_id)
     if open_task == "reserva" and env.intent in {"pregunta", "saludo"}:
         env.intent = "reserva"

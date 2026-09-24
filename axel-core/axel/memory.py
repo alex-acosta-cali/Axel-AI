@@ -189,9 +189,10 @@ class Memory:
         with self._conn() as conn:
             rows = conn.execute(
                 """
-                SELECT event_id, customer_id, channel, summary, created_at
-                FROM conversation_summaries
-                WHERE intent = 'reserva' AND result = 'ok'
+                SELECT s.event_id, s.customer_id, s.channel, s.summary, s.created_at, c.name
+                FROM conversation_summaries s
+                LEFT JOIN customers c ON c.customer_id = s.customer_id
+                WHERE s.intent = 'reserva' AND s.result = 'ok'
                 ORDER BY summary_id DESC
                 LIMIT ?
                 """,
@@ -312,6 +313,16 @@ class Memory:
                 (customer_id,),
             ).fetchone()
         return str(row["open_task"]) if row and row["open_task"] else ""
+
+    def set_customer_name(self, customer_id: str, name: str) -> None:
+        name = (name or "").strip()[:80]
+        if not name:
+            return
+        with self._conn() as conn:
+            conn.execute(
+                "UPDATE customers SET name = ?, updated_at = datetime('now') WHERE customer_id = ?",
+                (name, customer_id),
+            )
 
     def set_open_task(self, customer_id: str, task: str) -> None:
         with self._conn() as conn:
