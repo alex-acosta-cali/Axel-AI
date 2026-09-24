@@ -66,6 +66,9 @@ def process(env: Envelope, memory: Memory) -> Envelope:
     env.payload["history"] = history
 
     env.intent = classify_intent(env.text)
+    open_task = memory.get_open_task(env.customer_id)
+    if open_task == "reserva" and env.intent in {"pregunta", "saludo"}:
+        env.intent = "reserva"
     env.agent = pick_agent(env.intent)
     env.supervision_level = classify_level(env.intent)
     env.why = reason_for(env.intent or "", env.supervision_level)
@@ -84,6 +87,13 @@ def process(env: Envelope, memory: Memory) -> Envelope:
 
     if env.result is None:
         env.result = "ok"
+
+    if env.intent == "reserva" and env.result == "pending":
+        memory.set_open_task(env.customer_id, "reserva")
+    elif env.intent == "reserva" and env.result == "ok":
+        memory.set_open_task(env.customer_id, "")
+    elif env.intent == "reembolso":
+        memory.set_open_task(env.customer_id, "")
 
     memory.save_turn(
         customer_id=env.customer_id,

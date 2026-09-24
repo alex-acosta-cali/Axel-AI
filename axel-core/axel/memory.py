@@ -291,6 +291,27 @@ class Memory:
             ).fetchall()
         return [dict(r) for r in rows]
 
+    def get_open_task(self, customer_id: str) -> str:
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT open_task FROM session_state WHERE customer_id = ?",
+                (customer_id,),
+            ).fetchone()
+        return str(row["open_task"]) if row and row["open_task"] else ""
+
+    def set_open_task(self, customer_id: str, task: str) -> None:
+        with self._conn() as conn:
+            conn.execute(
+                """
+                INSERT INTO session_state(customer_id, open_task, updated_at)
+                VALUES (?, ?, datetime('now'))
+                ON CONFLICT(customer_id) DO UPDATE SET
+                    open_task = excluded.open_task,
+                    updated_at = excluded.updated_at
+                """,
+                (customer_id, task),
+            )
+
     def resolve_pending(self, event_id: str, status: str) -> None:
         if status not in {"approved", "rejected"}:
             return
