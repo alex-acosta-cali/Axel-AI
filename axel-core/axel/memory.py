@@ -185,6 +185,20 @@ class Memory:
             ).fetchall()
         return [dict(r) for r in rows]
 
+    def list_confirmed_reservas(self, limit: int = 10) -> list[dict[str, Any]]:
+        with self._conn() as conn:
+            rows = conn.execute(
+                """
+                SELECT event_id, customer_id, channel, summary, created_at
+                FROM conversation_summaries
+                WHERE intent = 'reserva' AND result = 'ok'
+                ORDER BY summary_id DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
     def save_turn(
         self,
         *,

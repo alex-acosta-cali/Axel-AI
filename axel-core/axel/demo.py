@@ -62,6 +62,16 @@ class Handler(BaseHTTPRequestHandler):
                 f"</form></td></tr>"
             )
         pendientes = "".join(pend) or "<tr><td colspan='4'>Nada pendiente</td></tr>"
+        citas = []
+        for c in memory.list_confirmed_reservas(8):
+            citas.append(
+                "<tr>"
+                f"<td>{html.escape(str(c.get('created_at') or ''))}</td>"
+                f"<td>{html.escape(str(c.get('customer_id') or ''))}</td>"
+                f"<td>{html.escape(str(c.get('summary') or ''))}</td>"
+                "</tr>"
+            )
+        tabla_citas = "".join(citas) or "<tr><td colspan='3'>Sin citas confirmadas</td></tr>"
         return f"""<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><title>AXEL vivo</title>
 <style>
@@ -81,6 +91,11 @@ th{{background:#222}} .ok{{color:#8f8}}
 <table>
 <tr><th>Evento</th><th>Intent</th><th>Pedido</th><th>Decisión</th></tr>
 {pendientes}
+</table>
+<h2>Citas confirmadas (piloto)</h2>
+<table>
+<tr><th>Cuando</th><th>Cliente</th><th>Qué dijo</th></tr>
+{tabla_citas}
 </table>
 <h2>Últimos mensajes</h2>
 <table>
