@@ -27,9 +27,18 @@ def handle(env: Envelope, memory=None) -> Envelope:
         env.result = "ok"
         env.approval_status = "na"
         return env
+
     bajo = (env.text or "").lower()
+    if "domingo" in bajo and env.intent in {"reserva", "reprogramar"}:
+        env.reply_text = "Los domingos no abrimos. Elige lunes a sábado."
+        env.result = "denied"
+        env.approval_status = "na"
+        env.intent = "reserva_denegada"
+        return env
+
     if "reprogram" in bajo or "cambiar la cita" in bajo or "cambiar cita" in bajo:
         env.intent = "reprogramar"
+
     if env.intent == "cancelar" and memory is not None:
         baja = memory.cancel_last_reserva(env.customer_id or "")
         if baja:
@@ -42,13 +51,26 @@ def handle(env: Envelope, memory=None) -> Envelope:
         env.approval_status = "na"
         return env
 
+    vigente = None
+    if memory is not None:
+        vigente = memory.last_reserva(env.customer_id or "")
+
     if env.intent == "reprogramar":
         if memory is None:
             env.reply_text = "No pude tocar la agenda."
             env.result = "error"
             return env
+        if not vigente:
+            env.reply_text = "No tienes cita para reprogramar. ¿Agendamos una nueva?"
+            env.result = "pending"
+            env.approval_status = "pending_customer"
+            env.intent = "reserva"
+            return env
         if not _tiene_cuando(env.text or ""):
-            env.reply_text = "¿Para qué día y hora la pasamos?"
+            env.reply_text = (
+                f"Tienes «{vigente.get('summary')}». "
+                "¿Para qué día y hora la pasamos?"
+            )
             env.result = "pending"
             env.approval_status = "pending_customer"
             return env
@@ -56,6 +78,16 @@ def handle(env: Envelope, memory=None) -> Envelope:
         env.reply_text = f"Pasé la cita a «{env.text}»."
         env.result = "ok"
         env.approval_status = "confirmed_customer"
+        return env
+
+    if vigente and env.intent == "reserva":
+        env.reply_text = (
+            f"Ya tienes una cita: «{vigente.get('summary')}». "
+            "No te agendo otra. Escribe cancelar la cita o reprogramar la cita."
+        )
+        env.result = "denied"
+        env.approval_status = "na"
+        env.intent = "reserva_denegada"
         return env
 
     if _tiene_cuando(env.text or "") and "cita" not in bajo and "reserva" not in bajo:
