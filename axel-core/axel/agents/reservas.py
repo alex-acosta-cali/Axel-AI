@@ -101,13 +101,20 @@ def handle(env: Envelope, memory=None) -> Envelope:
         env.reply_text = f"Pasé la cita a «{env.text}»."
         env.result = "ok"
         env.approval_status = "confirmed_customer"
+        env.intent = "reserva"
         return env
 
     if vigente and env.intent == "reserva":
-        env.reply_text = (
-            f"Ya tienes una cita: «{vigente.get('summary')}». "
-            "No te agendo otra. Escribe cancelar la cita o reprogramar la cita."
-        )
+        if _tiene_cuando(env.text or ""):
+            env.reply_text = (
+                f"Ya tienes «{vigente.get('summary')}». "
+                f"Si quieres pasarla a «{env.text}», escribe: reprogramar la cita."
+            )
+        else:
+            env.reply_text = (
+                f"Ya tienes una cita: «{vigente.get('summary')}». "
+                "No te agendo otra. Escribe cancelar la cita o reprogramar la cita."
+            )
         env.result = "denied"
         env.approval_status = "na"
         env.intent = "reserva_denegada"

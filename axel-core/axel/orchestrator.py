@@ -143,6 +143,8 @@ def process(env: Envelope, memory: Memory) -> Envelope:
     if open_task == "oferta_cita" and env.intent in {"pregunta", "saludo", "venta"}:
         if re.search(r"^(si|sí|dale|ok|okay|va|claro|reserv)", _norm(env.text or "")):
             env.intent = "reserva"
+        elif re.search(r"manana|mañana|lunes|martes|miercoles|jueves|viernes|sabado|\d", _norm(env.text or "")):
+            env.intent = "reserva"
         elif re.search(r"^(no|despues|después|ahora no)", _norm(env.text or "")):
             memory.set_open_task(env.customer_id, "")
             env.intent = "pregunta"
@@ -162,7 +164,7 @@ def process(env: Envelope, memory: Memory) -> Envelope:
     else:
         env = atencion.handle(env, memory)
         low = (env.reply_text or "").lower()
-        if "reserve un cupo" in low or "te reserve" in low:
+        if "reserve un cupo" in low or "te reserve" in low or "agendarte para mañana" in low:
             memory.set_open_task(env.customer_id, "oferta_cita")
 
     if env.result is None:
