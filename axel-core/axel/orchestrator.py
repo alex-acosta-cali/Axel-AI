@@ -160,7 +160,7 @@ def process(env: Envelope, memory: Memory) -> Envelope:
     elif env.agent == "reservas" or needs_customer_confirm(env.supervision_level):
         env = reservas.handle(env, memory)
     else:
-        env = atencion.handle(env)
+        env = atencion.handle(env, memory)
         low = (env.reply_text or "").lower()
         if "reserve un cupo" in low or "te reserve" in low:
             memory.set_open_task(env.customer_id, "oferta_cita")

@@ -27,7 +27,7 @@ def estado_cali(ahora: datetime | None = None) -> tuple[bool, str]:
     return True, f"Ahora en Cali son las {hora}: estamos abiertos hasta las 19:00."
 
 
-def handle(env: Envelope) -> Envelope:
+def handle(env: Envelope, memory=None) -> Envelope:
     text = (env.text or "").strip()
     bajo = text.lower()
     if env.intent == "admin_kb":
@@ -58,6 +58,8 @@ def handle(env: Envelope) -> Envelope:
         )
         env.result = "ok"
         env.intent = "pedido"
+        if memory is not None and env.customer_id:
+            memory.add_note(env.customer_id, "Pedido piloto corte $25.000 (sin cobro)")
         return env
     if "domingo" in bajo:
         _, msg = estado_cali()
