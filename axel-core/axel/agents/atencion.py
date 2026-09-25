@@ -37,17 +37,10 @@ def handle(env: Envelope) -> Envelope:
             env.reply_text = kb.greeting()
         env.result = "ok"
         return env
-    if env.known_context:
-        last = env.known_context[0]
-        env.reply_text = (
-            f"Te reconozco aunque escribas por {env.channel}. "
-            f"La última vez: {last}. Ahora: «{text[:160]}»."
-        )
-    else:
-        env.reply_text = (
-            kb.greeting()
-            + " Si buscas horarios, ubicación o precios, pregúntame. "
-            + f"Recibí: «{text[:120]}»."
-        )
+    env.reply_text = (
+        "No tengo esa información en la base del negocio. "
+        "Puedo ayudarte con horarios, precios, ubicación o una cita. "
+        "Si es otra cosa, el dueño lo revisa."
+    )
     env.result = "ok"
     return env
