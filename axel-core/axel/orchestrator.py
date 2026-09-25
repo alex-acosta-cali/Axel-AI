@@ -93,6 +93,16 @@ def process(env: Envelope, memory: Memory) -> Envelope:
         else:
             env.intent = "admin_kb"
             env.reply_text = "Eso solo lo cambia el dueño con el comando AXELADMIN."
+    if (env.text or "").strip().upper() == "AXELADMIN ESTADO" and env.channel in {"panel", "test"}:
+        n_cli = len(memory.list_customers(50))
+        n_pend = len(memory.list_pending())
+        n_citas = len(memory.list_confirmed_reservas(50))
+        env.intent = "admin_kb"
+        env.reply_text = (
+            f"Estado piloto: {n_cli} cliente(s), "
+            f"{n_citas} cita(s) confirmada(s), "
+            f"{n_pend} pendiente(s) del dueño."
+        )
     llamado = re.search(r"(?:me llamo|mi nombre es)\s+([a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]{2,30})", env.text or "", re.I)
     if llamado:
         nombre = llamado.group(1).strip().title()

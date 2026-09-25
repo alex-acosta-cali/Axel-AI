@@ -3,57 +3,32 @@
   "saludo": "Hola, soy AXEL. Puedo darte horarios, precios, ubicación o tomar tus datos. ¿En qué te ayudo?",
   "faqs": [
     {
-      "q": [
-        "horario",
-        "horarios",
-        "abren",
-        "cierran"
-      ],
+      "q": ["horario", "horarios", "abren", "cierran"],
       "a": "Atendemos de lunes a sábado, 8:00 a 19:00."
     },
     {
-      "q": [
-        "corte",
-        "cortarme",
-        "peluqueada",
-        "pelo"
-      ],
-      "a": "El corte quedó en $28.000."
+      "q": ["corte", "cortarme", "peluqueada", "pelo"],
+      "a": "El corte está en $25.000. ¿Quieres que te reserve un cupo?"
     },
     {
-      "q": [
-        "barba"
-      ],
+      "q": ["barba"],
       "a": "Arreglo de barba $15.000. Corte + barba $35.000."
     },
     {
-      "q": [
-        "dirección",
-        "direccion",
-        "ubicación",
-        "ubicacion",
-        "donde"
-      ],
+      "q": ["dirección", "direccion", "ubicación", "ubicacion", "donde"],
       "a": "Estamos en Cali. Dime tu barrio y te orientamos."
     },
     {
-      "q": [
-        "precio",
-        "cuanto",
-        "cuánto",
-        "vale",
-        "valores",
-        "lista"
-      ],
-      "a": "Lista piloto: corte $28.000, barba $15.000, corte + barba $35.000. ¿Cuál te interesa?"
+      "q": ["precio", "cuanto", "cuánto", "vale", "valores", "lista"],
+      "a": "Lista piloto: corte $25.000, barba $15.000, corte + barba $35.000. ¿Cuál te interesa?"
     },
     {
-      "q": [
-        "pago",
-        "transferencia",
-        "efectivo"
-      ],
+      "q": ["pago", "transferencia", "efectivo"],
       "a": "Aceptamos efectivo y transferencia."
+    },
+    {
+      "q": ["parqueadero", "estacionamiento", "parking"],
+      "a": "Sí hay parqueadero frente al local, cupos limitados."
     }
   ]
 }
