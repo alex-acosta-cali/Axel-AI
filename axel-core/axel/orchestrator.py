@@ -103,6 +103,10 @@ def process(env: Envelope, memory: Memory) -> Envelope:
             f"{n_citas} cita(s) confirmada(s), "
             f"{n_pend} pendiente(s) del dueño."
         )
+    if (env.text or "").strip().upper() == "AXELADMIN LIMPIAR" and env.channel in {"panel", "test"}:
+        n = memory.purge_ghost_customers()
+        env.intent = "admin_kb"
+        env.reply_text = f"Eliminé {n} cliente(s) fantasma. Alex no se toca."
     llamado = re.search(r"(?:me llamo|mi nombre es)\s+([a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]{2,30})", env.text or "", re.I)
     if llamado:
         nombre = llamado.group(1).strip().title()

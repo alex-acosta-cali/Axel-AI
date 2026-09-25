@@ -410,6 +410,22 @@ class Memory:
             ).fetchall()
         return [dict(r) for r in rows]
 
+    def purge_ghost_customers(self) -> int:
+        with self._conn() as conn:
+            rows = conn.execute(
+                """
+                SELECT customer_id FROM customers
+                WHERE (name IS NULL OR TRIM(name) = '')
+                  AND (phone IS NULL OR TRIM(phone) = '')
+                  AND (email IS NULL OR TRIM(email) = '')
+                """
+            ).fetchall()
+            ids = [r["customer_id"] for r in rows]
+            for cid in ids:
+                conn.execute("DELETE FROM identities WHERE customer_id = ?", (cid,))
+                conn.execute("DELETE FROM customers WHERE customer_id = ?", (cid,))
+        return len(ids)
+
     def find_by_identity(self, channel: str, channel_user_id: str) -> dict[str, Any]:
         with self._conn() as conn:
             row = conn.execute(
