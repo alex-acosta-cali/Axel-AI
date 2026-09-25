@@ -191,101 +191,7 @@ class Memory:
             ).fetchall()
         return [dict(r) for r in rows]
 
-    def list_audit(self, limit: int = 20) -> list[dict[str, Any]]:
-        with self._conn() as conn:
-            rows = conn.execute(
-                "SELECT * FROM audit_events ORDER BY received_at DESC LIMIT ?",
-                (limit,),
-            ).fetchall()
-        return [dict(r) for r in rows]
-
-    def get_audit(self, event_id: str) -> Optional[dict[str, Any]]:
-        with self._conn() as conn:
-            row = conn.execute(
-                "SELECT * FROM audit_events WHERE event_id = ?",
-                (event_id,),
-            ).fetchone()
-        return dict(row) if row else None
-
-    def write_audit(self, data: dict[str, Any]) -> None:
-        with self._conn() as conn:
-            conn.execute(
-                """
-                INSERT OR REPLACE INTO audit_events(
-                    event_id, received_at, finished_at, channel, customer_id, agent, model,
-                    supervision_level, approval_status, input_summary, output_summary,
-                    result, error, why, data_used
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-                """,
-                (
-                    data.get("event_id"),
-                    data.get("received_at"),
-                    data.get("finished_at"),
-                    data.get("channel"),
-                    data.get("customer_id"),
-                    data.get("agent"),
-                    data.get("model"),
-                    data.get("supervision_level"),
-                    data.get("approval_status"),
-                    data.get("input_summary"),
-                    data.get("output_summary"),
-                    data.get("result"),
-                    data.get("error"),
-                    data.get("why"),
-                    data.get("data_used"),
-                ),
-            )
-
-    def list_pending(self) -> list[dict[str, Any]]:
-        with self._conn() as conn:
-            rows = conn.execute(
-                "SELECT * FROM pending_approvals WHERE status = 'pending' ORDER BY created_at DESC"
-            ).fetchall()
-        return [dict(r) for r in rows]
-
-    def resolve_pending(self, event_id: str, decision: str) -> None:
-        with self._conn() as conn:
-            conn.execute(
-                "UPDATE pending_approvals SET status = ? WHERE event_id = ?",
-                (decision, event_id),
-            )
-            conn.execute(
-                "UPDATE audit_events SET approval_status = ? WHERE event_id = ?",
-                (decision, event_id),
-            )
-
-    def has_pending(self, customer_id: str, intent: str) -> bool:
-        with self._conn() as conn:
-            row = conn.execute(
-                """
-                SELECT event_id FROM pending_approvals
-                WHERE customer_id = ? AND intent = ? AND status = 'pending'
-                LIMIT 1
-                """,
-                (customer_id, intent),
-            ).fetchone()
-        return bool(row)
-
-    def save_pending_approval(self, data: dict[str, Any]) -> None:
-        with self._conn() as conn:
-            conn.execute(
-                """
-                INSERT OR REPLACE INTO pending_approvals(
-                    event_id, customer_id, intent, why, requested_action, notify_text, status, created_at
-                ) VALUES (?,?,?,?,?,?,?,datetime('now'))
-                """,
-                (
-                    data.get("event_id"),
-                    data.get("customer_id"),
-                    data.get("intent"),
-                    data.get("why"),
-                    data.get("requested_action"),
-                    data.get("notify_text"),
-                    data.get("status", "pending"),
-                ),
-            )
-
-    def list_confirmed_reservas(self, limit: int = 8) -> list[dict[str, Any]]:
+    def list_confirmed_reservas(self, limit: int = 10) -> list[dict[str, Any]]:
         with self._conn() as conn:
             rows = conn.execute(
                 """
@@ -365,6 +271,89 @@ class Memory:
                     (customer_id, event_id, channel, "out", reply),
                 )
 
+    def write_audit(self, data: dict[str, Any]) -> None:
+        with self._conn() as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO audit_events(
+                    event_id, received_at, finished_at, channel, customer_id, agent, model,
+                    supervision_level, approval_status, input_summary, output_summary, result, error,
+                    why, data_used
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                """,
+                (
+                    data.get("event_id"),
+                    data.get("received_at"),
+                    data.get("finished_at"),
+                    data.get("channel"),
+                    data.get("customer_id"),
+                    data.get("agent"),
+                    data.get("model"),
+                    data.get("supervision_level"),
+                    data.get("approval_status"),
+                    data.get("input_summary"),
+                    data.get("output_summary"),
+                    data.get("result"),
+                    data.get("error"),
+                    data.get("why"),
+                    data.get("data_used"),
+                ),
+            )
+
+    def list_audit(self, limit: int = 20) -> list[dict[str, Any]]:
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT * FROM audit_events ORDER BY received_at DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_audit(self, event_id: str) -> Optional[dict[str, Any]]:
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT * FROM audit_events WHERE event_id = ?",
+                (event_id,),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def has_pending(self, customer_id: str, intent: str) -> bool:
+        with self._conn() as conn:
+            row = conn.execute(
+                """
+                SELECT event_id FROM pending_approvals
+                WHERE customer_id = ? AND intent = ? AND status = 'pending'
+                LIMIT 1
+                """,
+                (customer_id, intent),
+            ).fetchone()
+        return bool(row)
+
+    def save_pending_approval(self, data: dict[str, Any]) -> None:
+        with self._conn() as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO pending_approvals(
+                    event_id, customer_id, intent, why, requested_action, notify_text, status, created_at
+                ) VALUES (?,?,?,?,?,?,?,datetime('now'))
+                """,
+                (
+                    data.get("event_id"),
+                    data.get("customer_id"),
+                    data.get("intent"),
+                    data.get("why"),
+                    data.get("requested_action"),
+                    data.get("notify_text"),
+                    data.get("status", "pending"),
+                ),
+            )
+
+    def list_pending(self) -> list[dict[str, Any]]:
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT * FROM pending_approvals WHERE status = 'pending' ORDER BY created_at DESC"
+            ).fetchall()
+        return [dict(r) for r in rows]
+
     def get_open_task(self, customer_id: str) -> str:
         with self._conn() as conn:
             row = conn.execute(
@@ -372,6 +361,31 @@ class Memory:
                 (customer_id,),
             ).fetchone()
         return str(row["open_task"]) if row and row["open_task"] else ""
+
+    def add_note(self, customer_id: str, note: str) -> None:
+        note = (note or "").strip()[:240]
+        if not customer_id or not note:
+            return
+        with self._conn() as conn:
+            conn.execute(
+                "INSERT INTO customer_notes(customer_id, note, created_at) VALUES (?,?,datetime('now'))",
+                (customer_id, note),
+            )
+
+    def list_notes(self, customer_id: str, limit: int = 3) -> list[dict[str, Any]]:
+        if not customer_id:
+            return []
+        with self._conn() as conn:
+            rows = conn.execute(
+                """
+                SELECT note, created_at FROM customer_notes
+                WHERE customer_id = ?
+                ORDER BY note_id DESC
+                LIMIT ?
+                """,
+                (customer_id, limit),
+            ).fetchall()
+        return [dict(r) for r in rows]
 
     def set_customer_name(self, customer_id: str, name: str) -> None:
         name = (name or "").strip()[:80]
@@ -382,6 +396,19 @@ class Memory:
                 "UPDATE customers SET name = ?, updated_at = datetime('now') WHERE customer_id = ?",
                 (name, customer_id),
             )
+
+    def list_customers(self, limit: int = 20) -> list[dict[str, Any]]:
+        with self._conn() as conn:
+            rows = conn.execute(
+                """
+                SELECT customer_id, name, phone, email, updated_at
+                FROM customers
+                ORDER BY updated_at DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return [dict(r) for r in rows]
 
     def find_by_identity(self, channel: str, channel_user_id: str) -> dict[str, Any]:
         with self._conn() as conn:
@@ -429,27 +456,15 @@ class Memory:
                 (customer_id, task),
             )
 
-    def add_note(self, customer_id: str, note: str) -> None:
-        note = (note or "").strip()[:240]
-        if not customer_id or not note:
+    def resolve_pending(self, event_id: str, status: str) -> None:
+        if status not in {"approved", "rejected"}:
             return
         with self._conn() as conn:
             conn.execute(
-                "INSERT INTO customer_notes(customer_id, note, created_at) VALUES (?,?,datetime('now'))",
-                (customer_id, note),
+                "UPDATE pending_approvals SET status = ? WHERE event_id = ?",
+                (status, event_id),
             )
-
-    def list_notes(self, customer_id: str, limit: int = 3) -> list[dict[str, Any]]:
-        if not customer_id:
-            return []
-        with self._conn() as conn:
-            rows = conn.execute(
-                """
-                SELECT note, created_at FROM customer_notes
-                WHERE customer_id = ?
-                ORDER BY note_id DESC
-                LIMIT ?
-                """,
-                (customer_id, limit),
-            ).fetchall()
-        return [dict(r) for r in rows]
+            conn.execute(
+                "UPDATE audit_events SET approval_status = ? WHERE event_id = ?",
+                (status, event_id),
+            )

@@ -82,6 +82,17 @@ class Handler(BaseHTTPRequestHandler):
                 "</tr>"
             )
         tabla_citas = "".join(citas) or "<tr><td colspan='3'>Sin citas confirmadas</td></tr>"
+        cli = []
+        for u in memory.list_customers(15):
+            cli.append(
+                "<tr>"
+                f"<td>{html.escape(str(u.get('name') or '—'))}</td>"
+                f"<td>{html.escape(str(u.get('phone') or '—'))}</td>"
+                f"<td>{html.escape(str(u.get('email') or '—'))}</td>"
+                f"<td>{html.escape(str(u.get('customer_id') or ''))}</td>"
+                "</tr>"
+            )
+        tabla_cli = "".join(cli) or "<tr><td colspan='4'>Sin clientes</td></tr>"
         return f"""<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><title>AXEL vivo</title>
 <style>
@@ -102,6 +113,11 @@ th{{background:#222}} .ok{{color:#8f8}}
 <table>
 <tr><th>Evento</th><th>Intent</th><th>Pedido</th><th>Decisión</th></tr>
 {pendientes}
+</table>
+<h2>Clientes (CRM)</h2>
+<table>
+<tr><th>Nombre</th><th>Celular</th><th>Correo</th><th>ID</th></tr>
+{tabla_cli}
 </table>
 <h2>Citas confirmadas (piloto)</h2>
 <table>
