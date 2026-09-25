@@ -6,6 +6,11 @@ from axel import knowledge_base as kb
 
 def handle(env: Envelope) -> Envelope:
     text = (env.text or "").strip()
+    if env.intent == "admin_kb":
+        env.result = "ok"
+        if not env.reply_text:
+            env.reply_text = "No pude actualizar la KB."
+        return env
     if env.intent == "datos":
         partes = []
         if env.name:

@@ -73,6 +73,21 @@ def process(env: Envelope, memory: Memory) -> Envelope:
     env.payload["history"] = history
 
     env.intent = classify_intent(env.text)
+    admin_precio = re.search(
+        r"cambio el precio (?:del |de la |de )?(corte|barba)\s+a\s+\$?([\d\.]+)",
+        env.text or "",
+        re.I,
+    )
+    if admin_precio and env.channel in {"panel", "test"}:
+        from axel.knowledge_base import set_price
+
+        marca = set_price(admin_precio.group(1), admin_precio.group(2))
+        env.intent = "admin_kb"
+        env.reply_text = (
+            f"Actualicé el precio de {admin_precio.group(1)} a {marca}."
+            if marca
+            else "No encontré ese producto en la KB."
+        )
     llamado = re.search(r"(?:me llamo|mi nombre es)\s+([a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]{2,30})", env.text or "", re.I)
     if llamado:
         nombre = llamado.group(1).strip().title()
