@@ -1,8 +1,21 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime, timedelta, timezone
 
 from axel.envelope import Envelope
+
+_CALI = timezone(timedelta(hours=-5))
+FRANJAS = "9:00, 11:00, 15:00 o 17:00"
+
+
+def _ahora_cali() -> datetime:
+    return datetime.now(_CALI)
+
+
+def _cerrado_ahora() -> bool:
+    now = _ahora_cali()
+    return now.weekday() == 6 or now.hour < 8 or now.hour >= 19
 
 
 def _tiene_cuando(text: str) -> bool:
@@ -31,6 +44,16 @@ def handle(env: Envelope, memory=None) -> Envelope:
     bajo = (env.text or "").lower()
     if "domingo" in bajo and env.intent in {"reserva", "reprogramar"}:
         env.reply_text = "Los domingos no abrimos. Elige lunes a sábado."
+        env.result = "denied"
+        env.approval_status = "na"
+        env.intent = "reserva_denegada"
+        return env
+
+    if "hoy" in bajo and _cerrado_ahora() and env.intent in {"reserva", "reprogramar"}:
+        env.reply_text = (
+            "Hoy en Cali ya no hay cupo (cerramos a las 19:00). "
+            f"¿Mañana a las {FRANJAS}?"
+        )
         env.result = "denied"
         env.approval_status = "na"
         env.intent = "reserva_denegada"
@@ -69,7 +92,7 @@ def handle(env: Envelope, memory=None) -> Envelope:
         if not _tiene_cuando(env.text or ""):
             env.reply_text = (
                 f"Tienes «{vigente.get('summary')}». "
-                "¿Para qué día y hora la pasamos?"
+                f"¿La pasamos a {FRANJAS}?"
             )
             env.result = "pending"
             env.approval_status = "pending_customer"
@@ -100,8 +123,8 @@ def handle(env: Envelope, memory=None) -> Envelope:
         return env
 
     env.reply_text = (
-        "Puedo reservarte un horario. Para confirmar necesito que me digas "
-        "el día y la hora. ¿Confirmamos la reserva cuando elijas el cupo?"
+        f"Puedo reservarte. Franjas piloto: {FRANJAS}, lunes a sábado. "
+        "Dime día y hora."
     )
     env.result = "pending"
     env.approval_status = "pending_customer"
