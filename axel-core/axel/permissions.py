@@ -7,6 +7,7 @@ LEVELS = {
     "pregunta": 1,
     "saludo": 1,
     "datos": 1,
+    "cierre": 1,
     "reserva": 2,
     "reprogramar": 2,
     "cancelar": 2,

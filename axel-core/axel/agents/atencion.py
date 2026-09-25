@@ -22,6 +22,14 @@ def handle(env: Envelope) -> Envelope:
         env.reply_text = faq
         env.result = "ok"
         return env
+    if env.intent == "cierre":
+        env.reply_text = (
+            f"Con gusto, {env.name}. Aquí estoy si me necesitas."
+            if env.name
+            else "Con gusto. Aquí estoy si me necesitas."
+        )
+        env.result = "ok"
+        return env
     if env.intent == "saludo":
         if env.name:
             env.reply_text = f"Hola {env.name}, soy AXEL. ¿En qué te ayudo?"

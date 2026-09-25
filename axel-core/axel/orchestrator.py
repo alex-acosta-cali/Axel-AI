@@ -18,6 +18,7 @@ INTENTS = [
     ("reserva", re.compile(r"reserva|agendar|cita|turno|disponib", re.I)),
     ("venta", re.compile(r"precio|cuánto|cuanto cuesta|quiero comprar|cotiz", re.I)),
     ("saludo", re.compile(r"^(hola|buenas|buen día|buenos días|hey)\b", re.I)),
+    ("cierre", re.compile(r"^(gracias|graciass|listo|ok gracias|chao|adios|adiós|hasta luego|perfecto)\b", re.I)),
 ]
 
 
