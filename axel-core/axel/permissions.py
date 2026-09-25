@@ -10,7 +10,7 @@ LEVELS = {
     "reserva": 2,
     "reprogramar": 2,
     "cancelar": 2,
-    "venta": 2,
+    "venta": 1,
     "queja": 3,
     "reembolso": 3,
     "descuento_grande": 3,

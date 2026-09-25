@@ -1,126 +1,54 @@
 # AXEL_STATE.md
-Documento maestro de AXEL AI OS  
-Última actualización: 2026-09-21 05:37 -05  
-Dueño: Alex Acosta (Cali)  
-Arquitecto: Super Grok  
-Ejecutor PC (opcional): Claude Code  
+Actualizado: 2026-09-25 01:35 -05 (Cali)
+Dueño: Alex. Repo: C:\Proyectos\Axel-AI
+GitHub: https://github.com/alex-acosta-cali/Axel-AI (privado)
 
-Regla de cambio:
-- La sección 1 solo cambia con aprobación explícita del dueño.
-- El resto se actualiza al cierre de sesión.
+## 1. Visión (fija hasta que Alex apruebe cambio)
+AXEL AI OS opera un negocio: atiende por WhatsApp, Instagram, web, email y voz; memoria de cliente; agenda; venta; cobro; marketing. Supervisión en 3 niveles. Trazabilidad de cada acto.
+Hoy el piloto es **local** (panel http://127.0.0.1:8090). WhatsApp real espera cuenta Meta de Alex (restricción de ads; cuentas de familia = préstamo).
 
----
+## 2. Módulos
+| Módulo | Estado |
+|--------|--------|
+| M1 Arquitectura + model router (concepto) | aprobado en diseño / router local simple |
+| M2 Orquestador | construido y en uso |
+| M3 Memoria SQLite + CRM ficha | construido |
+| M4 Permisos 1/2/3 + auditoría + panel dueño | construido |
+| M5 WhatsApp Cloud API | pausado (Meta) |
+| Panel local HTML | construido |
+| Reservas confirmar / cancelar / reprogramar | construido (piloto, no cupos reales) |
+| KB precios | construido (corte/barba piloto) |
+| Llamadas / Instagram / factura / marketing | pendiente |
 
-## 1. Visión y arquitectura de AXEL
+## 3. Decisiones
+- Nombre: AXEL AI OS.
+- Simple primero: Python + SQLite + demo HTTP. Sin FastAPI obligatorio.
+- Grok = arquitecto. Claude Code instalado; Pro no requerido aún.
+- Archivos completos, no parches de una línea.
+- Reiniciar demo después de cada cambio de .py o kb.json.
+- Intent no listado = nivel 3.
+- `datos` y `venta` (consulta de precio) = nivel 1.
+- Reserva / reprogramar / cancelar = nivel 2.
+- Reembolso / queja = nivel 3. Un pendiente por cliente+intent.
+- Meta: no portafolio en cuentas restringidas. Migrar a cuenta de Alex ~octubre.
 
-### Visión
-AXEL AI OS es una plataforma de agentes de IA que opera un negocio completo:
+## 4. Cómo arrancar
+```
+Set-Location C:\Proyectos\Axel-AI\axel-core
+$env:PYTHONPATH = "."
+python -m axel.demo
+```
+Chrome: http://127.0.0.1:8090/
 
-- Atiende por WhatsApp, Instagram, Messenger, web, email y voz.
-- Memoria y contexto por cliente.
-- Agenda, vende, factura, cobra, fideliza y hace marketing.
-- Supervisión humana en acciones sensibles.
-- Trazabilidad de cada acción.
+## 5. Pendientes / bugs conocidos
+- Meta WABA no creado en cuenta propia.
+- Agenda no tiene cupos ni calendario.
+- Model router no llama APIs de pago.
+- “am” dentro de palabras ya no debe contar como hora (corregido en reservas).
+- Git a veces deja archivos sin commit: revisar `git status` antes de parar.
 
-Objetivo cercano: un comercio piloto. Objetivo lejano: el mismo núcleo configurable para varios rubros.
-
-### Principios (aprobados)
-1. Mensaje → orquestador → agente → ejecución → registro.
-2. No inventar precios, stock, políticas ni datos de cliente.
-3. Tres niveles: automático / confirmación cliente / aprobación dueño.
-4. Canales solo con APIs oficiales.
-5. Secretos fuera del código.
-6. Lo más simple que funcione 24/7.
-7. Si no está en el log, no ocurrió.
-8. Módulo por módulo. No avanzar sin aprobación.
-9. El código de producción vive en el PC/GitHub del dueño, no solo en un chat.
-
-### Arquitectura lógica (aprobada)
-Canal → conector → orquestador → permisos + model router → agente → memoria/CRM/KB → auditoría → respuesta.
-
-Un tenant por ahora (`biz_default`). Un proceso de aplicación (Python).
-
----
-
-## 2. Módulos y estado
-
-Leyenda: pendiente | en diseño | construido (sandbox Grok) | verificado en PC | aprobado
-
-| ID | Módulo | Estado |
-|----|--------|--------|
-| M00 | Fundación | aprobado |
-| M01 | Arquitectura técnica | aprobado (implícito al pedir M2) |
-| M02 | Núcleo orquestador + router | construido + prueba OK en sandbox Grok. Falta verificar en PC |
-| M03 | Memoria / identidad entre canales | construido + prueba OK en sandbox. Falta PC |
-| M04 | Niveles + auditoría + aviso dueño | construido + prueba OK en sandbox. Falta PC |
-| M05 | WhatsApp oficial + atención KB | código + guía listos. Falta cuenta Meta + HTTPS + prueba con el celular de Alex |
-| M10-M21 | Producto resto | pendiente |
-| M22-M29 | Plataforma resto | diseño en skills; infra real pendiente |
-
----
-
-## 3. Decisiones técnicas
-
-| Decisión | Por qué |
-|----------|---------|
-| Grok lidera arquitectura; GPT Plus no es obligatorio | Alex ya tiene Super Grok; evita doble pago de arquitecto |
-| Claude Code solo ejecuta en PC si existe | No rediseña |
-| Python + FastAPI/demo + SQLite local | Más simple para v1 |
-| Postgres/Supabase cuando salga del PC | Gestionado y barato |
-| WhatsApp Cloud API oficial | Menos riesgo de ban |
-| Identidad entre canales por teléfono/email | No fusionar a ciegas por nombre |
-| Nivel 3 no ejecuta | Reembolsos y quejas no son automáticos |
-| Código canónico mañana: `C:\Proyectos\Axel-AI` | Lugar físico controlado por Alex |
-
-Pendiente de decidir: VPS, proveedor de voz, presupuesto de tokens, descuento máximo.
-
----
-
-## 4. Dónde está el trabajo HOY
-
-Sandbox Grok (no es tu PC):
-- `/home/workdir/artifacts/axel-core/`
-- `/home/workdir/artifacts/AXEL_STATE.md`
-- `/home/workdir/artifacts/AXEL_M01_Arquitectura.md`
-- `/home/workdir/artifacts/AXEL_M05_WhatsApp.md`
-- `/home/workdir/artifacts/AXEL_PLAN_GROK.md`
-- `/home/workdir/artifacts/CLAUDE.md`
-- `/home/workdir/artifacts/AXEL_core_y_docs.zip`
-
-Pruebas que Grok ejecutó aquí:
-- M2: cita → reservas nivel 2 + audit
-- M3: mismo customer_id WhatsApp + Instagram
-- M4: reembolso → pending_owner + alerta
-- M5 interno: parse WA + FAQ horario desde kb.json
-
----
-
-## 5. Pendientes y riesgos
-
-- Copiar zip al PC y repetir tests
-- Repo GitHub privado
-- Verificación Meta / WABA (puede tardar días)
-- HTTPS público (ngrok o VPS) para webhook
-- Token permanente de system user (después del piloto)
-- No hay bugs de runtime en producción porque aún no hay producción en el PC
-
----
-
-## 6. Criterios del bloque actual (PC-1)
-
-Mañana se da por bueno cuando:
-- [ ] Existe `C:\Proyectos\Axel-AI\axel-core\`
-- [ ] `test_memory_cross_channel.py` imprime OK en el PC
-- [ ] `test_level3_approval.py` imprime OK en el PC
-- [ ] Primer commit en Git (sin `.env`)
-- [ ] Alex pega las salidas en el chat de Grok
-
-WhatsApp real es extra del mismo día o Día 2. No bloquea PC-1.
-
----
-
-## Bitácora
-
-- 2026-09-21 — 29 skills. M00-M01 docs. M02-M04 código + tests en sandbox. M05 conector + guía Meta.
-- 2026-09-21 noche — Alex aclara que el plan GPT/Claude era otro hilo. Nuevo plan: Grok lidera, sin GPT Plus obligatorio. Código aún no está en el PC de Alex.
-- Próxima sesión: “Estoy frente al PC. Día 1.”
+## 6. Criterios del piloto actual
+- N1: horario, KB, nombre, celular, correo.
+- N2: cita → día/hora → confirmar; cancelar; reprogramar pregunta y luego cambia.
+- N3: reembolso frena; segundo reembolso no duplica pendiente; Aprobar/Rechazar.
+- Ficha visible: Alex + celular + correo.
