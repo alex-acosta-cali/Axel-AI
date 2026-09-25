@@ -63,10 +63,13 @@ class Handler(BaseHTTPRequestHandler):
             )
         pendientes = "".join(pend) or "<tr><td colspan='4'>Nada pendiente</td></tr>"
         ficha = memory.find_by_identity("panel", "alex_pc")
+        notas = memory.list_notes(str(ficha.get("customer_id") or ""), 3)
+        notas_txt = " | ".join(str(n.get("note") or "") for n in notas) or "—"
         ficha_html = (
             f"Nombre: {html.escape(str(ficha.get('name') or '—'))} · "
             f"Celular: {html.escape(str(ficha.get('phone') or '—'))} · "
             f"Correo: {html.escape(str(ficha.get('email') or '—'))} · "
+            f"Notas: {html.escape(notas_txt)} · "
             f"ID: {html.escape(str(ficha.get('customer_id') or '—'))}"
         )
         citas = []

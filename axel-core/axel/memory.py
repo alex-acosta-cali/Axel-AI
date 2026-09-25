@@ -74,6 +74,12 @@ CREATE TABLE IF NOT EXISTS pending_approvals (
     status TEXT,
     created_at TEXT
 );
+CREATE TABLE IF NOT EXISTS customer_notes (
+    note_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id TEXT NOT NULL,
+    note TEXT NOT NULL,
+    created_at TEXT
+);
 """
 
 
@@ -343,6 +349,31 @@ class Memory:
                 (customer_id,),
             ).fetchone()
         return str(row["open_task"]) if row and row["open_task"] else ""
+
+    def add_note(self, customer_id: str, note: str) -> None:
+        note = (note or "").strip()[:240]
+        if not customer_id or not note:
+            return
+        with self._conn() as conn:
+            conn.execute(
+                "INSERT INTO customer_notes(customer_id, note, created_at) VALUES (?,?,datetime('now'))",
+                (customer_id, note),
+            )
+
+    def list_notes(self, customer_id: str, limit: int = 3) -> list[dict[str, Any]]:
+        if not customer_id:
+            return []
+        with self._conn() as conn:
+            rows = conn.execute(
+                """
+                SELECT note, created_at FROM customer_notes
+                WHERE customer_id = ?
+                ORDER BY note_id DESC
+                LIMIT ?
+                """,
+                (customer_id, limit),
+            ).fetchall()
+        return [dict(r) for r in rows]
 
     def set_customer_name(self, customer_id: str, name: str) -> None:
         name = (name or "").strip()[:80]

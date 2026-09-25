@@ -114,6 +114,12 @@ def process(env: Envelope, memory: Memory) -> Envelope:
         memory.set_customer_email(env.customer_id, correo)
         env.email = correo
         env.intent = "datos"
+    nota = re.search(r"^(?:anota que|anota:)\s+(.+)$", (env.text or "").strip(), re.I)
+    if nota and env.customer_id:
+        texto = nota.group(1).strip()[:240]
+        memory.add_note(env.customer_id, texto)
+        env.intent = "nota"
+        env.reply_text = f"Anoté en tu ficha: {texto}"
     open_task = memory.get_open_task(env.customer_id)
     if open_task == "reserva" and env.intent in {"pregunta", "saludo"}:
         env.intent = "reserva"

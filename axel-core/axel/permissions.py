@@ -9,6 +9,7 @@ LEVELS = {
     "datos": 1,
     "cierre": 1,
     "admin_kb": 1,
+    "nota": 1,
     "reserva": 2,
     "reprogramar": 2,
     "cancelar": 2,
