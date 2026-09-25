@@ -97,6 +97,12 @@ def process(env: Envelope, memory: Memory) -> Envelope:
         env.intent = "reserva"
     if open_task == "reprogramar" and env.intent in {"pregunta", "saludo", "reserva"}:
         env.intent = "reprogramar"
+    if open_task == "oferta_cita" and env.intent in {"pregunta", "saludo", "venta"}:
+        if re.search(r"^(si|sí|dale|ok|okay|va|claro|reserv)", _norm(env.text or "")):
+            env.intent = "reserva"
+        elif re.search(r"^(no|despues|después|ahora no)", _norm(env.text or "")):
+            memory.set_open_task(env.customer_id, "")
+            env.intent = "pregunta"
     env.agent = pick_agent(env.intent)
     env.supervision_level = classify_level(env.intent)
     env.why = reason_for(env.intent or "", env.supervision_level)
@@ -112,6 +118,9 @@ def process(env: Envelope, memory: Memory) -> Envelope:
         env = reservas.handle(env, memory)
     else:
         env = atencion.handle(env)
+        low = (env.reply_text or "").lower()
+        if "reserve un cupo" in low or "te reserve" in low:
+            memory.set_open_task(env.customer_id, "oferta_cita")
 
     if env.result is None:
         env.result = "ok"
