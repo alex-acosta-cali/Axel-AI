@@ -18,6 +18,15 @@ def _tiene_cuando(text: str) -> bool:
 
 
 def handle(env: Envelope, memory=None) -> Envelope:
+    if env.intent == "mi_cita" and memory is not None:
+        fila = memory.last_reserva(env.customer_id or "")
+        if fila:
+            env.reply_text = f"Tu cita confirmada es: «{fila.get('summary')}»."
+        else:
+            env.reply_text = "No tienes una cita confirmada ahora."
+        env.result = "ok"
+        env.approval_status = "na"
+        return env
     bajo = (env.text or "").lower()
     if "reprogram" in bajo or "cambiar la cita" in bajo or "cambiar cita" in bajo:
         env.intent = "reprogramar"

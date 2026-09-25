@@ -15,6 +15,7 @@ INTENTS = [
     ("reembolso", re.compile(r"reembols|rembols|devolver plata|devoluci", re.I)),
     ("cancelar", re.compile(r"cancelar (la )?cita|anular reserva", re.I)),
     ("reprogramar", re.compile(r"cambiar (la )?cita|reprogram", re.I)),
+    ("mi_cita", re.compile(r"mi cita|cuando (es|queda) mi|a que hora qued|qué hora qued", re.I)),
     ("reserva", re.compile(r"reserva|agendar|cita|turno|disponib", re.I)),
     ("venta", re.compile(r"precio|cuánto|cuanto cuesta|quiero comprar|cotiz", re.I)),
     ("saludo", re.compile(r"^(hola|buenas|buen día|buenos días|hey)\b", re.I)),
@@ -39,12 +40,12 @@ def classify_intent(text: str) -> str:
 
 
 def pick_agent(intent: str) -> str:
-    if intent in {"reserva", "reprogramar", "cancelar"}:
+    if intent in {"reserva", "reprogramar", "cancelar", "mi_cita"}:
         return "reservas"
     if intent in {"queja", "reembolso", "descuento_grande", "admin"}:
         return "escalamiento"
     if intent == "venta":
-        return "atencion"  # ventas reales vienen en un modulo posterior
+        return "atencion"
     return "atencion"
 
 
@@ -74,20 +75,24 @@ def process(env: Envelope, memory: Memory) -> Envelope:
 
     env.intent = classify_intent(env.text)
     admin_precio = re.search(
-        r"cambio el precio (?:del |de la |de )?(corte|barba)\s+a\s+\$?([\d\.]+)",
+        r"(?:AXELADMIN\s+)?cambio el precio (?:del |de la |de )?(corte|barba)\s+a\s+\$?([\d\.]+)",
         env.text or "",
         re.I,
     )
-    if admin_precio and env.channel in {"panel", "test"}:
-        from axel.knowledge_base import set_price
+    if admin_precio:
+        if (env.text or "").upper().startswith("AXELADMIN") and env.channel in {"panel", "test"}:
+            from axel.knowledge_base import set_price
 
-        marca = set_price(admin_precio.group(1), admin_precio.group(2))
-        env.intent = "admin_kb"
-        env.reply_text = (
-            f"Actualicé el precio de {admin_precio.group(1)} a {marca}."
-            if marca
-            else "No encontré ese producto en la KB."
-        )
+            marca = set_price(admin_precio.group(1), admin_precio.group(2))
+            env.intent = "admin_kb"
+            env.reply_text = (
+                f"Actualicé el precio de {admin_precio.group(1)} a {marca}."
+                if marca
+                else "No encontré ese producto en la KB."
+            )
+        else:
+            env.intent = "admin_kb"
+            env.reply_text = "Eso solo lo cambia el dueño con el comando AXELADMIN."
     llamado = re.search(r"(?:me llamo|mi nombre es)\s+([a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]{2,30})", env.text or "", re.I)
     if llamado:
         nombre = llamado.group(1).strip().title()
