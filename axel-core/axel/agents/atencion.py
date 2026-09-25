@@ -51,6 +51,14 @@ def handle(env: Envelope) -> Envelope:
         env.reply_text = ("Quedó tu " + " y ".join(partes) + ".") if partes else "Recibí tus datos."
         env.result = "ok"
         return env
+    if any(p in bajo for p in ("me lo llevo", "lo compro", "quiero pagar", "lo pago")):
+        env.reply_text = (
+            "Pedido piloto anotado: corte $25.000. "
+            "En esta versión AXEL no cobra. El dueño confirma el pago real después."
+        )
+        env.result = "ok"
+        env.intent = "pedido"
+        return env
     if "domingo" in bajo:
         _, msg = estado_cali()
         env.reply_text = "Los domingos no atendemos. " + msg

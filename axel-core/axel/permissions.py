@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-# Fuente de verdad v1. Si la accion no esta listada -> nivel 3.
-
-
 LEVELS = {
     "pregunta": 1,
     "saludo": 1,
@@ -11,6 +8,8 @@ LEVELS = {
     "admin_kb": 1,
     "nota": 1,
     "mi_cita": 1,
+    "reserva_denegada": 1,
+    "pedido": 1,
     "reserva": 2,
     "reprogramar": 2,
     "cancelar": 2,
