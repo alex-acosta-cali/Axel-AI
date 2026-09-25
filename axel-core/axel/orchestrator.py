@@ -57,6 +57,12 @@ def process(env: Envelope, memory: Memory) -> Envelope:
         name=env.name,
     )
     env.customer_id = ident["customer"]["customer_id"]
+    if not env.name:
+        env.name = ident["customer"].get("name")
+    if not env.phone:
+        env.phone = ident["customer"].get("phone")
+    if not env.email:
+        env.email = ident["customer"].get("email")
     history = memory.last_summaries(env.customer_id)
     env.known_context = [
         f"{h.get('channel')}:{h.get('intent')}:{h.get('summary')}" for h in history

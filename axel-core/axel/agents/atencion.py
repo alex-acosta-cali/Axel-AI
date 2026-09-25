@@ -20,14 +20,21 @@ def handle(env: Envelope) -> Envelope:
     faq = kb.answer(text)
     if faq:
         env.reply_text = faq
-    elif env.known_context:
+        env.result = "ok"
+        return env
+    if env.intent == "saludo":
+        if env.name:
+            env.reply_text = f"Hola {env.name}, soy AXEL. ¿En qué te ayudo?"
+        else:
+            env.reply_text = kb.greeting()
+        env.result = "ok"
+        return env
+    if env.known_context:
         last = env.known_context[0]
         env.reply_text = (
             f"Te reconozco aunque escribas por {env.channel}. "
             f"La última vez: {last}. Ahora: «{text[:160]}»."
         )
-    elif env.intent == "saludo":
-        env.reply_text = kb.greeting()
     else:
         env.reply_text = (
             kb.greeting()
