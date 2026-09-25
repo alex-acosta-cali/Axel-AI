@@ -93,6 +93,9 @@ class Handler(BaseHTTPRequestHandler):
                 "</tr>"
             )
         tabla_cli = "".join(cli) or "<tr><td colspan='4'>Sin clientes</td></tr>"
+        n_cli = len(memory.list_customers(50))
+        n_citas = len(memory.list_confirmed_reservas(50))
+        n_pend = len(memory.list_pending())
         return f"""<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><title>AXEL vivo</title>
 <style>
@@ -100,10 +103,18 @@ body{{font-family:Segoe UI,sans-serif;background:#111;color:#eee;margin:24px}}
 h1{{color:#6cf}} table{{border-collapse:collapse;width:100%;font-size:14px}}
 td,th{{border:1px solid #444;padding:8px;text-align:left;vertical-align:top}}
 th{{background:#222}} .ok{{color:#8f8}}
+.kpis{{display:flex;gap:12px;margin:16px 0;flex-wrap:wrap}}
+.kpi{{background:#1c1c1c;border:1px solid #444;padding:14px 18px;min-width:140px}}
+.kpi b{{display:block;font-size:28px;color:#6cf}}
 </style></head><body>
 <h1>AXEL AI OS — panel local</h1>
 <p class="ok">Servidor en http://127.0.0.1:8090 — esto no es WhatsApp, es tu PC.</p>
 <p>GitHub: github.com/alex-acosta-cali/Axel-AI</p>
+<div class="kpis">
+<div class="kpi"><b>{n_cli}</b>clientes</div>
+<div class="kpi"><b>{n_citas}</b>citas confirmadas</div>
+<div class="kpi"><b>{n_pend}</b>pendientes dueño</div>
+</div>
 <p><b>Ficha de quien escribe en este panel:</b> {ficha_html}</p>
 <form method="post" action="/panel" style="margin:16px 0">
 <input name="text" placeholder="Escribe a AXEL (ej. horario o reembolso)" style="width:70%;padding:8px" />
