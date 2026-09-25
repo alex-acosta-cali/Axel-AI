@@ -95,6 +95,8 @@ def process(env: Envelope, memory: Memory) -> Envelope:
     open_task = memory.get_open_task(env.customer_id)
     if open_task == "reserva" and env.intent in {"pregunta", "saludo"}:
         env.intent = "reserva"
+    if open_task == "reprogramar" and env.intent in {"pregunta", "saludo", "reserva"}:
+        env.intent = "reprogramar"
     env.agent = pick_agent(env.intent)
     env.supervision_level = classify_level(env.intent)
     env.why = reason_for(env.intent or "", env.supervision_level)
@@ -107,7 +109,7 @@ def process(env: Envelope, memory: Memory) -> Envelope:
         env = escalamiento.handle(env)
         notify_owner(env, memory)
     elif env.agent == "reservas" or needs_customer_confirm(env.supervision_level):
-        env = reservas.handle(env)
+        env = reservas.handle(env, memory)
     else:
         env = atencion.handle(env)
 
@@ -116,9 +118,11 @@ def process(env: Envelope, memory: Memory) -> Envelope:
 
     if env.intent == "reserva" and env.result == "pending":
         memory.set_open_task(env.customer_id, "reserva")
-    elif env.intent == "reserva" and env.result == "ok":
+    elif env.intent == "reprogramar" and env.result == "pending":
+        memory.set_open_task(env.customer_id, "reprogramar")
+    elif env.intent in {"reserva", "reprogramar"} and env.result == "ok":
         memory.set_open_task(env.customer_id, "")
-    elif env.intent == "reembolso":
+    elif env.intent in {"reembolso", "cancelar"}:
         memory.set_open_task(env.customer_id, "")
 
     memory.save_turn(
