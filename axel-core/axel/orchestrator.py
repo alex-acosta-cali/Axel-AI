@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 
 from axel.agents import atencion, escalamiento, reservas
@@ -39,6 +40,41 @@ def classify_intent(text: str) -> str:
     return "pregunta"
 
 
+def _digits(raw: str) -> str:
+    return re.sub(r"\D", "", raw or "")
+
+
+def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
+    owner = _digits(os.getenv("WA_OWNER_PHONE") or "")
+    incoming = _digits(env.phone or env.channel_user_id or "")
+    if not owner or not incoming:
+        return False
+    if owner not in incoming and incoming not in owner:
+        return False
+    t = _norm(env.text)
+    if t not in {"aprobar", "rechazar"}:
+        return False
+    env.intent = "admin"
+    env.agent = "escalamiento"
+    env.supervision_level = 1
+    pend = memory.list_pending()
+    if not pend:
+        env.reply_text = "No hay decisiones pendientes."
+        env.result = "ok"
+        env.approval_status = "na"
+        return True
+    row = pend[0]
+    decision = "approved" if t == "aprobar" else "rejected"
+    memory.resolve_pending(str(row.get("event_id") or ""), decision)
+    env.reply_text = (
+        f"Quedó {decision} el caso {row.get('event_id')} "
+        f"({row.get('intent')})."
+    )
+    env.approval_status = decision
+    env.result = "ok"
+    return True
+
+
 def pick_agent(intent: str) -> str:
     if intent in {"reserva", "reprogramar", "cancelar", "mi_cita"}:
         return "reservas"
@@ -72,6 +108,37 @@ def process(env: Envelope, memory: Memory) -> Envelope:
     env.context_refs = [f"crm:{env.customer_id}"] + [f"hist:{h['event_id']}" for h in history]
     env.payload["identities"] = ident["identities"]
     env.payload["history"] = history
+
+    if _try_owner_decision(env, memory):
+        memory.save_turn(
+            customer_id=env.customer_id,
+            event_id=env.event_id,
+            channel=env.channel,
+            intent=env.intent or "admin",
+            text=env.text or "",
+            reply=env.reply_text or "",
+            result=env.result or "ok",
+        )
+        memory.write_audit(
+            {
+                "event_id": env.event_id,
+                "received_at": env.received_at,
+                "finished_at": now_iso(),
+                "channel": env.channel,
+                "customer_id": env.customer_id,
+                "agent": env.agent,
+                "model": env.model,
+                "supervision_level": env.supervision_level,
+                "approval_status": env.approval_status,
+                "input_summary": (env.text or "")[:240],
+                "output_summary": (env.reply_text or "")[:240],
+                "result": env.result,
+                "error": env.error,
+                "why": "decision del dueno por WhatsApp",
+                "data_used": ",".join(env.context_refs),
+            }
+        )
+        return env
 
     env.intent = classify_intent(env.text)
     admin_precio = re.search(
