@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Optional
+from typing import Any
 
 import httpx
-
 
 GRAPH = "https://graph.facebook.com/v21.0"
 
@@ -16,7 +15,10 @@ def parse_incoming(body: dict[str, Any]) -> list[dict[str, Any]]:
             value = change.get("value") or {}
             if change.get("field") != "messages":
                 continue
-            contacts = {c.get("wa_id"): (c.get("profile") or {}).get("name") for c in value.get("contacts", [])}
+            contacts = {
+                c.get("wa_id"): (c.get("profile") or {}).get("name")
+                for c in value.get("contacts", [])
+            }
             for msg in value.get("messages", []):
                 if msg.get("type") != "text":
                     continue
@@ -32,6 +34,19 @@ def parse_incoming(body: dict[str, Any]) -> list[dict[str, Any]]:
                     }
                 )
     return out
+
+
+def mark_read(message_id: str) -> dict[str, Any]:
+    token = os.getenv("WA_ACCESS_TOKEN", "")
+    phone_id = os.getenv("WA_PHONE_NUMBER_ID", "")
+    if not token or not phone_id or not message_id:
+        return {"skipped": True}
+    url = f"{GRAPH}/{phone_id}/messages"
+    payload = {"messaging_product": "whatsapp", "status": "read", "message_id": message_id}
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    with httpx.Client(timeout=15) as client:
+        res = client.post(url, headers=headers, json=payload)
+        return {"status": res.status_code}
 
 
 def send_text(to_phone: str, text: str) -> dict[str, Any]:

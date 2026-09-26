@@ -68,6 +68,44 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         env.result = "ok"
         env.approval_status = "na"
         return True
+    if t in {"limpiar", "axeladmin limpiar"}:
+        env.intent = "admin"
+        env.agent = "escalamiento"
+        env.supervision_level = 1
+        n = memory.purge_ghost_customers()
+        env.reply_text = f"Eliminé {n} cliente(s) fantasma."
+        env.result = "ok"
+        env.approval_status = "na"
+        return True
+    if t in {"pendientes", "pendiente"}:
+        env.intent = "admin"
+        env.agent = "escalamiento"
+        env.supervision_level = 1
+        pend = memory.list_pending()
+        if not pend:
+            env.reply_text = "No hay pendientes."
+        else:
+            lineas = [f"- {p.get('intent')}: {p.get('requested_action')}" for p in pend[:5]]
+            env.reply_text = "Pendientes:\n" + "\n".join(lineas)
+        env.result = "ok"
+        env.approval_status = "na"
+        return True
+    if t in {"recordatorios", "recordatorio", "citas"}:
+        env.intent = "admin"
+        env.agent = "escalamiento"
+        env.supervision_level = 1
+        citas = memory.list_confirmed_reservas(8)
+        if not citas:
+            env.reply_text = "No hay citas confirmadas para recordar."
+        else:
+            lineas = [
+                f"- {c.get('name') or c.get('customer_id')}: {c.get('summary')}"
+                for c in citas
+            ]
+            env.reply_text = "Citas a recordar:\n" + "\n".join(lineas)
+        env.result = "ok"
+        env.approval_status = "na"
+        return True
     no = any(k in t for k in ("rechazar", "rechazo", "niego", "denegar", "denegado", "no autorizo", "no acepto"))
     si = any(k in t for k in ("aprobar", "aceptar", "acepto", "autorizo", "autorizar", "afirmativo", "de acuerdo"))
     if no:

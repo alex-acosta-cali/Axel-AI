@@ -203,6 +203,8 @@ th{{background:#222}} .ok{{color:#8f8}}
             enviados = []
             for msg in msgs:
                 print("WA TXT:", msg.get("text"), "de", msg.get("channel_user_id"))
+                if msg.get("raw_ref"):
+                    whatsapp.mark_read(str(msg.get("raw_ref")))
                 out = self._run(msg)
                 reply = (out.get("reply_text") or "")[:900]
                 if reply:
