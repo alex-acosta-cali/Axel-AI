@@ -53,14 +53,23 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
     if owner not in incoming and incoming not in owner:
         return False
     t = _norm(env.text)
-    no = any(
-        k in t
-        for k in ("rechazar", "rechazo", "niego", "denegar", "denegado", "no autorizo", "no acepto")
-    )
-    si = any(
-        k in t
-        for k in ("aprobar", "aceptar", "acepto", "autorizo", "autorizar", "afirmativo", "de acuerdo")
-    )
+    if t in {"estado", "axeladmin estado"}:
+        env.intent = "admin"
+        env.agent = "escalamiento"
+        env.supervision_level = 1
+        n_cli = len(memory.list_customers(50))
+        n_pend = len(memory.list_pending())
+        n_citas = len(memory.list_confirmed_reservas(50))
+        env.reply_text = (
+            f"Estado piloto: {n_cli} cliente(s), "
+            f"{n_citas} cita(s) confirmada(s), "
+            f"{n_pend} pendiente(s) del dueño."
+        )
+        env.result = "ok"
+        env.approval_status = "na"
+        return True
+    no = any(k in t for k in ("rechazar", "rechazo", "niego", "denegar", "denegado", "no autorizo", "no acepto"))
+    si = any(k in t for k in ("aprobar", "aceptar", "acepto", "autorizo", "autorizar", "afirmativo", "de acuerdo"))
     if no:
         si = False
     if not si and not no:
