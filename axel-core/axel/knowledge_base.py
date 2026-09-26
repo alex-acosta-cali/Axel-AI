@@ -7,12 +7,7 @@ from typing import Optional
 DEFAULT_KB = {
     "negocio": "Negocio piloto AXEL",
     "saludo": "Hola, soy AXEL del negocio. ¿En qué te ayudo?",
-    "faqs": [
-        {"q": ["horario", "horarios", "abren", "cierran"], "a": "Atendemos de lunes a sábado, 9:00 a 18:00."},
-        {"q": ["dirección", "direccion", "ubicación", "ubicacion", "donde"], "a": "Estamos en Cali. Escribe tu barrio y te confirmamos cómo llegar."},
-        {"q": ["precio", "cuanto", "cuánto", "vale"], "a": "Dime qué servicio o producto buscas y te doy el precio de la lista."},
-        {"q": ["pago", "transferencia", "efectivo"], "a": "Aceptamos efectivo y transferencia. El link de pago te lo envía el dueño si aplica."},
-    ],
+    "faqs": [],
 }
 
 
@@ -30,6 +25,51 @@ def answer(text: str) -> Optional[str]:
         if any(k in raw for k in item.get("q", [])):
             return item.get("a")
     return None
+
+
+def answer_pitch(text: str) -> Optional[str]:
+    raw = (text or "").lower()
+    path = Path(__file__).resolve().parents[1] / "pitch.json"
+    if not path.exists():
+        return None
+    data = json.loads(path.read_text(encoding="utf-8"))
+    for item in data.get("faqs", []):
+        if any(k in raw for k in item.get("q", [])):
+            return item.get("a")
+    return None
+
+
+def _cuaderno_path() -> Path | None:
+    docs = Path(__file__).resolve().parents[1].parent / "docs"
+    if not docs.exists():
+        return None
+    files = sorted(docs.glob("CUADERNO*.md"), key=lambda p: p.stat().st_mtime, reverse=True)
+    return files[0] if files else None
+
+
+def answer_cuaderno(text: str) -> Optional[str]:
+    raw = (text or "").lower()
+    claves = (
+        "cuaderno",
+        "levantar",
+        "github",
+        "ngrok",
+        "app id",
+        "que hicimos",
+        "qué hicimos",
+    )
+    if not any(k in raw for k in claves):
+        return None
+    path = _cuaderno_path()
+    if path is None:
+        return "No encuentro el cuaderno en docs. El avance corto está en cómo va el proyecto."
+    body = path.read_text(encoding="utf-8", errors="ignore")
+    if "levantar" in raw:
+        if "## LEVANTAR" in body:
+            bloque = body.split("## LEVANTAR", 1)[1].split("## ", 1)[0]
+            return "Para levantar AXEL:\n" + bloque.strip()[:800]
+    limpio = " ".join(line.strip() for line in body.splitlines() if line.strip() and not line.startswith("#"))
+    return limpio[:700]
 
 
 def greeting() -> str:

@@ -51,6 +51,30 @@ def handle(env: Envelope, memory=None) -> Envelope:
         env.reply_text = ("Quedó tu " + " y ".join(partes) + ".") if partes else "Recibí tus datos."
         env.result = "ok"
         return env
+    if any(p in bajo for p in ("mi ficha", "quien soy", "quién soy", "mis datos")):
+        notas = []
+        cita = None
+        if memory is not None and env.customer_id:
+            notas = [str(n.get("note") or "") for n in memory.list_notes(env.customer_id, 3)]
+            cita = memory.last_reserva(env.customer_id)
+        env.reply_text = (
+            f"Tu ficha AXEL: {env.name or 'sin nombre'}, "
+            f"cel {env.phone or '—'}, correo {env.email or '—'}. "
+            f"Notas: {(' | '.join(notas) if notas else 'ninguna')}. "
+            f"Cita: {(cita or {}).get('summary') if cita else 'ninguna'}."
+        )
+        env.result = "ok"
+        return env
+    pitch = kb.answer_pitch(text)
+    if pitch:
+        env.reply_text = pitch
+        env.result = "ok"
+        return env
+    cuaderno = kb.answer_cuaderno(text)
+    if cuaderno:
+        env.reply_text = cuaderno
+        env.result = "ok"
+        return env
     if any(p in bajo for p in ("me lo llevo", "lo compro", "quiero pagar", "lo pago")):
         env.reply_text = (
             "Pedido piloto anotado: corte $25.000. "
