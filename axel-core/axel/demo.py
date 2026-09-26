@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import html
 import json
+import os
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from urllib.parse import parse_qs
+from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
+from axel.connectors import whatsapp
 from axel.envelope import Envelope
 from axel.memory import Memory
 from axel.orchestrator import process
@@ -46,7 +49,7 @@ class Handler(BaseHTTPRequestHandler):
                 f"<td>{html.escape(str(r.get('output_summary') or ''))}</td>"
                 "</tr>"
             )
-        tabla = "".join(items) or "<tr><td colspan='7'>Sin eventos aún. Corre scripts/enviar_prueba.ps1</td></tr>"
+        tabla = "".join(items) or "<tr><td colspan='7'>Sin eventos aún.</td></tr>"
         pend = []
         for p in memory.list_pending():
             eid = html.escape(str(p.get("event_id") or ""))
@@ -69,8 +72,7 @@ class Handler(BaseHTTPRequestHandler):
             f"Nombre: {html.escape(str(ficha.get('name') or '—'))} · "
             f"Celular: {html.escape(str(ficha.get('phone') or '—'))} · "
             f"Correo: {html.escape(str(ficha.get('email') or '—'))} · "
-            f"Notas: {html.escape(notas_txt)} · "
-            f"ID: {html.escape(str(ficha.get('customer_id') or '—'))}"
+            f"Notas: {html.escape(notas_txt)}"
         )
         citas = []
         for c in memory.list_confirmed_reservas(8):
@@ -108,39 +110,25 @@ th{{background:#222}} .ok{{color:#8f8}}
 .kpi b{{display:block;font-size:28px;color:#6cf}}
 </style></head><body>
 <h1>AXEL AI OS — panel local</h1>
-<p class="ok">Servidor en http://127.0.0.1:8090 — esto no es WhatsApp, es tu PC.</p>
-<p>GitHub: github.com/alex-acosta-cali/Axel-AI</p>
+<p class="ok">Servidor en http://127.0.0.1:8090</p>
 <div class="kpis">
 <div class="kpi"><b>{n_cli}</b>clientes</div>
-<div class="kpi"><b>{n_citas}</b>citas confirmadas</div>
-<div class="kpi"><b>{n_pend}</b>pendientes dueño</div>
+<div class="kpi"><b>{n_citas}</b>citas</div>
+<div class="kpi"><b>{n_pend}</b>pendientes</div>
 </div>
-<p><b>Ficha de quien escribe en este panel:</b> {ficha_html}</p>
+<p><b>Ficha panel:</b> {ficha_html}</p>
 <form method="post" action="/panel" style="margin:16px 0">
-<input name="text" placeholder="Escribe a AXEL (ej. horario o reembolso)" style="width:70%;padding:8px" />
-<button type="submit" style="padding:8px 14px">Enviar</button>
+<input name="text" placeholder="Escribe a AXEL" style="width:70%;padding:8px" />
+<button type="submit">Enviar</button>
 </form>
-<h2>Pendientes del dueño</h2>
-<table>
-<tr><th>Evento</th><th>Intent</th><th>Pedido</th><th>Decisión</th></tr>
-{pendientes}
-</table>
-<h2>Clientes (CRM)</h2>
-<table>
-<tr><th>Nombre</th><th>Celular</th><th>Correo</th><th>ID</th></tr>
-{tabla_cli}
-</table>
-<h2>Citas confirmadas (piloto)</h2>
-<table>
-<tr><th>Cuando</th><th>Cliente</th><th>Qué dijo</th></tr>
-{tabla_citas}
-</table>
-<h2>Últimos mensajes</h2>
-<table>
-<tr><th>Cuando</th><th>Canal</th><th>Agente</th><th>Nivel</th><th>Aprobación</th><th>Entró</th><th>Respondió</th></tr>
-{tabla}
-</table>
-<p>Recarga la página (F5) después de un script de prueba.</p>
+<h2>Pendientes</h2>
+<table><tr><th>Evento</th><th>Intent</th><th>Pedido</th><th>Decisión</th></tr>{pendientes}</table>
+<h2>Clientes</h2>
+<table><tr><th>Nombre</th><th>Celular</th><th>Correo</th><th>ID</th></tr>{tabla_cli}</table>
+<h2>Citas</h2>
+<table><tr><th>Cuando</th><th>Cliente</th><th>Qué dijo</th></tr>{tabla_citas}</table>
+<h2>Últimos</h2>
+<table><tr><th>Cuando</th><th>Canal</th><th>Agente</th><th>Nivel</th><th>Aprobación</th><th>Entró</th><th>Respondió</th></tr>{tabla}</table>
 </body></html>"""
 
     def do_GET(self) -> None:
@@ -150,9 +138,25 @@ th{{background:#222}} .ok{{color:#8f8}}
         if self.path == "/health":
             self._json(200, {"ok": True, "service": "axel-core-demo"})
             return
+        parsed = urlparse(self.path)
+        if parsed.path == "/webhooks/whatsapp":
+            q = parse_qs(parsed.query)
+            mode = (q.get("hub.mode") or [""])[0]
+            token = (q.get("hub.verify_token") or [""])[0]
+            challenge = (q.get("hub.challenge") or [""])[0]
+            expected = os.getenv("WA_VERIFY_TOKEN", "axel-verify")
+            if mode == "subscribe" and token == expected:
+                raw = challenge.encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/plain")
+                self.send_header("Content-Length", str(len(raw)))
+                self.end_headers()
+                self.wfile.write(raw)
+                return
+            self._json(403, {"error": "verify_token_invalido"})
+            return
         if self.path.startswith("/audit/"):
-            event_id = self.path.split("/audit/", 1)[1]
-            row = memory.get_audit(event_id)
+            row = memory.get_audit(self.path.split("/audit/", 1)[1])
             self._json(200, row or {"error": "not_found"})
             return
         if self.path.startswith("/audit"):
@@ -176,20 +180,36 @@ th{{background:#222}} .ok{{color:#8f8}}
         raw = self.rfile.read(length) or b""
         if self.path == "/panel":
             form = parse_qs(raw.decode("utf-8", "replace"))
-            text = (form.get("text") or [""])[0]
-            self._run({"text": text, "channel": "panel", "channel_user_id": "alex_pc"})
+            self._run({"text": (form.get("text") or [""])[0], "channel": "panel", "channel_user_id": "alex_pc"})
             self.send_response(303)
             self.send_header("Location", "/")
             self.end_headers()
             return
         if self.path == "/decidir":
             form = parse_qs(raw.decode("utf-8", "replace"))
-            event_id = (form.get("event_id") or [""])[0]
-            decision = (form.get("decision") or [""])[0]
-            memory.resolve_pending(event_id, decision)
+            memory.resolve_pending((form.get("event_id") or [""])[0], (form.get("decision") or [""])[0])
             self.send_response(303)
             self.send_header("Location", "/")
             self.end_headers()
+            return
+        if self.path == "/webhooks/whatsapp":
+            try:
+                body = json.loads(raw or b"{}")
+            except json.JSONDecodeError:
+                self._json(400, {"error": "json_invalido"})
+                return
+            msgs = whatsapp.parse_incoming(body)
+            print("WA IN: mensajes=", len(msgs), "token=", bool(os.getenv("WA_ACCESS_TOKEN")))
+            enviados = []
+            for msg in msgs:
+                print("WA TXT:", msg.get("text"), "de", msg.get("channel_user_id"))
+                out = self._run(msg)
+                reply = (out.get("reply_text") or "")[:900]
+                if reply:
+                    res = whatsapp.send_text(msg.get("phone") or msg.get("channel_user_id") or "", reply)
+                    print("WA OUT:", res)
+                    enviados.append(res)
+            self._json(200, {"ok": True, "parsed": len(msgs), "sent": enviados})
             return
         if self.path != "/webhooks/test":
             self._json(404, {"error": "not_found"})
@@ -197,7 +217,7 @@ th{{background:#222}} .ok{{color:#8f8}}
         try:
             data = json.loads(raw or b"{}")
         except json.JSONDecodeError:
-            self._json(400, {"error": "json_invalido", "hint": "usa scripts/enviar_prueba.ps1"})
+            self._json(400, {"error": "json_invalido"})
             return
         self._json(200, self._run(data))
 
@@ -206,8 +226,17 @@ th{{background:#222}} .ok{{color:#8f8}}
 
 
 def main() -> None:
+    try:
+        from dotenv import load_dotenv
+
+        env_path = Path(__file__).resolve().parent.parent / ".env"
+        load_dotenv(env_path)
+        print("ENV:", env_path, "existe=", env_path.exists(), "token=", bool(os.getenv("WA_ACCESS_TOKEN")))
+    except Exception as exc:
+        print("ENV error:", exc)
     server = HTTPServer(("127.0.0.1", 8090), Handler)
     print("AXEL demo en http://127.0.0.1:8090")
+    print("Webhook WhatsApp: POST /webhooks/whatsapp")
     server.serve_forever()
 
 
