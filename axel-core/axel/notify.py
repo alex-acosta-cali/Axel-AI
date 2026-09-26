@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import os
+
+from axel.connectors.whatsapp import send_text
 from axel.envelope import Envelope
 from axel.memory import Memory
 
@@ -42,4 +45,8 @@ def notify_owner(env: Envelope, memory: Memory) -> str:
     env.owner_notified = True
     env.payload["owner_alert"] = text
     print("\n===== ALERTA AL DUENO =====\n" + text + "\n===========================\n")
+    destino = (os.getenv("WA_OWNER_PHONE") or "").strip()
+    if destino:
+        res = send_text(destino, text)
+        print("WA DUENO:", res)
     return text
