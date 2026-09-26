@@ -67,6 +67,17 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         )
         env.result = "ok"
         env.approval_status = "na"
+        return True    
+    if t in {"ayuda", "comandos", "menu dueño", "menu dueno"}:
+        env.intent = "admin"
+        env.agent = "escalamiento"
+        env.supervision_level = 1
+        env.reply_text = (
+            "Comandos dueño: estado, limpiar, pendientes, citas, "
+            "aceptar/aprobar, rechazo/rechazar, ayuda."
+        )
+        env.result = "ok"
+        env.approval_status = "na"
         return True
     if t in {"limpiar", "axeladmin limpiar"}:
         env.intent = "admin"
@@ -234,7 +245,7 @@ def process(env: Envelope, memory: Memory) -> Envelope:
             f"Estado piloto: {n_cli} cliente(s), "
             f"{n_citas} cita(s) confirmada(s), "
             f"{n_pend} pendiente(s) del dueño."
-        )
+        )    
     if (env.text or "").strip().upper() == "AXELADMIN LIMPIAR" and env.channel in {"panel", "test"}:
         n = memory.purge_ghost_customers()
         env.intent = "admin_kb"

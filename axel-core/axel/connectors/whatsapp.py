@@ -42,7 +42,12 @@ def mark_read(message_id: str) -> dict[str, Any]:
     if not token or not phone_id or not message_id:
         return {"skipped": True}
     url = f"{GRAPH}/{phone_id}/messages"
-    payload = {"messaging_product": "whatsapp", "status": "read", "message_id": message_id}
+    payload = {
+        "messaging_product": "whatsapp",
+        "status": "read",
+        "message_id": message_id,
+        "typing_indicator": {"type": "text"},
+    }
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
     with httpx.Client(timeout=15) as client:
         res = client.post(url, headers=headers, json=payload)

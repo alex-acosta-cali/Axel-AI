@@ -227,8 +227,40 @@ th{{background:#222}} .ok{{color:#8f8}}
         print("%s - %s" % (self.address_string(), fmt % args))
 
 
+def _recordatorio_loop() -> None:
+    import time
+    from datetime import date
+
+    from axel.connectors.whatsapp import send_text
+
+    ultimo = ""
+    while True:
+        time.sleep(60)
+        try:
+            hoy = date.today().isoformat()
+            if ultimo == hoy:
+                continue
+            owner = (os.getenv("WA_OWNER_PHONE") or "").strip()
+            if not owner:
+                continue
+            citas = memory.list_confirmed_reservas(8)
+            if not citas:
+                ultimo = hoy
+                continue
+            lineas = [
+                f"- {c.get('name') or c.get('customer_id')}: {c.get('summary')}"
+                for c in citas
+            ]
+            send_text(owner, "Recordatorio AXEL (hoy):\n" + "\n".join(lineas))
+            print("RECORDATORIO enviado", hoy)
+            ultimo = hoy
+        except Exception as exc:
+            print("RECORDATORIO error:", exc)
+
+
 def main() -> None:
     try:
+        from pathlib import Path
         from dotenv import load_dotenv
 
         env_path = Path(__file__).resolve().parent.parent / ".env"
@@ -236,6 +268,9 @@ def main() -> None:
         print("ENV:", env_path, "existe=", env_path.exists(), "token=", bool(os.getenv("WA_ACCESS_TOKEN")))
     except Exception as exc:
         print("ENV error:", exc)
+    import threading
+
+    threading.Thread(target=_recordatorio_loop, daemon=True).start()
     server = HTTPServer(("127.0.0.1", 8090), Handler)
     print("AXEL demo en http://127.0.0.1:8090")
     print("Webhook WhatsApp: POST /webhooks/whatsapp")
