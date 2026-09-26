@@ -387,6 +387,16 @@ class Memory:
             ).fetchall()
         return [dict(r) for r in rows]
 
+    def get_customer(self, customer_id: str) -> dict[str, Any] | None:
+        if not customer_id:
+            return None
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT * FROM customers WHERE customer_id = ?",
+                (customer_id,),
+            ).fetchone()
+        return dict(row) if row else None
+
     def set_customer_name(self, customer_id: str, name: str) -> None:
         name = (name or "").strip()[:80]
         if not name:
@@ -467,7 +477,7 @@ class Memory:
                 VALUES (?, ?, datetime('now'))
                 ON CONFLICT(customer_id) DO UPDATE SET
                     open_task = excluded.open_task,
-                    updated_at = datetime('now')
+                    updated_at = excluded.updated_at
                 """,
                 (customer_id, task),
             )

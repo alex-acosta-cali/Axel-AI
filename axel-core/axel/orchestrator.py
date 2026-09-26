@@ -4,6 +4,7 @@ import os
 import re
 
 from axel.agents import atencion, escalamiento, reservas
+from axel.connectors.whatsapp import send_text
 from axel.envelope import Envelope, now_iso
 from axel.memory import Memory
 from axel.notify import notify_owner
@@ -52,7 +53,17 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
     if owner not in incoming and incoming not in owner:
         return False
     t = _norm(env.text)
-    if t not in {"aprobar", "rechazar"}:
+    no = any(
+        k in t
+        for k in ("rechazar", "rechazo", "niego", "denegar", "denegado", "no autorizo", "no acepto")
+    )
+    si = any(
+        k in t
+        for k in ("aprobar", "aceptar", "acepto", "autorizo", "autorizar", "afirmativo", "de acuerdo")
+    )
+    if no:
+        si = False
+    if not si and not no:
         return False
     env.intent = "admin"
     env.agent = "escalamiento"
@@ -64,12 +75,19 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         env.approval_status = "na"
         return True
     row = pend[0]
-    decision = "approved" if t == "aprobar" else "rejected"
+    decision = "approved" if si else "rejected"
     memory.resolve_pending(str(row.get("event_id") or ""), decision)
     env.reply_text = (
         f"Quedó {decision} el caso {row.get('event_id')} "
         f"({row.get('intent')})."
     )
+    cli = memory.get_customer(str(row.get("customer_id") or "")) or {}
+    destino = _digits(str(cli.get("phone") or ""))
+    if destino and destino != owner:
+        if si:
+            send_text(destino, "El dueño ya revisó tu caso y lo aprobó. Te escribimos si falta algo.")
+        else:
+            send_text(destino, "El dueño revisó tu caso y por ahora no se puede. Si quieres, lo vemos de otra forma.")
     env.approval_status = decision
     env.result = "ok"
     return True
