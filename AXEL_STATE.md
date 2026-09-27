@@ -1,11 +1,19 @@
 # AXEL_STATE.md
-Actualizado: 2026-09-25 01:35 -05 (Cali)
+Actualizado: 2026-09-27 (Cali)
 Dueño: Alex. Repo: C:\Proyectos\Axel-AI
 GitHub: https://github.com/alex-acosta-cali/Axel-AI (privado)
 
+## 0. Estado hoy
+- Piloto 2026, lado dueño.
+- WhatsApp real: +57 314 5801851, Phone ID 1362796690246222. Tokens solo en `.env`.
+- Demo en http://127.0.0.1:8090 expuesto con ngrok para el webhook.
+- Claude Code trabaja en el repo (ejecutor; Grok revisa, Alex aprueba).
+- Pruebas OK: `test_memory_cross_channel` y `test_level3_approval`.
+- App de Meta sigue **En desarrollo** (no publicada).
+
 ## 1. Visión (fija hasta que Alex apruebe cambio)
 AXEL AI OS opera un negocio: atiende por WhatsApp, Instagram, web, email y voz; memoria de cliente; agenda; venta; cobro; marketing. Supervisión en 3 niveles. Trazabilidad de cada acto.
-Hoy el piloto es **local** (panel http://127.0.0.1:8090). WhatsApp real espera cuenta Meta de Alex (restricción de ads; cuentas de familia = préstamo).
+Hoy el piloto corre en local (panel http://127.0.0.1:8090) con ngrok hacia WhatsApp real. App de Meta en desarrollo.
 
 ## 2. Módulos
 | Módulo | Estado |
@@ -14,7 +22,7 @@ Hoy el piloto es **local** (panel http://127.0.0.1:8090). WhatsApp real espera c
 | M2 Orquestador | construido y en uso |
 | M3 Memoria SQLite + CRM ficha | construido |
 | M4 Permisos 1/2/3 + auditoría + panel dueño | construido |
-| M5 WhatsApp Cloud API | pausado (Meta) |
+| M5 WhatsApp Cloud API | conectado vía ngrok; app Meta en desarrollo |
 | Panel local HTML | construido |
 | Reservas confirmar / cancelar / reprogramar | construido (piloto, no cupos reales) |
 | KB precios | construido (corte/barba piloto) |
@@ -23,7 +31,7 @@ Hoy el piloto es **local** (panel http://127.0.0.1:8090). WhatsApp real espera c
 ## 3. Decisiones
 - Nombre: AXEL AI OS.
 - Simple primero: Python + SQLite + demo HTTP. Sin FastAPI obligatorio.
-- Grok = arquitecto. Claude Code instalado; Pro no requerido aún.
+- Grok = arquitecto. Claude Code = ejecutor en el repo.
 - Archivos completos, no parches de una línea.
 - Reiniciar demo después de cada cambio de .py o kb.json.
 - Intent no listado = nivel 3.
