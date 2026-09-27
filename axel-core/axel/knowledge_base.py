@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -12,7 +13,7 @@ DEFAULT_KB = {
 
 
 def load_kb() -> dict:
-    path = Path(__file__).resolve().parents[1] / "kb.json"
+    path = _kb_path()
     if path.exists():
         return json.loads(path.read_text(encoding="utf-8"))
     return DEFAULT_KB
@@ -104,3 +105,42 @@ def set_price(producto: str, pesos: str) -> str:
         return ""
     path.write_text(json.dumps(kb, ensure_ascii=False, indent=2), encoding="utf-8")
     return marca
+
+
+def set_business_name(nombre: str) -> str:
+    nombre = " ".join((nombre or "").split()).strip(" .,;:!¡¿?\"'")[:60]
+    if not nombre:
+        return ""
+    kb = load_kb()
+    kb["negocio"] = nombre
+    respuesta = f"El negocio se llama {nombre}."
+    faqs = kb.setdefault("faqs", [])
+    for item in faqs:
+        if "nombre del negocio" in (item.get("q") or []):
+            item["a"] = respuesta
+            break
+    else:
+        faqs.append(
+            {
+                "q": ["nombre del negocio", "como se llama el negocio", "cómo se llama el negocio"],
+                "a": respuesta,
+            }
+        )
+    _kb_path().write_text(json.dumps(kb, ensure_ascii=False, indent=2), encoding="utf-8")
+    return nombre
+
+
+def set_hours(abre: str, cierra: str) -> str:
+    horario = f"{abre} a {cierra}"
+    kb = load_kb()
+    kb["horario"] = horario
+    faqs = kb.setdefault("faqs", [])
+    for item in faqs:
+        if "horario" in (item.get("q") or []):
+            nuevo, n = re.subn(r"\d{1,2}:\d{2} a \d{1,2}:\d{2}", horario, item.get("a") or "")
+            item["a"] = nuevo if n else f"Atendemos de {horario}."
+            break
+    else:
+        faqs.insert(0, {"q": ["horario", "horarios", "abren", "cierran"], "a": f"Atendemos de {horario}."})
+    _kb_path().write_text(json.dumps(kb, ensure_ascii=False, indent=2), encoding="utf-8")
+    return horario

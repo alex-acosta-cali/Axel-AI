@@ -6,6 +6,7 @@ import re
 from axel.agents import atencion, escalamiento, reservas
 from axel.connectors.whatsapp import send_text
 from axel.envelope import Envelope, now_iso
+from axel.knowledge_base import load_kb, set_business_name, set_hours
 from axel.memory import Memory
 from axel.notify import notify_owner
 from axel.permissions import classify_level, needs_customer_confirm, needs_owner_approval, reason_for
@@ -45,6 +46,100 @@ def _digits(raw: str) -> str:
     return re.sub(r"\D", "", raw or "")
 
 
+OWNER_NOMBRE = re.compile(r"^(?:axeladmin\s+)?el negocio se llama\s+(.+)$", re.I)
+_HORA = r"(\d{1,2})(?::(\d{2}))?\s*(a\.?\s?m\.?|p\.?\s?m\.?)?"
+OWNER_HORARIO = re.compile(rf"^(?:axeladmin\s+)?abrimos de\s+{_HORA}\s+a\s+{_HORA}\s*\.?$", re.I)
+ONB_HORARIO = re.compile(rf"^(?:de\s+)?{_HORA}\s+a\s+{_HORA}\s*\.?$", re.I)
+ONB_START = {"configurar", "onboarding", "axeladmin configurar"}
+ONB_SALIR = {"cancelar", "salir", "cancelar configuracion"}
+HORARIO_AYUDA = "Ejemplo: de 8 a 19, o de 8am a 7pm."
+
+
+def _hora(h: str, m: str | None, ampm: str | None) -> tuple[int, int] | None:
+    hora, minuto = int(h), int(m or 0)
+    suf = re.sub(r"[\s.]", "", ampm or "").lower()
+    if suf:
+        if not 1 <= hora <= 12:
+            return None
+        hora = hora % 12 + (12 if suf == "pm" else 0)
+    if hora > 23 or minuto > 59:
+        return None
+    return hora, minuto
+
+
+def _guardar_horario(m: re.Match) -> str:
+    abre = _hora(*m.group(1, 2, 3))
+    cierra = _hora(*m.group(4, 5, 6))
+    if abre is None or cierra is None or cierra <= abre:
+        return ""
+    return set_hours(f"{abre[0]}:{abre[1]:02d}", f"{cierra[0]}:{cierra[1]:02d}")
+
+
+def _es_dueno(env: Envelope) -> bool:
+    """Dueño = canal panel, o WhatsApp desde el número WA_OWNER_PHONE."""
+    if env.channel == "panel":
+        return True
+    if env.channel != "whatsapp":
+        return False
+    owner = _digits(os.getenv("WA_OWNER_PHONE") or "")
+    incoming = _digits(env.channel_user_id or "")
+    return bool(owner and incoming and (owner in incoming or incoming in owner))
+
+
+def _try_owner_setup(env: Envelope, memory: Memory) -> bool:
+    """Nombre y horario del negocio: comandos directos y onboarding guiado."""
+    text = (env.text or "").strip()
+    t = _norm(text)
+    nombre = OWNER_NOMBRE.match(text)
+    horario = OWNER_HORARIO.match(text)
+    if not _es_dueno(env):
+        if not (nombre or horario):
+            return False
+        env.reply_text = "Eso solo lo cambia el dueño."
+    else:
+        paso = memory.get_open_task(env.customer_id or "")
+        if nombre:
+            guardado = set_business_name(nombre.group(1))
+            env.reply_text = (
+                f"Listo, el negocio quedó como {guardado}." if guardado else "No entendí el nombre del negocio."
+            )
+        elif horario:
+            guardado = _guardar_horario(horario)
+            env.reply_text = (
+                f"Listo, horario guardado: {guardado}." if guardado else f"No entendí el horario. {HORARIO_AYUDA}"
+            )
+        elif t in ONB_START:
+            memory.set_open_task(env.customer_id or "", "onb_nombre")
+            env.reply_text = "Configuremos el negocio. ¿Cómo se llama el negocio?"
+        elif paso.startswith("onb_") and t in ONB_SALIR:
+            memory.set_open_task(env.customer_id or "", "")
+            env.reply_text = "Salí de la configuración. No cambié nada más."
+        elif paso == "onb_nombre":
+            guardado = set_business_name(text)
+            if guardado:
+                memory.set_open_task(env.customer_id or "", "onb_horario")
+                env.reply_text = f"Guardé el nombre: {guardado}. ¿En qué horario abren? {HORARIO_AYUDA}"
+            else:
+                env.reply_text = "No entendí el nombre. ¿Cómo se llama el negocio?"
+        elif paso == "onb_horario":
+            libre = ONB_HORARIO.match(text)
+            guardado = _guardar_horario(libre) if libre else ""
+            if guardado:
+                memory.set_open_task(env.customer_id or "", "")
+                env.reply_text = f"Listo: {load_kb().get('negocio')}, de {guardado}. Configuración terminada."
+            else:
+                env.reply_text = f"No entendí el horario. {HORARIO_AYUDA}"
+        else:
+            return False
+    env.intent = "admin_kb"
+    env.agent = "atencion"
+    env.supervision_level = 1
+    env.result = "ok"
+    env.approval_status = "na"
+    env.why = "configuracion del negocio (nombre/horario)"
+    return True
+
+
 def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
     owner = _digits(os.getenv("WA_OWNER_PHONE") or "")
     incoming = _digits(env.phone or env.channel_user_id or "")
@@ -74,7 +169,8 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         env.supervision_level = 1
         env.reply_text = (
             "Comandos dueño: estado, limpiar, pendientes, citas, "
-            "aceptar/aprobar, rechazo/rechazar, ayuda."
+            "aceptar/aprobar, rechazo/rechazar, ayuda, "
+            "configurar, el negocio se llama NOMBRE, abrimos de H1 a H2."
         )
         env.result = "ok"
         env.approval_status = "na"
@@ -185,7 +281,7 @@ def process(env: Envelope, memory: Memory) -> Envelope:
     env.payload["identities"] = ident["identities"]
     env.payload["history"] = history
 
-    if _try_owner_decision(env, memory):
+    if _try_owner_setup(env, memory) or _try_owner_decision(env, memory):
         memory.save_turn(
             customer_id=env.customer_id,
             event_id=env.event_id,
@@ -210,7 +306,7 @@ def process(env: Envelope, memory: Memory) -> Envelope:
                 "output_summary": (env.reply_text or "")[:240],
                 "result": env.result,
                 "error": env.error,
-                "why": "decision del dueno por WhatsApp",
+                "why": env.why or "decision del dueno por WhatsApp",
                 "data_used": ",".join(env.context_refs),
             }
         )
