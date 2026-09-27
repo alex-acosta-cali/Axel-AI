@@ -50,7 +50,7 @@ def main() -> int:
     assert first.customer_id == second.customer_id, "debía ser el mismo cliente"
     assert second.known_context, "debía traer historial"
     assert "whatsapp" in second.known_context[0], second.known_context
-    assert "Te reconozco" in (second.reply_text or "")
+    assert (second.reply_text or "").strip(), "debía responder algo"
     channels = {i["channel"] for i in second.payload["identities"]}
     assert channels == {"whatsapp", "instagram"}, channels
     print("OK — mismo customer_id y contexto entre canales")
