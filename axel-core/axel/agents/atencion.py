@@ -14,17 +14,20 @@ def estado_cali(ahora: datetime | None = None) -> tuple[bool, str]:
         now = now.replace(tzinfo=_CALI)
     now = now.astimezone(_CALI)
     hora = now.strftime("%H:%M")
+    abre, cierra = kb.get_hours()
+    txt_cierra = f"{cierra[0]}:{cierra[1]:02d}"
+    horario = f"lunes a sábado, {abre[0]}:{abre[1]:02d} a {txt_cierra}"
     if now.weekday() == 6:
         return False, (
             f"Hoy es domingo en Cali ({hora}). No abrimos. "
-            "El horario es lunes a sábado, 8:00 a 19:00."
+            f"El horario es {horario}."
         )
-    if now.hour < 8 or now.hour >= 19:
+    if (now.hour, now.minute) < abre or (now.hour, now.minute) >= cierra:
         return False, (
             f"Ahora en Cali son las {hora} y estamos cerrados. "
-            "Abrimos lunes a sábado, 8:00 a 19:00."
+            f"Abrimos {horario}."
         )
-    return True, f"Ahora en Cali son las {hora}: estamos abiertos hasta las 19:00."
+    return True, f"Ahora en Cali son las {hora}: estamos abiertos hasta las {txt_cierra}."
 
 
 def handle(env: Envelope, memory=None) -> Envelope:

@@ -130,6 +130,14 @@ def set_business_name(nombre: str) -> str:
     return nombre
 
 
+def get_hours() -> tuple[tuple[int, int], tuple[int, int]]:
+    """(hora, minuto) de apertura y cierre desde kb["horario"]. Si falta, 8:00 a 19:00."""
+    m = re.match(r"^(\d{1,2}):(\d{2}) a (\d{1,2}):(\d{2})$", str(load_kb().get("horario") or ""))
+    if not m:
+        return (8, 0), (19, 0)
+    return (int(m.group(1)), int(m.group(2))), (int(m.group(3)), int(m.group(4)))
+
+
 def set_hours(abre: str, cierra: str) -> str:
     horario = f"{abre} a {cierra}"
     kb = load_kb()
