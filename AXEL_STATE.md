@@ -8,12 +8,26 @@ GitHub: https://github.com/alex-acosta-cali/Axel-AI (privado)
 - WhatsApp real: +57 314 5801851. Phone ID y tokens solo en `.env`.
 - Demo en http://127.0.0.1:8090 expuesto con ngrok para el webhook.
 - Claude Code trabaja en el repo (ejecutor; Grok revisa, Alex aprueba).
-- Pruebas OK: `test_memory_cross_channel` y `test_level3_approval`.
+- Pruebas OK: `test_memory_cross_channel`, `test_level3_approval`, `test_message`, `test_kb_cafeteria` y `test_kb_ferreteria`.
 - App de Meta sigue **En desarrollo** (no publicada).
 - 28 sep: un cupo confirmado por franja (probado). Cancelar y reprogramar sueltan el cupo viejo.
 - 28 sep: reembolso N3, el dueño aprueba y el cliente recibe el aviso. Probado con un segundo celular.
 - 28 sep: aprobar/rechazar y comandos del dueño solo desde WA_OWNER_PHONE o el panel.
 - Hosting 24/7, Instagram y modelo de lenguaje: solo notas en `docs/`. No construidos.
+
+## 0.1 Muro de comercio (hecho 28 sep)
+AXEL es comercio, no barbería. Todo sale de la KB.
+- FAQ sin precio quemado: los precios salen solo de `servicios[]`.
+- `configurar`: el dueño arma el negocio por chat (nombre, rubro, agenda, horario, franjas, ubicación, servicios).
+- Pedidos: "me lo llevo X" anota el pedido sin cobro. El dueño lo ve con `pedidos` y en el panel.
+- Pedido y cita separados: comprar no abre una cita, y pedir cita no anota un pedido.
+- Prueba ferretería (`test_kb_ferreteria`): sin agenda, sin corte, sin cita.
+- Panel: muestra catálogo y pedidos.
+
+## 0.2 Siguiente capítulo: VPS
+- Llevar AXEL a un VPS 24/7 (nginx con HTTPS hacia `127.0.0.1:8090`).
+- No Meta producción.
+- No Instagram.
 
 ## 1. Visión (fija hasta que Alex apruebe cambio)
 AXEL es el asistente del comercio, no de un rubro. La barbería fue el primer catálogo de prueba, no el producto. Una categoría nueva = llenar la KB (`kb.json`), no un programa nuevo.
@@ -31,7 +45,7 @@ Hoy el piloto corre en local (panel http://127.0.0.1:8090) con ngrok hacia Whats
 | Panel local HTML | construido |
 | Reservas confirmar / cancelar / reprogramar | construido (piloto): un cupo por franja, cancelar/reprogramar sueltan el cupo |
 | Panel: cupos de la semana LIBRE/TOMADA | construido |
-| KB del comercio | construido: negocio, rubro, agenda, horario, franjas, servicios, políticas. El dueño la edita por chat. Primer catálogo de prueba: barbería |
+| KB del comercio | construido: negocio, rubro, agenda, horario, franjas, servicios, políticas, FAQ, ubicación. El dueño la edita por chat. Primer catálogo de prueba: barbería |
 | Instagram | solo nota (`docs/CANAL_INSTAGRAM.md`) |
 | Hosting 24/7 | solo nota (`docs/HOSTING_24_7.md`) |
 | Modelo de lenguaje | solo nota (`docs/MODELO_LENGUAJE.md`); router no llama APIs |
