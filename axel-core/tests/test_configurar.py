@@ -108,6 +108,17 @@ def main() -> int:
 
         # Un cliente no arranca el asistente.
         assert ONB_PREGUNTA["onb_nombre"] not in dice("configurar", canal="whatsapp")
+
+        # Cliente: sinónimos, precios gana, ubicación y políticas vacías.
+        kb_tmp.write_text(json.dumps({**KB_VIEJA, "ubicacion": "Cra 9 Cali"}), encoding="utf-8")
+        dice("Ana", canal="whatsapp")
+        assert dice("donde quedan", canal="whatsapp") == "Cra 9 Cali"
+        assert dice("quiero cortarme el pelo", canal="whatsapp").startswith("Corte: $25.000")
+        assert dice("precios y quiero cortarme el pelo", canal="whatsapp").startswith("Lista: corte $25.000")
+        assert "Cra" not in dice("donde pago", canal="whatsapp")
+        assert dice("que garantia tienen", canal="whatsapp") == kb.NO_HAY
+        kb_tmp.write_text(json.dumps({**KB_VIEJA, "servicios": []}), encoding="utf-8")
+        assert "$" not in dice("cuanto vale cortarme el pelo", canal="whatsapp"), "sin corte no inventa precio"
     finally:
         kb._kb_path = original
         kb_tmp.unlink(missing_ok=True)

@@ -71,12 +71,23 @@ def servicio_en(text: str) -> Optional[dict]:
         for forma in {nombre, nombre.replace(" + ", " y ")}:
             if re.search(rf"(?<!\w){re.escape(forma)}(?!\w)", plano):
                 return s
+    palabras = set(re.findall(r"\w+", plano))
+    for nombre, sinonimos in _SINONIMOS.items():
+        if palabras & sinonimos:
+            return buscar_servicio(nombre)
     return None
+
+
+# Palabra del cliente -> nombre del servicio. Solo sirve si ese servicio existe en la KB.
+_SINONIMOS = {"corte": {"cortarme", "pelo"}}
+_PIDE_LISTA = re.compile(r"\b(precios|lista|tarifas)\b")
 
 
 def answer_servicio(text: str) -> Optional[str]:
     """Precio de un servicio, la lista, o NO_HAY. None si el texto no habla de precios ni de servicios."""
     s = servicio_en(text)
+    if s and _PIDE_LISTA.search(_plano(text)):
+        return lista_servicios()
     if s:
         cupo = " ¿Quieres que te reserve un cupo?" if agenda() else ""
         nombre = str(s["nombre"])
