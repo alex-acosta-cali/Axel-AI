@@ -68,16 +68,18 @@ def handle(env: Envelope, memory=None) -> Envelope:
         )
         env.result = "ok"
         return env
-    pitch = kb.answer_pitch(text)
-    if pitch:
-        env.reply_text = pitch
-        env.result = "ok"
-        return env
-    cuaderno = kb.answer_cuaderno(text)
-    if cuaderno:
-        env.reply_text = cuaderno
-        env.result = "ok"
-        return env
+    # Pitch y cuaderno son internos (plan, IDs de Meta): solo para el dueño.
+    if env.payload.get("es_dueno"):
+        pitch = kb.answer_pitch(text)
+        if pitch:
+            env.reply_text = pitch
+            env.result = "ok"
+            return env
+        cuaderno = kb.answer_cuaderno(text)
+        if cuaderno:
+            env.reply_text = cuaderno
+            env.result = "ok"
+            return env
     if any(p in bajo for p in ("me lo llevo", "lo compro", "quiero pagar", "lo pago")):
         env.reply_text = (
             "Pedido piloto anotado: corte $25.000. "

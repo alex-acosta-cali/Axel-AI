@@ -1,18 +1,104 @@
 {
   "negocio": "Negocio piloto AXEL",
-  "horario": "8:00 a 19:00",
+  "horario": "9:00 a 17:00",
   "saludo": "Hola, soy AXEL. Puedo darte horarios, precios, ubicación o tomar tus datos. ¿En qué te ayudo?",
   "faqs": [
-    {"q": ["horario", "horarios", "abren", "cierran"], "a": "Atendemos de lunes a sábado, 8:00 a 19:00."},
-    {"q": ["corte", "cortarme", "peluqueada", "pelo"], "a": "El corte está en $25.000. ¿Quieres que te reserve un cupo?"},
-    {"q": ["barba"], "a": "Arreglo de barba $15.000. Corte + barba $35.000."},
-    {"q": ["dirección", "direccion", "ubicación", "ubicacion", "donde"], "a": "Estamos en Cali. Dime tu barrio y te orientamos."},
-    {"q": ["precio", "cuanto", "cuánto", "vale", "valores", "lista"], "a": "Lista piloto: corte $25.000, barba $15.000, corte + barba $35.000. ¿Cuál te interesa?"},
-    {"q": ["pago", "transferencia", "efectivo"], "a": "Aceptamos efectivo y transferencia."},
-    {"q": ["parqueadero", "estacionamiento", "parking"], "a": "Sí hay parqueadero frente al local, cupos limitados."},
-    {"q": ["garantia", "garantía", "reclamo producto"], "a": "Garantía piloto: 7 días si el servicio no quedó bien. El dueño lo revisa."},
-    {"q": ["cancelacion", "cancelación", "política de cita"], "a": "Puedes cancelar o pasar la cita el mismo día. Escribe cancelar la cita o reprogramar la cita."},
-    {"q": ["quien eres", "quién eres", "que eres", "qué eres", "quien es axel", "quién es axel"], "a": "Soy AXEL, el asistente del negocio piloto. Atiendo por panel y WhatsApp: horarios, precios, citas y quejas al dueño. No cobro plata todavía."},
-    {"q": ["como vas", "cómo vas", "como estas", "cómo estás", "que sabes", "qué sabes", "cuaderno"], "a": "Voy en piloto local. Ya hay CRM, citas, 3 niveles y WhatsApp de prueba (número +1 de Meta + ngrok). Falta token que no caduque y el número real del negocio."}
+    {
+      "q": [
+        "horario",
+        "horarios",
+        "abren",
+        "cierran"
+      ],
+      "a": "Atendemos de lunes a sábado, 9:00 a 17:00."
+    },
+    {
+      "q": [
+        "corte",
+        "cortarme",
+        "peluqueada",
+        "pelo"
+      ],
+      "a": "El corte está en $25.000. ¿Quieres que te reserve un cupo?"
+    },
+    {
+      "q": [
+        "barba"
+      ],
+      "a": "Arreglo de barba $15.000. Corte + barba $35.000."
+    },
+    {
+      "q": [
+        "dirección",
+        "direccion",
+        "ubicación",
+        "ubicacion",
+        "donde"
+      ],
+      "a": "Estamos en Cali. Dime tu barrio y te orientamos."
+    },
+    {
+      "q": [
+        "precio",
+        "cuanto",
+        "cuánto",
+        "vale",
+        "valores",
+        "lista"
+      ],
+      "a": "Lista piloto: corte $25.000, barba $15.000, corte + barba $35.000. ¿Cuál te interesa?"
+    },
+    {
+      "q": [
+        "pago",
+        "transferencia",
+        "efectivo"
+      ],
+      "a": "Aceptamos efectivo y transferencia."
+    },
+    {
+      "q": [
+        "parqueadero",
+        "estacionamiento",
+        "parking"
+      ],
+      "a": "Sí hay parqueadero frente al local, cupos limitados."
+    },
+    {
+      "q": [
+        "garantia",
+        "garantía",
+        "reclamo producto"
+      ],
+      "a": "Garantía piloto: 7 días si el servicio no quedó bien. El dueño lo revisa."
+    },
+    {
+      "q": [
+        "cancelacion",
+        "cancelación",
+        "política de cita"
+      ],
+      "a": "Puedes cancelar o pasar la cita el mismo día. Escribe cancelar la cita o reprogramar la cita."
+    },
+    {
+      "q": [
+        "quien eres",
+        "quién eres",
+        "que eres",
+        "qué eres",
+        "quien es axel",
+        "quién es axel"
+      ],
+      "a": "Soy AXEL, el asistente del negocio piloto. Atiendo por panel y WhatsApp: horarios, precios, citas y quejas al dueño. No cobro plata todavía."
+    },
+    {
+      "q": [
+        "como estas",
+        "cómo estás",
+        "que sabes",
+        "qué sabes"
+      ],
+      "a": "Bien, gracias. Puedo ayudarte con horarios, precios, ubicación o una cita."
+    }
   ]
 }

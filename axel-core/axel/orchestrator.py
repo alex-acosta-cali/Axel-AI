@@ -280,6 +280,7 @@ def process(env: Envelope, memory: Memory) -> Envelope:
     env.context_refs = [f"crm:{env.customer_id}"] + [f"hist:{h['event_id']}" for h in history]
     env.payload["identities"] = ident["identities"]
     env.payload["history"] = history
+    env.payload["es_dueno"] = _es_dueno(env)
 
     if _try_owner_setup(env, memory) or _try_owner_decision(env, memory):
         memory.save_turn(
