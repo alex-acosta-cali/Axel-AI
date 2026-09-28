@@ -291,10 +291,14 @@ def handle(env: Envelope, memory=None) -> Envelope:
             env.result = "pending"
             env.approval_status = "pending_customer"
             return env
-        env.reply_text = (
-            f"Quedó anotada la reserva para «{env.text}». "
-            "En el piloto no hay agenda real todavía; el cupo queda como confirmado de prueba."
-        )
+        nueva = _dia_hora(env.text or "", _ahora_cali())
+        if nueva:
+            dia = _NOMBRE_DIA[datetime.fromisoformat(nueva[0]).weekday()]
+            mm = re.search(r"\b\d{1,2}[:.](\d{2})\b", env.text or "")
+            cuando = f"{dia} {nueva[1]}:{mm.group(1) if mm else '00'}"
+        else:
+            cuando = f"«{env.text}»"
+        env.reply_text = f"Quedó tu cita: {cuando}. Para cambiar escribe cancelar la cita o reprogramar la cita."
         env.result = "ok"
         env.approval_status = "confirmed_customer"
         return env
