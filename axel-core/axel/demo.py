@@ -27,7 +27,7 @@ from axel.agents.reservas import (
 from axel.connectors import whatsapp
 from axel.envelope import Envelope
 from axel.memory import Memory
-from axel.orchestrator import process
+from axel.orchestrator import pedidos_filas, process
 
 memory = Memory("./axel.db")
 
@@ -108,6 +108,14 @@ def _tabla_catalogo() -> str:
         f"<table>{datos_html}</table>"
         f"<table style='margin-top:8px'><tr><th>Servicio</th><th>Precio</th></tr>{servicios}</table>"
     )
+
+
+def _tabla_pedidos() -> str:
+    """Últimos 15 pedidos, igual que el comando pedidos. Solo lectura."""
+    filas = "".join(
+        "<tr>" + "".join(f"<td>{html.escape(c)}</td>" for c in fila) + "</tr>" for fila in pedidos_filas(memory)
+    ) or "<tr><td colspan='3'>No hay pedidos.</td></tr>"
+    return f"<table><tr><th>Hora Cali</th><th>Cliente</th><th>Pedido</th></tr>{filas}</table>"
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -237,6 +245,8 @@ th{{background:#222}} .ok{{color:#8f8}} .tomada{{color:#f99}} .paso{{color:#888}
 <table><tr><th>Evento</th><th>Intent</th><th>Pedido</th><th>Decisión</th></tr>{pendientes}</table>
 <h2>Clientes</h2>
 <table><tr><th>Nombre</th><th>Celular</th><th>Correo</th><th>ID</th></tr>{tabla_cli}</table>
+<h2>Pedidos</h2>
+{_tabla_pedidos()}
 <h2>Catalogo</h2>
 {_tabla_catalogo()}
 <h2>Cupos de la semana</h2>

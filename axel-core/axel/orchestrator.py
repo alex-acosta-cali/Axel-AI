@@ -325,6 +325,16 @@ def _try_owner_setup(env: Envelope, memory: Memory) -> bool:
     return True
 
 
+def pedidos_filas(memory: Memory, limit: int = 15) -> list[tuple[str, str, str]]:
+    """(hora Cali, nombre o celular, 'servicio $N') de los últimos pedidos. Solo para el dueño."""
+    filas = []
+    for p in memory.list_pedidos(limit):
+        pedido = re.sub(r"^Pedido piloto\s+|\s*\(sin cobro\)$", "", str(p.get("note") or ""))
+        hora = reservas._creada_cali(str(p.get("created_at") or "")).strftime("%d/%m %H:%M")
+        filas.append((hora, str(p.get("name") or p.get("phone") or "sin nombre"), pedido))
+    return filas
+
+
 def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
     if not _es_dueno(env):
         return False
@@ -411,11 +421,7 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         env.intent = "admin"
         env.agent = "escalamiento"
         env.supervision_level = 1
-        lineas = []
-        for p in memory.list_pedidos(15):
-            pedido = re.sub(r"^Pedido piloto\s+|\s*\(sin cobro\)$", "", str(p.get("note") or ""))
-            hora = reservas._creada_cali(str(p.get("created_at") or "")).strftime("%d/%m %H:%M")
-            lineas.append(f"- {hora} · {p.get('name') or p.get('phone') or 'sin nombre'} · {pedido}")
+        lineas = [f"- {hora} · {quien} · {pedido}" for hora, quien, pedido in pedidos_filas(memory)]
         env.reply_text = "Pedidos:\n" + "\n".join(lineas) if lineas else "No hay pedidos."
         env.result = "ok"
         env.approval_status = "na"
