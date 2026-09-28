@@ -420,6 +420,25 @@ class Memory:
             ).fetchall()
         return [dict(r) for r in rows]
 
+    def list_whatsapp_customers(self, limit: int = 20) -> list[dict[str, Any]]:
+        """Clientes con identidad whatsapp y la última vez que escribieron por ese canal."""
+        with self._conn() as conn:
+            rows = conn.execute(
+                """
+                SELECT c.customer_id, c.name, c.phone, MAX(m.created_at) AS last_in
+                FROM identities i
+                JOIN customers c ON c.customer_id = i.customer_id
+                LEFT JOIN messages m
+                  ON m.customer_id = c.customer_id AND m.channel = 'whatsapp' AND m.direction = 'in'
+                WHERE i.channel = 'whatsapp'
+                GROUP BY c.customer_id
+                ORDER BY last_in DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
     def purge_ghost_customers(self) -> int:
         with self._conn() as conn:
             rows = conn.execute(

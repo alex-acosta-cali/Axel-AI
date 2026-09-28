@@ -166,6 +166,20 @@ class Handler(BaseHTTPRequestHandler):
                 "</tr>"
             )
         tabla_cli = "".join(cli) or "<tr><td colspan='4'>Sin clientes</td></tr>"
+        wa = []
+        for u in memory.list_whatsapp_customers(20):
+            ult = memory.last_reserva(str(u.get("customer_id") or ""))
+            ult_txt = franja_de(str(ult.get("summary") or ""), str(ult.get("created_at") or "")) if ult else "—"
+            escribio = _creada_cali(str(u["last_in"])).strftime("%d/%m %H:%M") if u.get("last_in") else "—"
+            wa.append(
+                "<tr>"
+                f"<td>{html.escape(str(u.get('name') or '—'))}</td>"
+                f"<td>{html.escape(str(u.get('phone') or '—'))}</td>"
+                f"<td>{html.escape(ult_txt)}</td>"
+                f"<td>{html.escape(escribio)}</td>"
+                "</tr>"
+            )
+        tabla_wa = "".join(wa) or "<tr><td colspan='4'>Sin clientes WhatsApp</td></tr>"
         n_cli = len(memory.list_customers(50))
         n_citas = len(memory.list_confirmed_reservas(50))
         n_pend = len(memory.list_pending())
@@ -188,6 +202,8 @@ th{{background:#222}} .ok{{color:#8f8}} .tomada{{color:#f99}} .paso{{color:#888}
 <div class="kpi"><b>{n_pend}</b>pendientes</div>
 </div>
 <p><b>Ficha panel:</b> {ficha_html}</p>
+<h2>Clientes WhatsApp</h2>
+<table><tr><th>Nombre</th><th>Celular</th><th>Última cita</th><th>Última vez que escribió</th></tr>{tabla_wa}</table>
 <form method="post" action="/panel" style="margin:16px 0">
 <input name="text" placeholder="Escribe a AXEL" style="width:70%;padding:8px" />
 <button type="submit">Enviar</button>
