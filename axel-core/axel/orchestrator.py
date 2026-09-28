@@ -61,6 +61,7 @@ ONB_PREGUNTA = {
     "onb_horario": f"¿En qué horario abren? {HORARIO_AYUDA}",
     "onb_franjas": "¿A qué horas das citas? Ejemplo: 9 11 15",
     "onb_ubicacion": "¿Cuál es la ubicación? Ejemplo: Cra 1 #2-3 Cali",
+    "onb_reemplazo": "Ya hay servicios guardados. ¿Los reemplazo o sumo los nuevos? Responde reemplazar o sumar.",
     "onb_servicios": "Dime servicios, uno por línea: nombre precio\nEjemplo: cafe 4000\nCuando termines escribe listo.",
 }
 ONB_SERVICIO = re.compile(r"^(.+?)\s+\$?\s*([\d.,]+)\s*(?:pesos)?\s*\.?$", re.I)
@@ -280,7 +281,17 @@ def _paso_configurar(env: Envelope, memory: Memory, paso: str, text: str) -> str
     elif paso == "onb_franjas":
         guardado, siguiente = _guardar_franjas(text), "onb_ubicacion"
     elif paso == "onb_ubicacion":
-        guardado, siguiente = kb_mod.set_ubicacion(text), "onb_servicios"
+        guardado = kb_mod.set_ubicacion(text)
+        siguiente = "onb_reemplazo" if kb_mod.servicios() else "onb_servicios"
+    elif paso == "onb_reemplazo":
+        resp = _norm(text).strip(" .!")
+        if resp in {"reemplazar", "reemplazo", "reemplazalos"}:
+            kb_mod.vaciar_servicios()
+            memory.set_open_task(env.customer_id or "", "onb_servicios")
+            return f"Borré los servicios viejos. {ONB_PREGUNTA['onb_servicios']}"
+        if resp in {"sumar", "sumo", "sumalos"}:
+            memory.set_open_task(env.customer_id or "", "onb_servicios")
+            return f"Dejo los servicios que hay. {ONB_PREGUNTA['onb_servicios']}"
     elif paso == "onb_servicios":
         return _servicios_configurar(env, memory, text)
     if not guardado:

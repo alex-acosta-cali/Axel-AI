@@ -200,6 +200,12 @@ def add_servicio(nombre: str, precio: int) -> str:
     return nombre
 
 
+def vaciar_servicios() -> None:
+    kb = load_kb()
+    kb["servicios"] = []
+    _guardar(kb)
+
+
 def remove_servicio(nombre: str) -> bool:
     s = buscar_servicio(nombre)
     if not s:
