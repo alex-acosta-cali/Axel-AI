@@ -83,7 +83,9 @@ def _es_dueno(env: Envelope) -> bool:
         return False
     owner = _digits(os.getenv("WA_OWNER_PHONE") or "")
     incoming = _digits(env.channel_user_id or "")
-    return bool(owner and incoming and (owner in incoming or incoming in owner))
+    if len(owner) < 10 or len(incoming) < 10:
+        return False
+    return owner[-10:] == incoming[-10:]
 
 
 def _try_owner_setup(env: Envelope, memory: Memory) -> bool:
@@ -141,12 +143,9 @@ def _try_owner_setup(env: Envelope, memory: Memory) -> bool:
 
 
 def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
+    if not _es_dueno(env):
+        return False
     owner = _digits(os.getenv("WA_OWNER_PHONE") or "")
-    incoming = _digits(env.phone or env.channel_user_id or "")
-    if not owner or not incoming:
-        return False
-    if owner not in incoming and incoming not in owner:
-        return False
     t = _norm(env.text)
     if t in {"estado", "axeladmin estado"}:
         env.intent = "admin"
