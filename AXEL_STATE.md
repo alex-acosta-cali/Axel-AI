@@ -5,7 +5,7 @@ GitHub: https://github.com/alex-acosta-cali/Axel-AI (privado)
 
 ## 0. Estado hoy
 - Piloto 2026, lado dueño.
-- WhatsApp real: +57 314 5801851, Phone ID 1362796690246222. Tokens solo en `.env`.
+- WhatsApp real: +57 314 5801851. Phone ID y tokens solo en `.env`.
 - Demo en http://127.0.0.1:8090 expuesto con ngrok para el webhook.
 - Claude Code trabaja en el repo (ejecutor; Grok revisa, Alex aprueba).
 - Pruebas OK: `test_memory_cross_channel` y `test_level3_approval`.
@@ -59,7 +59,7 @@ Chrome: http://127.0.0.1:8090/
 ## 5. Pendientes / bugs conocidos
 - Meta WABA no creado en cuenta propia.
 - Agenda: un cupo por franja, pero sin calendario real. La cita se guarda como texto.
-- Reservas aceptan horas fuera de las franjas (ej. 17 o 10).
+- Reservas solo en franjas visibles (hoy 9, 11 y 15). Las viejas fuera de franja salen aparte en el panel.
 - Model router no llama APIs de pago.
 - “am” dentro de palabras ya no debe contar como hora (corregido en reservas).
 - Git a veces deja archivos sin commit: revisar `git status` antes de parar.

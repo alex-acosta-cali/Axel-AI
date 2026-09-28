@@ -14,10 +14,16 @@ def _hhmm(h: tuple[int, int]) -> str:
     return f"{h[0]}:{h[1]:02d}"
 
 
+def franjas_validas() -> list[tuple[int, int]]:
+    """Franjas piloto que caben en el horario de la KB. Son las únicas que se pueden reservar."""
+    abre, cierra = kb.get_hours()
+    return [f for f in FRANJAS_PILOTO if abre <= f < cierra]
+
+
 def _franjas() -> str:
     """Franjas piloto que caben en el horario de la KB, ya con 'a las' o 'entre'."""
     abre, cierra = kb.get_hours()
-    validas = [_hhmm(f) for f in FRANJAS_PILOTO if abre <= f < cierra]
+    validas = [_hhmm(f) for f in franjas_validas()]
     if not validas:
         return f"entre {_hhmm(abre)} y {_hhmm(cierra)}"
     if len(validas) == 1:
@@ -67,26 +73,38 @@ def _fecha(text: str, base: datetime) -> date | None:
         return base.date()
     for nombre, num in _DIAS.items():
         if re.search(rf"\b{nombre}\b", t):
-            return base.date() + timedelta(days=(num - base.weekday()) % 7)
+            # El mismo día de la semana que hoy es el de la próxima semana; hoy se dice "hoy".
+            return base.date() + timedelta(days=(num - base.weekday()) % 7 or 7)
     return None
 
 
-def _dia_hora(text: str, base: datetime) -> tuple[str, int] | None:
-    """Fecha (ISO) y hora pedidas en el texto, contando desde 'base'. None si falta algo."""
-    t = _sin_tildes(text)
-    fecha = _fecha(text, base)
-    m = re.search(r"\b(\d{1,2})(?:[:.](\d{2}))?\s*(a\.?\s?m\.?|p\.?\s?m\.?)?(?![\d/-])", t)
-    if fecha is None or not m:
+def _hora(text: str) -> tuple[int, int] | None:
+    """Hora y minuto del texto. 1 a 7 sin am/pm cuenta como tarde."""
+    m = re.search(r"\b(\d{1,2})(?:[:.](\d{2}))?\s*(a\.?\s?m\.?|p\.?\s?m\.?)?(?![\d/-])", _sin_tildes(text))
+    if not m:
         return None
-    hora = int(m.group(1))
+    hora, minuto = int(m.group(1)), int(m.group(2) or 0)
     suf = re.sub(r"[\s.]", "", m.group(3) or "")
     if suf == "pm" and hora < 12:
         hora += 12
     elif not suf and 1 <= hora <= 7:
         hora += 12
-    if hora > 23:
+    if hora > 23 or minuto > 59:
         return None
-    return fecha.isoformat(), hora
+    return hora, minuto
+
+
+def _cuando(text: str, base: datetime) -> tuple[date, int, int] | None:
+    """Fecha, hora y minuto pedidos en el texto, contando desde 'base'. None si falta algo."""
+    fecha = _fecha(text, base)
+    hm = _hora(text)
+    if fecha is None or hm is None:
+        return None
+    return fecha, hm[0], hm[1]
+
+
+def _texto_cuando(c: tuple[date, int, int]) -> str:
+    return f"{_NOMBRE_DIA[c[0].weekday()]} {c[1]}:{c[2]:02d}"
 
 
 def _creada_cali(created_at: str) -> datetime:
@@ -99,44 +117,59 @@ def _creada_cali(created_at: str) -> datetime:
 
 def franja_de(summary: str, created_at: str) -> str:
     """'miércoles 30/09 11:00' a partir de la cita guardada; el texto tal cual si no se entiende."""
-    cuando = _dia_hora(summary, _creada_cali(created_at))
+    cuando = _cuando(summary, _creada_cali(created_at))
     if not cuando:
         return (summary or "")[:60]
-    dia = datetime.fromisoformat(cuando[0])
-    mm = re.search(r"\b\d{1,2}[:.](\d{2})\b", summary or "")
-    return f"{_NOMBRE_DIA[dia.weekday()]} {dia.strftime('%d/%m')} {cuando[1]}:{mm.group(1) if mm else '00'}"
+    return f"{_NOMBRE_DIA[cuando[0].weekday()]} {cuando[0].strftime('%d/%m')} {cuando[1]}:{cuando[2]:02d}"
 
 
-def _ocupadas(memory, customer_id: str, fecha: str) -> set[int]:
-    """Horas de 'fecha' ya confirmadas por otros clientes."""
-    horas = set()
+def cupos_de(memory, fecha: date, excepto: str = "") -> dict[tuple[int, int], dict]:
+    """Franjas válidas de 'fecha' ya confirmadas, con su fila. Las citas fuera de franja no ocupan cupo."""
+    validas = franjas_validas()
+    tomadas: dict[tuple[int, int], dict] = {}
     for fila in memory.list_confirmed_reservas(500):
-        if fila.get("customer_id") == customer_id:
+        if excepto and fila.get("customer_id") == excepto:
             continue
-        otra = _dia_hora(str(fila.get("summary") or ""), _creada_cali(str(fila.get("created_at") or "")))
-        if otra and otra[0] == fecha:
-            horas.add(otra[1])
-    return horas
+        otra = _cuando(str(fila.get("summary") or ""), _creada_cali(str(fila.get("created_at") or "")))
+        if otra and otra[0] == fecha and otra[1:] in validas:
+            tomadas.setdefault(otra[1:], fila)
+    return tomadas
 
 
-def _cupo_tomado(env: Envelope, memory) -> str:
-    """Texto de 'ocupado' si otro cliente ya tiene ese día y hora; '' si está libre."""
-    if memory is None:
-        return ""
-    pedida = _dia_hora(env.text or "", _ahora_cali())
-    if not pedida:
-        return ""
-    ocupadas = _ocupadas(memory, env.customer_id or "", pedida[0])
-    if pedida[1] not in ocupadas:
-        return ""
-    abre, cierra = kb.get_hours()
-    libres = [_hhmm(f) for f in FRANJAS_PILOTO if abre <= f < cierra and f[0] not in ocupadas]
+def paso(fecha: date, franja: tuple[int, int], now: datetime | None = None) -> bool:
+    now = now or _ahora_cali()
+    return fecha < now.date() or (fecha == now.date() and franja <= (now.hour, now.minute))
+
+
+def _texto_libres(libres: list[tuple[int, int]]) -> str:
     if not libres:
-        return "Ese cupo ya está tomado y ese día no quedan franjas libres. ¿Probamos otro día?"
-    if len(libres) == 1:
-        return f"Ese cupo ya está tomado. Ese día sigue libre a las {libres[0]}. ¿Te sirve?"
-    opciones = ", ".join(libres[:-1]) + f" o {libres[-1]}"
-    return f"Ese cupo ya está tomado. Ese día siguen libres las {opciones}. ¿Cuál te sirve?"
+        return "Ese día no quedan franjas libres. ¿Probamos otro día?"
+    txt = [_hhmm(f) for f in libres]
+    if len(txt) == 1:
+        return f"Ese día sigue libre a las {txt[0]}. ¿Te sirve?"
+    return "Ese día siguen libres las " + ", ".join(txt[:-1]) + f" o {txt[-1]}. ¿Cuál te sirve?"
+
+
+def _no_disponible(env: Envelope, memory) -> str:
+    """'' si el texto pide una franja visible, libre y futura. Si no, qué responder."""
+    now = _ahora_cali()
+    fecha = _fecha(env.text or "", now)
+    if fecha is None:
+        return f"¿Qué día? Atendemos lunes a sábado {_franjas()}."
+    if fecha.weekday() == 6:
+        return "Los domingos no abrimos. Elige lunes a sábado."
+    tomadas = cupos_de(memory, fecha, env.customer_id or "") if memory is not None else {}
+    libres = [f for f in franjas_validas() if f not in tomadas and not paso(fecha, f, now)]
+    hm = _hora(env.text or "")
+    if hm is None:
+        return _texto_libres(libres)
+    if hm not in franjas_validas():
+        return f"A las {_hhmm(hm)} no hay cita. {_texto_libres(libres)}"
+    if paso(fecha, hm, now):
+        return f"Esa hora ya pasó. {_texto_libres(libres)}"
+    if hm in tomadas:
+        return f"Ese cupo ya está tomado. {_texto_libres(libres)}"
+    return ""
 
 
 def _tiene_cuando(text: str) -> bool:
@@ -249,20 +282,14 @@ def handle(env: Envelope, memory=None) -> Envelope:
             env.result = "pending"
             env.approval_status = "pending_customer"
             return env
-        tomado = _cupo_tomado(env, memory)
-        if tomado:
-            env.reply_text = tomado
+        falta = _no_disponible(env, memory)
+        if falta:
+            env.reply_text = falta
             env.result = "pending"
             env.approval_status = "pending_customer"
             return env
         memory.cancel_last_reserva(env.customer_id or "")
-        nueva = _dia_hora(env.text or "", _ahora_cali())
-        if nueva:
-            dia = _NOMBRE_DIA[datetime.fromisoformat(nueva[0]).weekday()]
-            mm = re.search(r"\b\d{1,2}[:.](\d{2})\b", env.text or "")
-            env.reply_text = f"Pasé la cita a {dia} {nueva[1]}:{mm.group(1) if mm else '00'}."
-        else:
-            env.reply_text = f"Pasé la cita a «{env.text}»."
+        env.reply_text = f"Pasé la cita a {_texto_cuando(_cuando(env.text or '', _ahora_cali()))}."
         env.result = "ok"
         env.approval_status = "confirmed_customer"
         env.intent = "reserva"
@@ -285,19 +312,13 @@ def handle(env: Envelope, memory=None) -> Envelope:
         return env
 
     if _tiene_cuando(env.text or "") and "cita" not in bajo and "reserva" not in bajo:
-        tomado = _cupo_tomado(env, memory)
-        if tomado:
-            env.reply_text = tomado
+        falta = _no_disponible(env, memory)
+        if falta:
+            env.reply_text = falta
             env.result = "pending"
             env.approval_status = "pending_customer"
             return env
-        nueva = _dia_hora(env.text or "", _ahora_cali())
-        if nueva:
-            dia = _NOMBRE_DIA[datetime.fromisoformat(nueva[0]).weekday()]
-            mm = re.search(r"\b\d{1,2}[:.](\d{2})\b", env.text or "")
-            cuando = f"{dia} {nueva[1]}:{mm.group(1) if mm else '00'}"
-        else:
-            cuando = f"«{env.text}»"
+        cuando = _texto_cuando(_cuando(env.text or "", _ahora_cali()))
         env.reply_text = f"Quedó tu cita: {cuando}. Para cambiar escribe cancelar la cita o reprogramar la cita."
         env.result = "ok"
         env.approval_status = "confirmed_customer"

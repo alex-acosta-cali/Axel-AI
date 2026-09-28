@@ -11,8 +11,17 @@ from urllib.parse import parse_qs, urlparse
 
 from datetime import timedelta
 
-from axel import knowledge_base as kb
-from axel.agents.reservas import FRANJAS_PILOTO, _ahora_cali, _creada_cali, _dia_hora, _hhmm, franja_de
+from axel.agents.reservas import (
+    _NOMBRE_DIA,
+    _ahora_cali,
+    _creada_cali,
+    _cuando,
+    _hhmm,
+    cupos_de,
+    franja_de,
+    franjas_validas,
+    paso,
+)
 from axel.connectors import whatsapp
 from axel.envelope import Envelope
 from axel.memory import Memory
@@ -23,35 +32,57 @@ memory = Memory("./axel.db")
 DIAS_ES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
 
 
+def _quien(fila: dict) -> str:
+    cli = memory.get_customer(str(fila.get("customer_id") or "")) or {}
+    return str(fila.get("name") or cli.get("phone") or "sin nombre")
+
+
+def _fuera_de_franja() -> list[str]:
+    """Citas confirmadas que no caen en una franja visible. No se borran ni ocupan cupo."""
+    validas = franjas_validas()
+    hoy = _ahora_cali().date()
+    lineas = []
+    for c in memory.list_confirmed_reservas(500):
+        summary = str(c.get("summary") or "")
+        cuando = _cuando(summary, _creada_cali(str(c.get("created_at") or "")))
+        if cuando and cuando[1:] in validas and cuando[0].weekday() != 6:
+            continue
+        if cuando and cuando[0] < hoy:
+            continue
+        if cuando:
+            hora = f"{cuando[1]}" if cuando[2] == 0 else f"{cuando[1]}:{cuando[2]:02d}"
+            que = f"{_NOMBRE_DIA[cuando[0].weekday()]} a las {hora}"
+        else:
+            que = f"«{summary[:60]}»"
+        lineas.append(f"Fuera de franja: {que} · {_quien(c)}")
+    return lineas
+
+
 def _tabla_cupos() -> str:
-    """Franjas de los próximos 7 días (sin domingo): LIBRE o TOMADA. Solo lectura."""
-    abre, cierra = kb.get_hours()
-    franjas = [f for f in FRANJAS_PILOTO if abre <= f < cierra]
+    """Franjas de los próximos 7 días (sin domingo): LIBRE, TOMADA o PASÓ. Solo lectura."""
+    franjas = franjas_validas()
     if not franjas:
         return "<p>Ninguna franja cabe en el horario de la KB.</p>"
-    tomadas: dict[tuple[str, int], str] = {}
-    for c in memory.list_confirmed_reservas(500):
-        cuando = _dia_hora(str(c.get("summary") or ""), _creada_cali(str(c.get("created_at") or "")))
-        if not cuando or cuando in tomadas:
-            continue
-        cli = memory.get_customer(str(c.get("customer_id") or "")) or {}
-        tomadas[cuando] = str(c.get("name") or cli.get("phone") or c.get("customer_id") or "")
     hoy = _ahora_cali().date()
     filas = []
     for i in range(7):
         dia = hoy + timedelta(days=i)
         if dia.weekday() == 6:
             continue
+        tomadas = cupos_de(memory, dia)
         celdas = []
         for f in franjas:
-            quien = tomadas.get((dia.isoformat(), f[0]))
-            if quien is None:
-                celdas.append("<td class='ok'>LIBRE</td>")
+            fila = tomadas.get(f)
+            if fila is not None:
+                celdas.append(f"<td class='tomada'>TOMADA · {html.escape(_quien(fila))}</td>")
+            elif paso(dia, f):
+                celdas.append("<td class='paso'>PASÓ</td>")
             else:
-                celdas.append(f"<td class='tomada'>TOMADA · {html.escape(quien)}</td>")
+                celdas.append("<td class='ok'>LIBRE</td>")
         filas.append(f"<tr><td>{DIAS_ES[dia.weekday()]} {dia.strftime('%d/%m')}</td>{''.join(celdas)}</tr>")
     cab = "".join(f"<th>{_hhmm(f)}</th>" for f in franjas)
-    return f"<table><tr><th>Día</th>{cab}</tr>{''.join(filas)}</table>"
+    fuera = "".join(f"<p>{html.escape(l)}</p>" for l in _fuera_de_franja())
+    return f"<table><tr><th>Día</th>{cab}</tr>{''.join(filas)}</table>{fuera}"
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -144,7 +175,7 @@ class Handler(BaseHTTPRequestHandler):
 body{{font-family:Segoe UI,sans-serif;background:#111;color:#eee;margin:24px}}
 h1{{color:#6cf}} table{{border-collapse:collapse;width:100%;font-size:14px}}
 td,th{{border:1px solid #444;padding:8px;text-align:left;vertical-align:top}}
-th{{background:#222}} .ok{{color:#8f8}} .tomada{{color:#f99}}
+th{{background:#222}} .ok{{color:#8f8}} .tomada{{color:#f99}} .paso{{color:#888}}
 .kpis{{display:flex;gap:12px;margin:16px 0;flex-wrap:wrap}}
 .kpi{{background:#1c1c1c;border:1px solid #444;padding:14px 18px;min-width:140px}}
 .kpi b{{display:block;font-size:28px;color:#6cf}}
@@ -289,10 +320,11 @@ def _recordatorio_loop() -> None:
             if not citas:
                 ultimo = hoy
                 continue
-            lineas = [
-                f"- {c.get('name') or c.get('customer_id')}: {c.get('summary')}"
-                for c in citas
-            ]
+            lineas = []
+            for c in citas:
+                cli = memory.get_customer(str(c.get("customer_id") or "")) or {}
+                franja = franja_de(str(c.get("summary") or ""), str(c.get("created_at") or ""))
+                lineas.append(f"- {franja} · {c.get('name') or 'sin nombre'} · {cli.get('phone') or 'sin teléfono'}")
             send_text(owner, "Recordatorio AXEL (hoy):\n" + "\n".join(lineas))
             print("RECORDATORIO enviado", hoy)
             ultimo = hoy
