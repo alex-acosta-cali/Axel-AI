@@ -53,6 +53,9 @@ ONB_HORARIO = re.compile(rf"^(?:de\s+)?{_HORA}\s+a\s+{_HORA}\s*\.?$", re.I)
 ONB_START = {"configurar", "onboarding", "axeladmin configurar"}
 ONB_SALIR = {"cancelar", "salir", "cancelar configuracion"}
 HORARIO_AYUDA = "Ejemplo: de 8 a 19, o de 8am a 7pm."
+PREGUNTA_NOMBRE = "¿Cómo te llamas?"
+NOMBRE_CORTO = re.compile(r"[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ ]{2,40}")
+NO_ES_NOMBRE = {"si", "no", "ok", "okay", "dale", "bien", "nada", "claro", "vale"}
 
 
 def _hora(h: str, m: str | None, ampm: str | None) -> tuple[int, int] | None:
@@ -366,6 +369,19 @@ def process(env: Envelope, memory: Memory) -> Envelope:
         memory.set_customer_name(env.customer_id, nombre)
         env.name = nombre
         env.intent = "datos"
+    pedir_nombre = env.channel == "whatsapp" and not env.payload["es_dueno"] and not env.name
+    if pedir_nombre and memory.last_reply(env.customer_id).endswith(PREGUNTA_NOMBRE):
+        candidato = (env.text or "").strip().rstrip(".!")
+        if (
+            NOMBRE_CORTO.fullmatch(candidato)
+            and len(candidato.split()) <= 4
+            and env.intent == "pregunta"
+            and _norm(candidato) not in NO_ES_NOMBRE
+        ):
+            nombre = " ".join(candidato.split()).title()[:40]
+            memory.set_customer_name(env.customer_id, nombre)
+            env.name = nombre
+            env.intent = "datos"
     tel = re.search(
         r"(?:mi celular|mi telefono|mi teléfono|celular|whatsapp|el numero|el número)?\D*((?:3\d{9})|(?:\d{10}))",
         env.text or "",
@@ -426,6 +442,14 @@ def process(env: Envelope, memory: Memory) -> Envelope:
 
     if env.result is None:
         env.result = "ok"
+
+    if (
+        pedir_nombre
+        and not env.name
+        and env.intent in {"saludo", "pregunta"}
+        and not memory.replied_with(env.customer_id, PREGUNTA_NOMBRE)
+    ):
+        env.reply_text = f"{env.reply_text or ''} {PREGUNTA_NOMBRE}".strip()
 
     if env.intent == "reserva" and env.result == "pending":
         memory.set_open_task(env.customer_id, "reserva")

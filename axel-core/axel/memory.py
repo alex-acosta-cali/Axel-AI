@@ -362,6 +362,30 @@ class Memory:
             ).fetchone()
         return str(row["open_task"]) if row and row["open_task"] else ""
 
+    def last_reply(self, customer_id: str) -> str:
+        with self._conn() as conn:
+            row = conn.execute(
+                """
+                SELECT text FROM messages
+                WHERE customer_id = ? AND direction = 'out'
+                ORDER BY message_id DESC LIMIT 1
+                """,
+                (customer_id,),
+            ).fetchone()
+        return str(row["text"] or "") if row else ""
+
+    def replied_with(self, customer_id: str, fragment: str) -> bool:
+        with self._conn() as conn:
+            row = conn.execute(
+                """
+                SELECT 1 FROM messages
+                WHERE customer_id = ? AND direction = 'out' AND instr(text, ?) > 0
+                LIMIT 1
+                """,
+                (customer_id, fragment),
+            ).fetchone()
+        return bool(row)
+
     def add_note(self, customer_id: str, note: str) -> None:
         note = (note or "").strip()[:240]
         if not customer_id or not note:
