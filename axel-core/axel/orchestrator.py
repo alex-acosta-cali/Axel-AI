@@ -53,9 +53,15 @@ ONB_HORARIO = re.compile(rf"^(?:de\s+)?{_HORA}\s+a\s+{_HORA}\s*\.?$", re.I)
 ONB_START = {"configurar", "onboarding", "axeladmin configurar"}
 ONB_SALIR = {"cancelar", "salir", "cancelar configuracion"}
 HORARIO_AYUDA = "Ejemplo: de 8 a 19, o de 8am a 7pm."
-PREGUNTA_NOMBRE = "¿Cómo te llamas?"
+PREGUNTA_NOMBRE = "¿Cómo quieres que te llame?"
+PREGUNTA_NOMBRE_VIEJA = "¿Cómo te llamas?"
 NOMBRE_CORTO = re.compile(r"[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ ]{2,40}")
 NO_ES_NOMBRE = {"si", "no", "ok", "okay", "dale", "bien", "nada", "claro", "vale"}
+
+
+def _nombre_usable(nombre: str | None) -> bool:
+    """Al menos 2 letras. Emojis, símbolos o una sola letra no cuentan."""
+    return len(re.findall(r"[a-záéíóúüñ]", (nombre or "").lower())) >= 2
 
 
 def _hora(h: str, m: str | None, ampm: str | None) -> tuple[int, int] | None:
@@ -274,6 +280,8 @@ def pick_agent(intent: str) -> str:
 
 
 def process(env: Envelope, memory: Memory) -> Envelope:
+    if not _nombre_usable(env.name):
+        env.name = None
     ident = memory.identify_customer(
         business_id=env.business_id,
         channel=env.channel,
@@ -283,7 +291,7 @@ def process(env: Envelope, memory: Memory) -> Envelope:
         name=env.name,
     )
     env.customer_id = ident["customer"]["customer_id"]
-    if not env.name:
+    if not env.name and _nombre_usable(ident["customer"].get("name")):
         env.name = ident["customer"].get("name")
     if not env.phone:
         env.phone = ident["customer"].get("phone")
@@ -370,10 +378,11 @@ def process(env: Envelope, memory: Memory) -> Envelope:
         env.name = nombre
         env.intent = "datos"
     pedir_nombre = env.channel == "whatsapp" and not env.payload["es_dueno"] and not env.name
-    if pedir_nombre and memory.last_reply(env.customer_id).endswith(PREGUNTA_NOMBRE):
+    if pedir_nombre and memory.last_reply(env.customer_id).endswith((PREGUNTA_NOMBRE, PREGUNTA_NOMBRE_VIEJA)):
         candidato = (env.text or "").strip().rstrip(".!")
         if (
             NOMBRE_CORTO.fullmatch(candidato)
+            and _nombre_usable(candidato)
             and len(candidato.split()) <= 4
             and env.intent == "pregunta"
             and _norm(candidato) not in NO_ES_NOMBRE
@@ -448,6 +457,7 @@ def process(env: Envelope, memory: Memory) -> Envelope:
         and not env.name
         and env.intent in {"saludo", "pregunta"}
         and not memory.replied_with(env.customer_id, PREGUNTA_NOMBRE)
+        and not memory.replied_with(env.customer_id, PREGUNTA_NOMBRE_VIEJA)
     ):
         env.reply_text = f"{env.reply_text or ''} {PREGUNTA_NOMBRE}".strip()
 
