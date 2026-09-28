@@ -49,6 +49,7 @@ def _fuera_de_horario_hoy(now: datetime | None = None) -> str:
 
 
 _DIAS = {"lunes": 0, "martes": 1, "miercoles": 2, "jueves": 3, "viernes": 4, "sabado": 5, "domingo": 6}
+_NOMBRE_DIA = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
 
 
 def _sin_tildes(text: str) -> str:
@@ -207,7 +208,13 @@ def handle(env: Envelope, memory=None) -> Envelope:
             env.approval_status = "pending_customer"
             return env
         memory.cancel_last_reserva(env.customer_id or "")
-        env.reply_text = f"Pasé la cita a «{env.text}»."
+        nueva = _dia_hora(env.text or "", _ahora_cali())
+        if nueva:
+            dia = _NOMBRE_DIA[datetime.fromisoformat(nueva[0]).weekday()]
+            mm = re.search(r"\b\d{1,2}[:.](\d{2})\b", env.text or "")
+            env.reply_text = f"Pasé la cita a {dia} {nueva[1]}:{mm.group(1) if mm else '00'}."
+        else:
+            env.reply_text = f"Pasé la cita a «{env.text}»."
         env.result = "ok"
         env.approval_status = "confirmed_customer"
         env.intent = "reserva"
