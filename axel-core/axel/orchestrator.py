@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import re
 
+from axel import knowledge_base as kb_mod
 from axel.agents import atencion, escalamiento, reservas
 from axel.connectors.whatsapp import send_text
 from axel.envelope import Envelope, now_iso
@@ -53,6 +54,16 @@ ONB_HORARIO = re.compile(rf"^(?:de\s+)?{_HORA}\s+a\s+{_HORA}\s*\.?$", re.I)
 ONB_START = {"configurar", "onboarding", "axeladmin configurar"}
 ONB_SALIR = {"cancelar", "salir", "cancelar configuracion"}
 HORARIO_AYUDA = "Ejemplo: de 8 a 19, o de 8am a 7pm."
+_ADMIN = r"^(?:axeladmin\s+)?"
+_PRECIO = r"\$?\s*([\d.,]+)\s*(?:pesos)?\s*\.?$"
+OWNER_KB = [
+    ("rubro", re.compile(_ADMIN + r"el rubro es\s+(.+)$", re.I)),
+    ("agenda", re.compile(_ADMIN + r"agenda\s+(si|sí|no)\s*\.?$", re.I)),
+    ("agrega", re.compile(_ADMIN + r"agrega(?:r)?\s+(?:el\s+)?servicio\s+(.+?)\s+a\s+" + _PRECIO, re.I)),
+    ("precio", re.compile(_ADMIN + r"cambia(?:r)?\s+el\s+precio\s+(?:del\s+|de\s+la\s+|de\s+)?(.+?)\s+a\s+" + _PRECIO, re.I)),
+    ("quita", re.compile(_ADMIN + r"quita(?:r)?\s+(?:el\s+)?servicio\s+(.+?)\s*\.?$", re.I)),
+    ("franjas", re.compile(_ADMIN + r"franjas\s+([\d:\s,y]+?)\s*\.?$", re.I)),
+]
 PREGUNTA_NOMBRE = "¿Cómo quieres que te llame?"
 PREGUNTA_NOMBRE_VIEJA = "¿Cómo te llamas?"
 NOMBRE_CORTO = re.compile(r"[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ ]{2,40}")
@@ -84,6 +95,63 @@ def _guardar_horario(m: re.Match) -> str:
     return set_hours(f"{abre[0]}:{abre[1]:02d}", f"{cierra[0]}:{cierra[1]:02d}")
 
 
+def _comando_kb(text: str) -> tuple[str, re.Match] | None:
+    for nombre, patron in OWNER_KB:
+        m = patron.match(text)
+        if m:
+            return nombre, m
+    return None
+
+
+def _pesos(raw: str) -> int:
+    digitos = re.sub(r"\D", "", raw or "")
+    return int(digitos) if digitos else 0
+
+
+def _editar_kb(cual: str, m: re.Match) -> str:
+    """Aplica un comando del dueño sobre rubro, agenda, servicios o franjas. Devuelve lo que quedó."""
+    if cual == "rubro":
+        rubro = kb_mod.set_rubro(m.group(1))
+        return f"Listo, rubro: {rubro}." if rubro else "No entendí el rubro."
+    if cual == "agenda":
+        activa = _norm(m.group(1)) == "si"
+        kb_mod.set_agenda(activa)
+        return "Listo, agenda activa." if activa else "Listo, agenda apagada. No ofrezco citas."
+    if cual == "agrega":
+        precio = _pesos(m.group(2))
+        if precio <= 0:
+            return "No entendí el precio."
+        if kb_mod.buscar_servicio(m.group(1)):
+            nombre = kb_mod.nombre_servicio(m.group(1))
+            return f"Ya existe {nombre}. Para cambiarlo: cambia el precio de {nombre} a N."
+        nombre = kb_mod.add_servicio(m.group(1), precio)
+        return f"Listo, servicio {nombre} a {kb_mod.precio_txt(precio)}." if nombre else "No entendí el servicio."
+    if cual == "precio":
+        precio = _pesos(m.group(2))
+        s = kb_mod.buscar_servicio(m.group(1))
+        if not s:
+            return f"No tengo el servicio {kb_mod.nombre_servicio(m.group(1))}."
+        if precio <= 0:
+            return "No entendí el precio."
+        return f"Listo, {s['nombre']} a {kb_mod.set_price(str(s['nombre']), str(precio))}."
+    if cual == "quita":
+        nombre = kb_mod.nombre_servicio(m.group(1))
+        return f"Listo, quité {nombre}." if kb_mod.remove_servicio(nombre) else f"No tengo el servicio {nombre}."
+    horas = []
+    for h, mi in re.findall(r"(\d{1,2})(?::(\d{2}))?", m.group(1)):
+        if int(h) > 23 or int(mi or 0) > 59:
+            return "No entendí las franjas. Ejemplo: franjas 8 12 16"
+        horas.append((int(h), int(mi or 0)))
+    if not horas:
+        return "No entendí las franjas. Ejemplo: franjas 8 12 16"
+    kb_mod.set_franjas(horas)
+    abre, cierra = kb_mod.get_hours()
+    txt = ", ".join(f"{h}:{mi:02d}" for h, mi in sorted(set(horas)))
+    fuera = [f"{h}:{mi:02d}" for h, mi in sorted(set(horas)) if not abre <= (h, mi) < cierra]
+    aviso = f" Fuera del horario, no se ofrecen: {', '.join(fuera)}." if fuera else ""
+    return f"Listo, franjas: {txt}.{aviso}"
+
+
 def _es_dueno(env: Envelope) -> bool:
     """Dueño = canal panel, o WhatsApp desde el número WA_OWNER_PHONE."""
     if env.channel == "panel":
@@ -103,13 +171,16 @@ def _try_owner_setup(env: Envelope, memory: Memory) -> bool:
     t = _norm(text)
     nombre = OWNER_NOMBRE.match(text)
     horario = OWNER_HORARIO.match(text)
+    comando = _comando_kb(text)
     if not _es_dueno(env):
-        if not (nombre or horario):
+        if not (nombre or horario or comando):
             return False
         env.reply_text = "Eso solo lo cambia el dueño."
     else:
         paso = memory.get_open_task(env.customer_id or "")
-        if nombre:
+        if comando:
+            env.reply_text = _editar_kb(*comando)
+        elif nombre:
             guardado = set_business_name(nombre.group(1))
             env.reply_text = (
                 f"Listo, el negocio quedó como {guardado}." if guardado else "No entendí el nombre del negocio."
@@ -147,7 +218,7 @@ def _try_owner_setup(env: Envelope, memory: Memory) -> bool:
     env.supervision_level = 1
     env.result = "ok"
     env.approval_status = "na"
-    env.why = "configuracion del negocio (nombre/horario)"
+    env.why = "configuracion del negocio (KB)"
     return True
 
 
@@ -178,7 +249,9 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         env.reply_text = (
             "Comandos dueño: estado, limpiar, pendientes, citas, clientes, "
             "aceptar/aprobar, rechazo/rechazar, ayuda, "
-            "configurar, el negocio se llama NOMBRE, abrimos de H1 a H2."
+            "configurar, el negocio se llama NOMBRE, abrimos de H1 a H2, "
+            "el rubro es X, agenda si/no, agrega servicio X a N, "
+            "cambia el precio de X a N, quita servicio X, franjas 8 12 16."
         )
         env.result = "ok"
         env.approval_status = "na"

@@ -163,6 +163,65 @@ def set_price(producto: str, pesos: str) -> str:
     return marca
 
 
+def _guardar(kb: dict) -> None:
+    _kb_path().write_text(json.dumps(kb, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def nombre_servicio(nombre: str) -> str:
+    return " ".join((nombre or "").lower().split()).strip(" .,;:!¡¿?\"'")[:40]
+
+
+def buscar_servicio(nombre: str) -> Optional[dict]:
+    """Servicio con ese nombre exacto (sin tildes ni mayúsculas)."""
+    buscado = _plano(nombre_servicio(nombre))
+    for s in servicios():
+        if _plano(nombre_servicio(str(s["nombre"]))) == buscado:
+            return s
+    return None
+
+
+def set_rubro(rubro: str) -> str:
+    rubro = " ".join((rubro or "").split()).strip(" .,;:!¡¿?\"'")[:40]
+    if rubro:
+        kb = load_kb()
+        kb["rubro"] = rubro
+        _guardar(kb)
+    return rubro
+
+
+def set_agenda(activa: bool) -> None:
+    kb = load_kb()
+    kb["agenda"] = bool(activa)
+    _guardar(kb)
+
+
+def add_servicio(nombre: str, precio: int) -> str:
+    """'' si el nombre no sirve o ya existe."""
+    nombre = nombre_servicio(nombre)
+    if len(re.findall(r"[a-záéíóúüñ]", nombre)) < 2 or buscar_servicio(nombre):
+        return ""
+    kb = load_kb()
+    kb.setdefault("servicios", []).append({"nombre": nombre, "precio": int(precio)})
+    _guardar(kb)
+    return nombre
+
+
+def remove_servicio(nombre: str) -> bool:
+    s = buscar_servicio(nombre)
+    if not s:
+        return False
+    kb = load_kb()
+    kb["servicios"] = [x for x in kb.get("servicios") or [] if x.get("nombre") != s["nombre"]]
+    _guardar(kb)
+    return True
+
+
+def set_franjas(franjas: list[tuple[int, int]]) -> None:
+    kb = load_kb()
+    kb["franjas"] = [h if m == 0 else f"{h}:{m:02d}" for h, m in sorted(set(franjas))]
+    _guardar(kb)
+
+
 def set_business_name(nombre: str) -> str:
     nombre = " ".join((nombre or "").split()).strip(" .,;:!¡¿?\"'")[:60]
     if not nombre:
