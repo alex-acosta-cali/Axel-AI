@@ -142,25 +142,19 @@ def _kb_path() -> Path:
 
 
 def set_price(producto: str, pesos: str) -> str:
+    """Cambia el precio en servicios[]. Las FAQ no llevan precios."""
     producto = (producto or "").lower().strip()
     pesos = pesos.replace(".", "").replace(",", "")
-    path = _kb_path()
     kb = load_kb()
-    marca = f"${int(pesos):,}".replace(",", ".")
     cambiado = False
     for s in kb.get("servicios") or []:
         if _plano(str(s.get("nombre") or "")).strip() == _plano(producto):
             s["precio"] = int(pesos)
             cambiado = True
-    for item in kb.get("faqs", []):
-        keys = " ".join(item.get("q") or [])
-        if producto in keys:
-            item["a"] = f"El {producto} quedó en {marca}."
-            cambiado = True
     if not cambiado:
         return ""
-    path.write_text(json.dumps(kb, ensure_ascii=False, indent=2), encoding="utf-8")
-    return marca
+    _guardar(kb)
+    return precio_txt(pesos)
 
 
 def _guardar(kb: dict) -> None:

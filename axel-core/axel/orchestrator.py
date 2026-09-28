@@ -60,7 +60,7 @@ OWNER_KB = [
     ("rubro", re.compile(_ADMIN + r"el rubro es\s+(.+)$", re.I)),
     ("agenda", re.compile(_ADMIN + r"agenda\s+(si|sí|no)\s*\.?$", re.I)),
     ("agrega", re.compile(_ADMIN + r"agrega(?:r)?\s+(?:el\s+)?servicio\s+(.+?)\s+a\s+" + _PRECIO, re.I)),
-    ("precio", re.compile(_ADMIN + r"cambia(?:r)?\s+el\s+precio\s+(?:del\s+|de\s+la\s+|de\s+)?(.+?)\s+a\s+" + _PRECIO, re.I)),
+    ("precio", re.compile(_ADMIN + r"cambi(?:a|ar|o)\s+el\s+precio\s+(?:del\s+|de\s+la\s+|de\s+)?(.+?)\s+a\s+" + _PRECIO, re.I)),
     ("quita", re.compile(_ADMIN + r"quita(?:r)?\s+(?:el\s+)?servicio\s+(.+?)\s*\.?$", re.I)),
     ("franjas", re.compile(_ADMIN + r"franjas\s+([\d:\s,y]+?)\s*\.?$", re.I)),
 ]
@@ -438,25 +438,6 @@ def process(env: Envelope, memory: Memory) -> Envelope:
         return env
 
     env.intent = classify_intent(env.text)
-    admin_precio = re.search(
-        r"(?:AXELADMIN\s+)?cambio el precio (?:del |de la |de )?(corte|barba)\s+a\s+\$?([\d\.]+)",
-        env.text or "",
-        re.I,
-    )
-    if admin_precio:
-        if (env.text or "").upper().startswith("AXELADMIN") and env.channel in {"panel", "test"}:
-            from axel.knowledge_base import set_price
-
-            marca = set_price(admin_precio.group(1), admin_precio.group(2))
-            env.intent = "admin_kb"
-            env.reply_text = (
-                f"Actualicé el precio de {admin_precio.group(1)} a {marca}."
-                if marca
-                else "No encontré ese producto en la KB."
-            )
-        else:
-            env.intent = "admin_kb"
-            env.reply_text = "Eso solo lo cambia el dueño con el comando AXELADMIN."
     if (env.text or "").strip().upper() == "AXELADMIN ESTADO" and env.channel in {"panel", "test"}:
         n_cli = len(memory.list_customers(50))
         n_pend = len(memory.list_pending())
