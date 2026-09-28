@@ -210,7 +210,7 @@ def remove_servicio(nombre: str) -> bool:
     return True
 
 
-_PIDE_UBICACION = re.compile(r"\b(donde|direccion|ubicacion|ubicados)\b")
+_PIDE_UBICACION = re.compile(r"\b(donde quedan?|direccion|ubicacion)\b")
 
 
 def answer_ubicacion(text: str) -> Optional[str]:
