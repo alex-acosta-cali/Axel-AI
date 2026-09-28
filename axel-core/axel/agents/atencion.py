@@ -8,6 +8,12 @@ from axel import knowledge_base as kb
 
 _CALI = timezone(timedelta(hours=-5))
 _OFERTA_CITA = re.compile(r"\s*¿[^?]*\b(reserv|agend|cupo|cita)[^?]*\?", re.I)
+PEDIDO_FRASES = ("me lo llevo", "lo compro", "quiero pagar", "lo pago")
+
+
+def es_pedido(text: str) -> bool:
+    bajo = (text or "").lower()
+    return any(p in bajo for p in PEDIDO_FRASES)
 
 
 def estado_cali(ahora: datetime | None = None) -> tuple[bool, str]:
@@ -82,7 +88,7 @@ def handle(env: Envelope, memory=None) -> Envelope:
             env.reply_text = cuaderno
             env.result = "ok"
             return env
-    if any(p in bajo for p in ("me lo llevo", "lo compro", "quiero pagar", "lo pago")):
+    if es_pedido(text):
         servicio = kb.servicio_en(text)
         env.result = "ok"
         if not servicio:

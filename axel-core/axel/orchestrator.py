@@ -603,6 +603,14 @@ def process(env: Envelope, memory: Memory) -> Envelope:
         env.intent = "nota"
         env.reply_text = f"Anoté en tu ficha: {texto}"
     open_task = memory.get_open_task(env.customer_id)
+    if (
+        open_task in {"reserva", "reprogramar", "oferta_cita"}
+        and env.intent in {"pregunta", "saludo", "venta"}
+        and atencion.es_pedido(env.text)
+    ):
+        # Comprar no es reservar: el pedido cierra la cita a medio pedir.
+        memory.set_open_task(env.customer_id, "")
+        open_task = ""
     if open_task == "reserva" and env.intent in {"pregunta", "saludo"}:
         env.intent = "reserva"
     if open_task == "reprogramar" and env.intent in {"pregunta", "saludo", "reserva"}:
