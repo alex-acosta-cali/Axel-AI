@@ -52,8 +52,16 @@ _HORA = r"(\d{1,2})(?::(\d{2}))?\s*(a\.?\s?m\.?|p\.?\s?m\.?)?"
 OWNER_HORARIO = re.compile(rf"^(?:axeladmin\s+)?abrimos de\s+{_HORA}\s+a\s+{_HORA}\s*\.?$", re.I)
 ONB_HORARIO = re.compile(rf"^(?:de\s+)?{_HORA}\s+a\s+{_HORA}\s*\.?$", re.I)
 ONB_START = {"configurar", "onboarding", "axeladmin configurar"}
-ONB_SALIR = {"cancelar", "salir", "cancelar configuracion"}
+ONB_SALIR = {"cancelar", "salir", "cancelar configuracion", "cancelar configurar"}
 HORARIO_AYUDA = "Ejemplo: de 8 a 19, o de 8am a 7pm."
+ONB_PREGUNTA = {
+    "onb_nombre": "¿Cómo se llama el negocio?",
+    "onb_rubro": "¿Cuál es el rubro? Ejemplo: barbería, cafetería, tienda.",
+    "onb_agenda": "¿Agendan citas? Responde si o no.",
+    "onb_horario": f"¿En qué horario abren? {HORARIO_AYUDA}",
+    "onb_franjas": "¿A qué horas das citas? Ejemplo: 9 11 15",
+    "onb_ubicacion": "¿Cuál es la ubicación? Ejemplo: Cra 1 #2-3 Cali",
+}
 _ADMIN = r"^(?:axeladmin\s+)?"
 _PRECIO = r"\$?\s*([\d.,]+)\s*(?:pesos)?\s*\.?$"
 OWNER_KB = [
@@ -154,19 +162,25 @@ def _editar_kb(cual: str, m: re.Match) -> str:
     if cual == "quita_faq":
         clave = kb_mod.nombre_servicio(m.group(1))
         return f"Listo, quité la pregunta {clave}." if kb_mod.remove_faq(clave) else f"No tengo la pregunta {clave}."
+    guardado = _guardar_franjas(m.group(1))
+    return f"Listo, {guardado}" if guardado else "No entendí las franjas. Ejemplo: franjas 8 12 16"
+
+
+def _guardar_franjas(raw: str) -> str:
+    """'franjas: 8:00, 12:00.' con aviso si alguna queda fuera del horario. '' si no se entienden."""
     horas = []
-    for h, mi in re.findall(r"(\d{1,2})(?::(\d{2}))?", m.group(1)):
+    for h, mi in re.findall(r"(\d{1,2})(?::(\d{2}))?", raw or ""):
         if int(h) > 23 or int(mi or 0) > 59:
-            return "No entendí las franjas. Ejemplo: franjas 8 12 16"
+            return ""
         horas.append((int(h), int(mi or 0)))
     if not horas:
-        return "No entendí las franjas. Ejemplo: franjas 8 12 16"
+        return ""
     kb_mod.set_franjas(horas)
     abre, cierra = kb_mod.get_hours()
     txt = ", ".join(f"{h}:{mi:02d}" for h, mi in sorted(set(horas)))
     fuera = [f"{h}:{mi:02d}" for h, mi in sorted(set(horas)) if not abre <= (h, mi) < cierra]
     aviso = f" Fuera del horario, no se ofrecen: {', '.join(fuera)}." if fuera else ""
-    return f"Listo, franjas: {txt}.{aviso}"
+    return f"franjas: {txt}.{aviso}"
 
 
 def _es_dueno(env: Envelope) -> bool:
@@ -180,6 +194,35 @@ def _es_dueno(env: Envelope) -> bool:
     if len(owner) < 10 or len(incoming) < 10:
         return False
     return owner[-10:] == incoming[-10:]
+
+
+def _paso_configurar(env: Envelope, memory: Memory, paso: str, text: str) -> str:
+    """Guarda la respuesta del paso y pregunta el siguiente. Si no la entiende, repite la misma pregunta."""
+    guardado, siguiente = "", ""
+    if paso == "onb_nombre":
+        guardado, siguiente = set_business_name(text), "onb_rubro"
+    elif paso == "onb_rubro":
+        guardado, siguiente = kb_mod.set_rubro(text), "onb_agenda"
+    elif paso == "onb_agenda":
+        resp = _norm(text).strip(" .!")
+        if resp in {"si", "no"}:
+            kb_mod.set_agenda(resp == "si")
+            guardado, siguiente = f"agenda {resp}", "onb_horario"
+    elif paso == "onb_horario":
+        libre = ONB_HORARIO.match(text)
+        guardado = _guardar_horario(libre) if libre else ""
+        siguiente = "onb_franjas" if kb_mod.agenda() else "onb_ubicacion"
+    elif paso == "onb_franjas":
+        guardado, siguiente = _guardar_franjas(text), "onb_ubicacion"
+    elif paso == "onb_ubicacion":
+        guardado = kb_mod.set_ubicacion(text)
+    if not guardado:
+        return f"No entendí. {ONB_PREGUNTA[paso]}"
+    memory.set_open_task(env.customer_id or "", siguiente)
+    guardado = guardado.rstrip(".")
+    if siguiente:
+        return f"Guardé {guardado}. {ONB_PREGUNTA[siguiente]}"
+    return f"Guardé {guardado}. Configuración terminada. Escribe catalogo para revisar."
 
 
 def _try_owner_setup(env: Envelope, memory: Memory) -> bool:
@@ -209,25 +252,12 @@ def _try_owner_setup(env: Envelope, memory: Memory) -> bool:
             )
         elif t in ONB_START:
             memory.set_open_task(env.customer_id or "", "onb_nombre")
-            env.reply_text = "Configuremos el negocio. ¿Cómo se llama el negocio?"
-        elif paso.startswith("onb_") and t in ONB_SALIR:
+            env.reply_text = f"Configuremos el negocio. {ONB_PREGUNTA['onb_nombre']} Para salir: cancelar configurar."
+        elif paso.startswith("onb_") and t.strip(" .!") in ONB_SALIR:
             memory.set_open_task(env.customer_id or "", "")
-            env.reply_text = "Salí de la configuración. No cambié nada más."
-        elif paso == "onb_nombre":
-            guardado = set_business_name(text)
-            if guardado:
-                memory.set_open_task(env.customer_id or "", "onb_horario")
-                env.reply_text = f"Guardé el nombre: {guardado}. ¿En qué horario abren? {HORARIO_AYUDA}"
-            else:
-                env.reply_text = "No entendí el nombre. ¿Cómo se llama el negocio?"
-        elif paso == "onb_horario":
-            libre = ONB_HORARIO.match(text)
-            guardado = _guardar_horario(libre) if libre else ""
-            if guardado:
-                memory.set_open_task(env.customer_id or "", "")
-                env.reply_text = f"Listo: {load_kb().get('negocio')}, de {guardado}. Configuración terminada."
-            else:
-                env.reply_text = f"No entendí el horario. {HORARIO_AYUDA}"
+            env.reply_text = "Salí de la configuración. Lo que ya respondiste quedó guardado."
+        elif paso in ONB_PREGUNTA:
+            env.reply_text = _paso_configurar(env, memory, paso, text)
         else:
             return False
     env.intent = "admin_kb"
