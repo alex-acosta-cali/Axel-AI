@@ -167,7 +167,7 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         env.agent = "escalamiento"
         env.supervision_level = 1
         env.reply_text = (
-            "Comandos dueño: estado, limpiar, pendientes, citas, "
+            "Comandos dueño: estado, limpiar, pendientes, citas, clientes, "
             "aceptar/aprobar, rechazo/rechazar, ayuda, "
             "configurar, el negocio se llama NOMBRE, abrimos de H1 a H2."
         )
@@ -210,6 +210,19 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
                 franja = reservas.franja_de(str(c.get("summary") or ""), str(c.get("created_at") or ""))
                 lineas.append(f"- {franja} · {c.get('name') or 'sin nombre'} · {cli.get('phone') or 'sin teléfono'}")
             env.reply_text = "Citas confirmadas:\n" + "\n".join(lineas)
+        env.result = "ok"
+        env.approval_status = "na"
+        return True
+    if t == "clientes":
+        env.intent = "admin"
+        env.agent = "escalamiento"
+        env.supervision_level = 1
+        lineas = []
+        for u in memory.list_whatsapp_customers(15):
+            ult = memory.last_reserva(str(u.get("customer_id") or ""))
+            cita = reservas.franja_de(str(ult.get("summary") or ""), str(ult.get("created_at") or "")) if ult else "—"
+            lineas.append(f"- {u.get('name') or '—'} · {u.get('phone') or '—'} · {cita}")
+        env.reply_text = "Clientes WhatsApp:\n" + "\n".join(lineas) if lineas else "No hay clientes de WhatsApp."
         env.result = "ok"
         env.approval_status = "na"
         return True
