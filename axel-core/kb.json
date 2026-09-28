@@ -1,6 +1,31 @@
 {
   "negocio": "Negocio piloto AXEL",
+  "rubro": "barberia",
+  "agenda": true,
   "horario": "9:00 a 17:00",
+  "franjas": [
+    9,
+    11,
+    15
+  ],
+  "servicios": [
+    {
+      "nombre": "corte",
+      "precio": 25000
+    },
+    {
+      "nombre": "barba",
+      "precio": 15000
+    },
+    {
+      "nombre": "corte + barba",
+      "precio": 35000
+    }
+  ],
+  "politicas": {
+    "cancelacion": "Puedes cancelar o pasar la cita el mismo día. Escribe cancelar la cita o reprogramar la cita.",
+    "garantia": "Garantía piloto: 7 días si el servicio no quedó bien. El dueño lo revisa."
+  },
   "saludo": "Hola, soy AXEL. Puedo darte horarios, precios, ubicación o tomar tus datos. ¿En qué te ayudo?",
   "faqs": [
     {
