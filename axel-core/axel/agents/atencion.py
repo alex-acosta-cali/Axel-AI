@@ -89,10 +89,7 @@ def handle(env: Envelope, memory=None) -> Envelope:
             env.reply_text = kb.lista_servicios() if kb.servicios() else kb.NO_HAY
             return env
         pedido = f"{servicio['nombre']} {kb.precio_txt(servicio.get('precio') or 0)}"
-        env.reply_text = (
-            f"Pedido piloto anotado: {pedido}. "
-            "En esta versión AXEL no cobra. El dueño confirma el pago real después."
-        )
+        env.reply_text = f"Pedido anotado: {pedido}. El dueño confirma el pago."
         env.intent = "pedido"
         if memory is not None and env.customer_id:
             memory.add_note(env.customer_id, f"Pedido piloto {pedido} (sin cobro)")
