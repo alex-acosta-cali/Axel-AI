@@ -129,7 +129,9 @@ def handle(env: Envelope, memory=None) -> Envelope:
         return env
     if env.intent == "saludo":
         abierto, estado = estado_cali()
-        base = f"Hola {env.name}, soy AXEL." if env.name else "Hola, soy AXEL."
+        negocio = str(kb.load_kb().get("negocio") or "").strip()
+        soy = f"soy AXEL de {negocio}." if negocio else "soy AXEL."
+        base = f"Hola {env.name}, {soy}" if env.name else f"Hola, {soy}"
         if abierto:
             env.reply_text = f"{base} ¿En qué te ayudo?"
         else:
