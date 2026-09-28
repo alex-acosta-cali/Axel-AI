@@ -62,6 +62,8 @@ OWNER_KB = [
     ("agrega", re.compile(_ADMIN + r"agrega(?:r)?\s+(?:el\s+)?servicio\s+(.+?)\s+a\s+" + _PRECIO, re.I)),
     ("precio", re.compile(_ADMIN + r"cambi(?:a|ar|o)\s+el\s+precio\s+(?:del\s+|de\s+la\s+|de\s+)?(.+?)\s+a\s+" + _PRECIO, re.I)),
     ("quita", re.compile(_ADMIN + r"quita(?:r)?\s+(?:el\s+)?servicio\s+(.+?)\s*\.?$", re.I)),
+    ("agrega_faq", re.compile(_ADMIN + r"agrega(?:r)?\s+(?:la\s+)?pregunta\s+(.+?)(?:\s+respuesta\s*:?\s*(.*?))?\s*$", re.I)),
+    ("quita_faq", re.compile(_ADMIN + r"quita(?:r)?\s+(?:la\s+)?pregunta\s+(.+?)\s*\.?$", re.I)),
     ("franjas", re.compile(_ADMIN + r"franjas\s+([\d:\s,y]+?)\s*\.?$", re.I)),
 ]
 PREGUNTA_NOMBRE = "¿Cómo quieres que te llame?"
@@ -137,6 +139,17 @@ def _editar_kb(cual: str, m: re.Match) -> str:
     if cual == "quita":
         nombre = kb_mod.nombre_servicio(m.group(1))
         return f"Listo, quité {nombre}." if kb_mod.remove_servicio(nombre) else f"No tengo el servicio {nombre}."
+    if cual == "agrega_faq":
+        respuesta = (m.group(2) or "").strip()
+        if not respuesta:
+            return "Falta la respuesta. Ejemplo: agrega pregunta parqueadero respuesta Hay parqueadero frente al local"
+        if "$" in respuesta:
+            return "Los precios van en servicios: agrega servicio X a N."
+        clave = kb_mod.add_faq(m.group(1), respuesta)
+        return f"Listo, pregunta {clave}: {respuesta}" if clave else "No entendí la pregunta."
+    if cual == "quita_faq":
+        clave = kb_mod.nombre_servicio(m.group(1))
+        return f"Listo, quité la pregunta {clave}." if kb_mod.remove_faq(clave) else f"No tengo la pregunta {clave}."
     horas = []
     for h, mi in re.findall(r"(\d{1,2})(?::(\d{2}))?", m.group(1)):
         if int(h) > 23 or int(mi or 0) > 59:
@@ -251,7 +264,8 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
             "aceptar/aprobar, rechazo/rechazar, ayuda, "
             "configurar, el negocio se llama NOMBRE, abrimos de H1 a H2, "
             "el rubro es X, agenda si/no, agrega servicio X a N, "
-            "cambia el precio de X a N, quita servicio X, franjas 8 12 16."
+            "cambia el precio de X a N, quita servicio X, franjas 8 12 16, "
+            "agrega pregunta X respuesta Y, quita pregunta X."
         )
         env.result = "ok"
         env.approval_status = "na"

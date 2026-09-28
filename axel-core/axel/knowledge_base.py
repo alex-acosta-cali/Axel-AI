@@ -210,6 +210,42 @@ def remove_servicio(nombre: str) -> bool:
     return True
 
 
+def _faq_con(faqs: list[dict], clave: str) -> Optional[dict]:
+    buscada = _plano(clave)
+    for item in faqs:
+        if any(_plano(str(k)) == buscada for k in item.get("q") or []):
+            return item
+    return None
+
+
+def add_faq(clave: str, respuesta: str) -> str:
+    """Crea o reemplaza la FAQ de esa clave con la respuesta del dueño. '' si la clave no sirve."""
+    clave = nombre_servicio(clave)
+    respuesta = " ".join((respuesta or "").split())[:300]
+    if len(re.findall(r"[a-záéíóúüñ]", clave)) < 2 or not respuesta:
+        return ""
+    kb = load_kb()
+    faqs = kb.setdefault("faqs", [])
+    item = _faq_con(faqs, clave)
+    if item:
+        item["a"] = respuesta
+    else:
+        faqs.append({"q": [clave], "a": respuesta})
+    _guardar(kb)
+    return clave
+
+
+def remove_faq(clave: str) -> bool:
+    kb = load_kb()
+    faqs = kb.get("faqs") or []
+    item = _faq_con(faqs, nombre_servicio(clave))
+    if not item:
+        return False
+    kb["faqs"] = [x for x in faqs if x is not item]
+    _guardar(kb)
+    return True
+
+
 def set_franjas(franjas: list[tuple[int, int]]) -> None:
     kb = load_kb()
     kb["franjas"] = [h if m == 0 else f"{h}:{m:02d}" for h, m in sorted(set(franjas))]
