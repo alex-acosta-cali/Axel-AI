@@ -210,6 +210,25 @@ def remove_servicio(nombre: str) -> bool:
     return True
 
 
+_PIDE_UBICACION = re.compile(r"\b(donde|direccion|ubicacion|ubicados)\b")
+
+
+def answer_ubicacion(text: str) -> Optional[str]:
+    """kb["ubicacion"] o NO_HAY si el texto pregunta dónde queda. None si no pregunta eso."""
+    if not _PIDE_UBICACION.search(_plano(text)):
+        return None
+    return str(load_kb().get("ubicacion") or "").strip() or NO_HAY
+
+
+def set_ubicacion(texto: str) -> str:
+    texto = " ".join((texto or "").split()).strip(" ¿?\"'")[:150]
+    if texto:
+        kb = load_kb()
+        kb["ubicacion"] = texto
+        _guardar(kb)
+    return texto
+
+
 def _faq_con(faqs: list[dict], clave: str) -> Optional[dict]:
     buscada = _plano(clave)
     for item in faqs:

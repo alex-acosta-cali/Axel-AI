@@ -102,6 +102,11 @@ def handle(env: Envelope, memory=None) -> Envelope:
         env.reply_text = "Los domingos no atendemos. " + msg
         env.result = "ok"
         return env
+    ubicacion = kb.answer_ubicacion(text)
+    if ubicacion:
+        env.reply_text = ubicacion
+        env.result = "ok"
+        return env
     precio = kb.answer_servicio(text)
     if precio:
         env.reply_text = precio

@@ -3,6 +3,7 @@
   "rubro": "barberia",
   "agenda": true,
   "horario": "9:00 a 17:00",
+  "ubicacion": "",
   "franjas": [
     9,
     11,
@@ -36,16 +37,6 @@
         "cierran"
       ],
       "a": "Atendemos de lunes a sábado, 9:00 a 17:00."
-    },
-    {
-      "q": [
-        "dirección",
-        "direccion",
-        "ubicación",
-        "ubicacion",
-        "donde"
-      ],
-      "a": "Estamos en Cali. Dime tu barrio y te orientamos."
     },
     {
       "q": [
