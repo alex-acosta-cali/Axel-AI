@@ -98,6 +98,7 @@ def _tabla_catalogo() -> str:
         ("Agenda", "sí" if kb.agenda() else "no"),
         ("Horario", f"{_hhmm(abre)} a {_hhmm(cierra)}"),
         ("Franjas", franjas),
+        ("Ubicación", datos.get("ubicacion") or "—"),
     ]
     datos_html = "".join(f"<tr><th>{k}</th><td>{html.escape(str(v))}</td></tr>" for k, v in filas)
     servicios = "".join(
