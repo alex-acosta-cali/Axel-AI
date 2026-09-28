@@ -61,7 +61,9 @@ ONB_PREGUNTA = {
     "onb_horario": f"¿En qué horario abren? {HORARIO_AYUDA}",
     "onb_franjas": "¿A qué horas das citas? Ejemplo: 9 11 15",
     "onb_ubicacion": "¿Cuál es la ubicación? Ejemplo: Cra 1 #2-3 Cali",
+    "onb_servicios": "Dime servicios, uno por línea: nombre precio\nEjemplo: cafe 4000\nCuando termines escribe listo.",
 }
+ONB_SERVICIO = re.compile(r"^(.+?)\s+\$?\s*([\d.,]+)\s*(?:pesos)?\s*\.?$", re.I)
 _ADMIN = r"^(?:axeladmin\s+)?"
 _PRECIO = r"\$?\s*([\d.,]+)\s*(?:pesos)?\s*\.?$"
 OWNER_KB = [
@@ -196,6 +198,61 @@ def _es_dueno(env: Envelope) -> bool:
     return owner[-10:] == incoming[-10:]
 
 
+def _catalogo() -> str:
+    datos = load_kb()
+    abre, cierra = kb_mod.get_hours()
+    franjas = reservas._franjas_kb()
+    fuera = [reservas._hhmm(f) for f in franjas if not abre <= f < cierra]
+    franjas_txt = ", ".join(reservas._hhmm(f) for f in franjas) or "ninguna"
+    if fuera:
+        franjas_txt += f" (fuera de horario: {', '.join(fuera)})"
+    servicios = kb_mod.servicios()
+    lineas = [f"- {s['nombre']} {kb_mod.precio_txt(s.get('precio') or 0)}" for s in servicios]
+    return "\n".join(
+        [
+            "Catálogo:",
+            f"Rubro: {datos.get('rubro') or '—'}",
+            f"Agenda: {'sí' if kb_mod.agenda() else 'no'}",
+            f"Horario: {reservas._hhmm(abre)} a {reservas._hhmm(cierra)}",
+            f"Franjas: {franjas_txt}",
+            "Servicios:" if lineas else "Servicios: ninguno",
+            *lineas,
+        ]
+    )
+
+
+def _servicios_configurar(env: Envelope, memory: Memory, text: str) -> str:
+    """Una línea por servicio: 'nombre precio'. 'listo' cierra el asistente con el catálogo."""
+    if _norm(text).strip(" .!") == "listo":
+        memory.set_open_task(env.customer_id or "", "")
+        return f"Configuración terminada.\n{_catalogo()}"
+    ok, malas = [], []
+    for linea in (text or "").splitlines():
+        linea = linea.strip()
+        if not linea:
+            continue
+        m = ONB_SERVICIO.match(linea)
+        precio = _pesos(m.group(2)) if m else 0
+        nombre = kb_mod.nombre_servicio(m.group(1)) if m else ""
+        existe = kb_mod.buscar_servicio(nombre) if nombre else None
+        if precio <= 0:
+            malas.append(linea)
+        elif existe:
+            kb_mod.set_price(str(existe["nombre"]), str(precio))
+            ok.append(f"{existe['nombre']} {kb_mod.precio_txt(precio)}")
+        elif kb_mod.add_servicio(nombre, precio):
+            ok.append(f"{nombre} {kb_mod.precio_txt(precio)}")
+        else:
+            malas.append(linea)
+    partes = []
+    if ok:
+        partes.append(f"Guardé: {', '.join(ok)}.")
+    if malas:
+        partes.append(f"No entendí: {' | '.join(malas)}.")
+    partes.append("Escribe más servicios o listo para terminar.")
+    return " ".join(partes)
+
+
 def _paso_configurar(env: Envelope, memory: Memory, paso: str, text: str) -> str:
     """Guarda la respuesta del paso y pregunta el siguiente. Si no la entiende, repite la misma pregunta."""
     guardado, siguiente = "", ""
@@ -215,14 +272,13 @@ def _paso_configurar(env: Envelope, memory: Memory, paso: str, text: str) -> str
     elif paso == "onb_franjas":
         guardado, siguiente = _guardar_franjas(text), "onb_ubicacion"
     elif paso == "onb_ubicacion":
-        guardado = kb_mod.set_ubicacion(text)
+        guardado, siguiente = kb_mod.set_ubicacion(text), "onb_servicios"
+    elif paso == "onb_servicios":
+        return _servicios_configurar(env, memory, text)
     if not guardado:
         return f"No entendí. {ONB_PREGUNTA[paso]}"
     memory.set_open_task(env.customer_id or "", siguiente)
-    guardado = guardado.rstrip(".")
-    if siguiente:
-        return f"Guardé {guardado}. {ONB_PREGUNTA[siguiente]}"
-    return f"Guardé {guardado}. Configuración terminada. Escribe catalogo para revisar."
+    return f"Guardé {guardado.rstrip('.')}. {ONB_PREGUNTA[siguiente]}"
 
 
 def _try_owner_setup(env: Envelope, memory: Memory) -> bool:
@@ -347,26 +403,7 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         env.intent = "admin"
         env.agent = "escalamiento"
         env.supervision_level = 1
-        datos = load_kb()
-        abre, cierra = kb_mod.get_hours()
-        franjas = reservas._franjas_kb()
-        fuera = [reservas._hhmm(f) for f in franjas if not abre <= f < cierra]
-        franjas_txt = ", ".join(reservas._hhmm(f) for f in franjas) or "ninguna"
-        if fuera:
-            franjas_txt += f" (fuera de horario: {', '.join(fuera)})"
-        servicios = kb_mod.servicios()
-        lineas = [f"- {s['nombre']} {kb_mod.precio_txt(s.get('precio') or 0)}" for s in servicios]
-        env.reply_text = "\n".join(
-            [
-                "Catálogo:",
-                f"Rubro: {datos.get('rubro') or '—'}",
-                f"Agenda: {'sí' if kb_mod.agenda() else 'no'}",
-                f"Horario: {reservas._hhmm(abre)} a {reservas._hhmm(cierra)}",
-                f"Franjas: {franjas_txt}",
-                "Servicios:" if lineas else "Servicios: ninguno",
-                *lineas,
-            ]
-        )
+        env.reply_text = _catalogo()
         env.result = "ok"
         env.approval_status = "na"
         return True
