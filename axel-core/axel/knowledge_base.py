@@ -43,6 +43,11 @@ def _plano(text: str) -> str:
     return (text or "").lower().translate(str.maketrans("áéíóúü", "aeiouu"))
 
 
+def agenda() -> bool:
+    """kb["agenda"]; si falta, el negocio agenda (como hasta ahora)."""
+    return bool(load_kb().get("agenda", True))
+
+
 def servicios() -> list[dict]:
     return [s for s in load_kb().get("servicios") or [] if str(s.get("nombre") or "").strip()]
 
@@ -73,7 +78,7 @@ def answer_servicio(text: str) -> Optional[str]:
     """Precio de un servicio, la lista, o NO_HAY. None si el texto no habla de precios ni de servicios."""
     s = servicio_en(text)
     if s:
-        cupo = " ¿Quieres que te reserve un cupo?" if load_kb().get("agenda") else ""
+        cupo = " ¿Quieres que te reserve un cupo?" if agenda() else ""
         nombre = str(s["nombre"])
         return f"{nombre[:1].upper()}{nombre[1:]}: {precio_txt(s.get('precio') or 0)}.{cupo}"
     plano = _plano(text)

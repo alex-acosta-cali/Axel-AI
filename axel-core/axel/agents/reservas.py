@@ -7,21 +7,31 @@ from axel import knowledge_base as kb
 from axel.envelope import Envelope
 
 _CALI = timezone(timedelta(hours=-5))
-FRANJAS_PILOTO = [(9, 0), (11, 0), (15, 0), (17, 0)]
+SIN_AGENDA = "Este negocio no agenda citas por este canal."
 
 
 def _hhmm(h: tuple[int, int]) -> str:
     return f"{h[0]}:{h[1]:02d}"
 
 
+def _franjas_kb() -> list[tuple[int, int]]:
+    """kb["franjas"]: horas como 9 o "9:30"."""
+    out = set()
+    for f in kb.load_kb().get("franjas") or []:
+        m = re.fullmatch(r"(\d{1,2})(?::(\d{2}))?", str(f).strip())
+        if m and int(m.group(1)) < 24 and int(m.group(2) or 0) < 60:
+            out.add((int(m.group(1)), int(m.group(2) or 0)))
+    return sorted(out)
+
+
 def franjas_validas() -> list[tuple[int, int]]:
-    """Franjas piloto que caben en el horario de la KB. Son las únicas que se pueden reservar."""
+    """Franjas de la KB que caben en el horario de la KB. Son las únicas que se pueden reservar."""
     abre, cierra = kb.get_hours()
-    return [f for f in FRANJAS_PILOTO if abre <= f < cierra]
+    return [f for f in _franjas_kb() if abre <= f < cierra]
 
 
 def _franjas() -> str:
-    """Franjas piloto que caben en el horario de la KB, ya con 'a las' o 'entre'."""
+    """Franjas de la KB que caben en el horario, ya con 'a las' o 'entre'."""
     abre, cierra = kb.get_hours()
     validas = [_hhmm(f) for f in franjas_validas()]
     if not validas:
@@ -220,6 +230,15 @@ def handle(env: Envelope, memory=None) -> Envelope:
             env.reply_text = "No tienes una cita confirmada ahora."
         env.result = "ok"
         env.approval_status = "na"
+        return env
+
+    if not kb.agenda() and env.intent != "cancelar":
+        if memory is not None:
+            memory.set_open_task(env.customer_id or "", "")
+        env.reply_text = SIN_AGENDA
+        env.result = "ok"
+        env.approval_status = "na"
+        env.intent = "sin_agenda"
         return env
 
     pedir_dia = _hora_corta(env, memory)

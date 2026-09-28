@@ -133,15 +133,16 @@ def handle(env: Envelope, memory=None) -> Envelope:
         if abierto:
             env.reply_text = f"{base} ¿En qué te ayudo?"
         else:
-            env.reply_text = (
-                f"{base} {estado} "
-                "Puedo agendarte para mañana o responder horarios y precios."
+            oferta = "Puedo agendarte para mañana o responder horarios y precios." if kb.agenda() else (
+                "Puedo responder horarios y precios."
             )
+            env.reply_text = f"{base} {estado} {oferta}"
         env.result = "ok"
         return env
+    temas = "horarios, precios, ubicación o una cita" if kb.agenda() else "horarios, precios o ubicación"
     env.reply_text = (
         "No tengo esa información en la base del negocio. "
-        "Puedo ayudarte con horarios, precios, ubicación o una cita. "
+        f"Puedo ayudarte con {temas}. "
         "Si es otra cosa, el dueño lo revisa."
     )
     env.result = "ok"
