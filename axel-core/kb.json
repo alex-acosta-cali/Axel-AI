@@ -56,22 +56,6 @@
     },
     {
       "q": [
-        "garantia",
-        "garantía",
-        "reclamo producto"
-      ],
-      "a": "Garantía piloto: 7 días si el servicio no quedó bien. El dueño lo revisa."
-    },
-    {
-      "q": [
-        "cancelacion",
-        "cancelación",
-        "política de cita"
-      ],
-      "a": "Puedes cancelar o pasar la cita el mismo día. Escribe cancelar la cita o reprogramar la cita."
-    },
-    {
-      "q": [
         "quien eres",
         "quién eres",
         "que eres",

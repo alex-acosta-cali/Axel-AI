@@ -220,6 +220,21 @@ def answer_ubicacion(text: str) -> Optional[str]:
     return str(load_kb().get("ubicacion") or "").strip() or NO_HAY
 
 
+_PIDE_POLITICA = (
+    ("cancelacion", re.compile(r"\b(cancelacion|cancelaciones|politica de cita)\b")),
+    ("garantia", re.compile(r"\b(garantia|garantias)\b")),
+)
+
+
+def answer_politica(text: str) -> Optional[str]:
+    """kb["politicas"][cancelacion|garantia] o NO_HAY si se pregunta por ella. None si no."""
+    plano = _plano(text)
+    for clave, patron in _PIDE_POLITICA:
+        if patron.search(plano):
+            return str((load_kb().get("politicas") or {}).get(clave) or "").strip() or NO_HAY
+    return None
+
+
 def set_ubicacion(texto: str) -> str:
     texto = " ".join((texto or "").split()).strip(" ¿?\"'")[:150]
     if texto:
