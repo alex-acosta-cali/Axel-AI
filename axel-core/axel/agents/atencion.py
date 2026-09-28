@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime, timedelta, timezone
 
 from axel.envelope import Envelope
 from axel import knowledge_base as kb
 
 _CALI = timezone(timedelta(hours=-5))
+_OFERTA_CITA = re.compile(r"\s*¿[^?]*\b(reserv|agend|cupo|cita)[^?]*\?", re.I)
 
 
 def estado_cali(ahora: datetime | None = None) -> tuple[bool, str]:
@@ -106,6 +108,9 @@ def handle(env: Envelope, memory=None) -> Envelope:
         env.result = "ok"
         return env
     faq = kb.answer(text)
+    if faq and not kb.agenda():
+        # La FAQ puede traer "¿Quieres que te reserve un cupo?": sin agenda no se ofrece.
+        faq = _OFERTA_CITA.sub("", faq).strip() or faq
     if faq:
         abierto, estado = estado_cali()
         pide_hora = any(
