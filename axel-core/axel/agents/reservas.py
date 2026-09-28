@@ -97,6 +97,16 @@ def _creada_cali(created_at: str) -> datetime:
     return utc.astimezone(_CALI)
 
 
+def franja_de(summary: str, created_at: str) -> str:
+    """'miércoles 30/09 11:00' a partir de la cita guardada; el texto tal cual si no se entiende."""
+    cuando = _dia_hora(summary, _creada_cali(created_at))
+    if not cuando:
+        return (summary or "")[:60]
+    dia = datetime.fromisoformat(cuando[0])
+    mm = re.search(r"\b\d{1,2}[:.](\d{2})\b", summary or "")
+    return f"{_NOMBRE_DIA[dia.weekday()]} {dia.strftime('%d/%m')} {cuando[1]}:{mm.group(1) if mm else '00'}"
+
+
 def _ocupadas(memory, customer_id: str, fecha: str) -> set[int]:
     """Horas de 'fecha' ya confirmadas por otros clientes."""
     horas = set()

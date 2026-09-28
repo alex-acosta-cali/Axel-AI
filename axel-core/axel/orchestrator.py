@@ -202,13 +202,14 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         env.supervision_level = 1
         citas = memory.list_confirmed_reservas(8)
         if not citas:
-            env.reply_text = "No hay citas confirmadas para recordar."
+            env.reply_text = "No hay citas confirmadas."
         else:
-            lineas = [
-                f"- {c.get('name') or c.get('customer_id')}: {c.get('summary')}"
-                for c in citas
-            ]
-            env.reply_text = "Citas a recordar:\n" + "\n".join(lineas)
+            lineas = []
+            for c in citas:
+                cli = memory.get_customer(str(c.get("customer_id") or "")) or {}
+                franja = reservas.franja_de(str(c.get("summary") or ""), str(c.get("created_at") or ""))
+                lineas.append(f"- {franja} · {c.get('name') or 'sin nombre'} · {cli.get('phone') or 'sin teléfono'}")
+            env.reply_text = "Citas confirmadas:\n" + "\n".join(lineas)
         env.result = "ok"
         env.approval_status = "na"
         return True
