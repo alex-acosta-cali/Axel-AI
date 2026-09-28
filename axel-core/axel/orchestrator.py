@@ -350,7 +350,7 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         env.agent = "escalamiento"
         env.supervision_level = 1
         env.reply_text = (
-            "Comandos dueño: estado, limpiar, pendientes, citas, clientes, catalogo, "
+            "Comandos dueño: estado, limpiar, pendientes, citas, clientes, pedidos, catalogo, "
             "aceptar/aprobar, rechazo/rechazar, ayuda, "
             "configurar, el negocio se llama NOMBRE, abrimos de H1 a H2, "
             "el rubro es X, agenda si/no, agrega servicio X a N, "
@@ -404,6 +404,19 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         env.agent = "escalamiento"
         env.supervision_level = 1
         env.reply_text = _catalogo()
+        env.result = "ok"
+        env.approval_status = "na"
+        return True
+    if t == "pedidos":
+        env.intent = "admin"
+        env.agent = "escalamiento"
+        env.supervision_level = 1
+        lineas = []
+        for p in memory.list_pedidos(15):
+            pedido = re.sub(r"^Pedido piloto\s+|\s*\(sin cobro\)$", "", str(p.get("note") or ""))
+            hora = reservas._creada_cali(str(p.get("created_at") or "")).strftime("%d/%m %H:%M")
+            lineas.append(f"- {hora} · {p.get('name') or p.get('phone') or 'sin nombre'} · {pedido}")
+        env.reply_text = "Pedidos:\n" + "\n".join(lineas) if lineas else "No hay pedidos."
         env.result = "ok"
         env.approval_status = "na"
         return True

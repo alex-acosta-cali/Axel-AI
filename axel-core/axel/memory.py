@@ -411,6 +411,22 @@ class Memory:
             ).fetchall()
         return [dict(r) for r in rows]
 
+    def list_pedidos(self, limit: int = 15) -> list[dict[str, Any]]:
+        """Notas 'Pedido piloto ...' de todos los clientes, las más nuevas primero. Solo para el dueño."""
+        with self._conn() as conn:
+            rows = conn.execute(
+                """
+                SELECT n.note, n.created_at, n.customer_id, c.name, c.phone
+                FROM customer_notes n
+                LEFT JOIN customers c ON c.customer_id = n.customer_id
+                WHERE n.note LIKE 'Pedido piloto %'
+                ORDER BY n.note_id DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
     def get_customer(self, customer_id: str) -> dict[str, Any] | None:
         if not customer_id:
             return None
