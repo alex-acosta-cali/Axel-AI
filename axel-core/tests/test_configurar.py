@@ -111,8 +111,9 @@ def main() -> int:
 
         # Cliente: sinónimos, precios gana, ubicación y políticas vacías.
         kb_tmp.write_text(json.dumps({**KB_VIEJA, "ubicacion": "Cra 9 Cali"}), encoding="utf-8")
-        dice("Ana", canal="whatsapp")
+        # AXEL acaba de preguntar el nombre: una pregunta no se guarda como nombre.
         assert dice("donde quedan", canal="whatsapp") == "Cra 9 Cali"
+        assert "sin nombre" in dice("mi ficha", canal="whatsapp")
         assert dice("quiero cortarme el pelo", canal="whatsapp").startswith("Corte: $25.000")
         assert dice("precios y quiero cortarme el pelo", canal="whatsapp").startswith("Lista: corte $25.000")
         assert "Cra" not in dice("donde pago", canal="whatsapp")

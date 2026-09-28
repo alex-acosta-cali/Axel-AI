@@ -83,6 +83,8 @@ PREGUNTA_NOMBRE = "¿Cómo quieres que te llame?"
 PREGUNTA_NOMBRE_VIEJA = "¿Cómo te llamas?"
 NOMBRE_CORTO = re.compile(r"[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ ]{2,40}")
 NO_ES_NOMBRE = {"si", "no", "ok", "okay", "dale", "bien", "nada", "claro", "vale"}
+# Si la respuesta empieza así, es una pregunta, no un nombre.
+NO_EMPIEZA_NOMBRE = {"donde", "cual", "que", "cuanto", "cuando", "quiero", "hola", "precios"}
 
 
 def _nombre_usable(nombre: str | None) -> bool:
@@ -591,6 +593,7 @@ def process(env: Envelope, memory: Memory) -> Envelope:
             and len(candidato.split()) <= 4
             and env.intent == "pregunta"
             and _norm(candidato) not in NO_ES_NOMBRE
+            and _norm(candidato).split()[0] not in NO_EMPIEZA_NOMBRE
         ):
             nombre = " ".join(candidato.split()).title()[:40]
             memory.set_customer_name(env.customer_id, nombre)
