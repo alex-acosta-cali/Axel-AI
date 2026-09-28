@@ -9,12 +9,49 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+from datetime import timedelta
+
+from axel import knowledge_base as kb
+from axel.agents.reservas import FRANJAS_PILOTO, _ahora_cali, _creada_cali, _dia_hora, _hhmm
 from axel.connectors import whatsapp
 from axel.envelope import Envelope
 from axel.memory import Memory
 from axel.orchestrator import process
 
 memory = Memory("./axel.db")
+
+DIAS_ES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+
+
+def _tabla_cupos() -> str:
+    """Franjas de los próximos 7 días (sin domingo): LIBRE o TOMADA. Solo lectura."""
+    abre, cierra = kb.get_hours()
+    franjas = [f for f in FRANJAS_PILOTO if abre <= f < cierra]
+    if not franjas:
+        return "<p>Ninguna franja cabe en el horario de la KB.</p>"
+    tomadas: dict[tuple[str, int], str] = {}
+    for c in memory.list_confirmed_reservas(500):
+        cuando = _dia_hora(str(c.get("summary") or ""), _creada_cali(str(c.get("created_at") or "")))
+        if not cuando or cuando in tomadas:
+            continue
+        cli = memory.get_customer(str(c.get("customer_id") or "")) or {}
+        tomadas[cuando] = str(c.get("name") or cli.get("phone") or c.get("customer_id") or "")
+    hoy = _ahora_cali().date()
+    filas = []
+    for i in range(7):
+        dia = hoy + timedelta(days=i)
+        if dia.weekday() == 6:
+            continue
+        celdas = []
+        for f in franjas:
+            quien = tomadas.get((dia.isoformat(), f[0]))
+            if quien is None:
+                celdas.append("<td class='ok'>LIBRE</td>")
+            else:
+                celdas.append(f"<td class='tomada'>TOMADA · {html.escape(quien)}</td>")
+        filas.append(f"<tr><td>{DIAS_ES[dia.weekday()]} {dia.strftime('%d/%m')}</td>{''.join(celdas)}</tr>")
+    cab = "".join(f"<th>{_hhmm(f)}</th>" for f in franjas)
+    return f"<table><tr><th>Día</th>{cab}</tr>{''.join(filas)}</table>"
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -104,7 +141,7 @@ class Handler(BaseHTTPRequestHandler):
 body{{font-family:Segoe UI,sans-serif;background:#111;color:#eee;margin:24px}}
 h1{{color:#6cf}} table{{border-collapse:collapse;width:100%;font-size:14px}}
 td,th{{border:1px solid #444;padding:8px;text-align:left;vertical-align:top}}
-th{{background:#222}} .ok{{color:#8f8}}
+th{{background:#222}} .ok{{color:#8f8}} .tomada{{color:#f99}}
 .kpis{{display:flex;gap:12px;margin:16px 0;flex-wrap:wrap}}
 .kpi{{background:#1c1c1c;border:1px solid #444;padding:14px 18px;min-width:140px}}
 .kpi b{{display:block;font-size:28px;color:#6cf}}
@@ -125,6 +162,8 @@ th{{background:#222}} .ok{{color:#8f8}}
 <table><tr><th>Evento</th><th>Intent</th><th>Pedido</th><th>Decisión</th></tr>{pendientes}</table>
 <h2>Clientes</h2>
 <table><tr><th>Nombre</th><th>Celular</th><th>Correo</th><th>ID</th></tr>{tabla_cli}</table>
+<h2>Cupos de la semana</h2>
+{_tabla_cupos()}
 <h2>Citas</h2>
 <table><tr><th>Cuando</th><th>Cliente</th><th>Qué dijo</th></tr>{tabla_citas}</table>
 <h2>Últimos</h2>
