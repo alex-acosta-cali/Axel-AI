@@ -81,18 +81,28 @@ def handle(env: Envelope, memory=None) -> Envelope:
             env.result = "ok"
             return env
     if any(p in bajo for p in ("me lo llevo", "lo compro", "quiero pagar", "lo pago")):
+        servicio = kb.servicio_en(text)
+        env.result = "ok"
+        if not servicio:
+            env.reply_text = kb.lista_servicios() if kb.servicios() else kb.NO_HAY
+            return env
+        pedido = f"{servicio['nombre']} {kb.precio_txt(servicio.get('precio') or 0)}"
         env.reply_text = (
-            "Pedido piloto anotado: corte $25.000. "
+            f"Pedido piloto anotado: {pedido}. "
             "En esta versión AXEL no cobra. El dueño confirma el pago real después."
         )
-        env.result = "ok"
         env.intent = "pedido"
         if memory is not None and env.customer_id:
-            memory.add_note(env.customer_id, "Pedido piloto corte $25.000 (sin cobro)")
+            memory.add_note(env.customer_id, f"Pedido piloto {pedido} (sin cobro)")
         return env
     if "domingo" in bajo:
         _, msg = estado_cali()
         env.reply_text = "Los domingos no atendemos. " + msg
+        env.result = "ok"
+        return env
+    precio = kb.answer_servicio(text)
+    if precio:
+        env.reply_text = precio
         env.result = "ok"
         return env
     faq = kb.answer(text)

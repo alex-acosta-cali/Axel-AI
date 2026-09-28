@@ -28,6 +28,61 @@ def answer(text: str) -> Optional[str]:
     return None
 
 
+NO_HAY = "No tengo esa información en la base del negocio."
+_PIDE_PRECIO = re.compile(r"\b(precios?|cuanto|vale|valen|valor|valores|cuesta|cuestan|cobran|lista|tarifas?)\b")
+# Palabras que no nombran un servicio: si solo queda esto, piden la lista completa.
+_RELLENO = set(
+    "hola buenas el la los las de del un una unos unas por que cual cuales me te es son y a en al "
+    "cuanto vale valen valor valores cuesta cuestan cobran precio precios lista tarifa tarifas "
+    "servicio servicios tienen tiene hay sale salen favor porfa pls plis the su sus mas me dices "
+    "dime quisiera saber quiero".split()
+)
+
+
+def _plano(text: str) -> str:
+    return (text or "").lower().translate(str.maketrans("áéíóúü", "aeiouu"))
+
+
+def servicios() -> list[dict]:
+    return [s for s in load_kb().get("servicios") or [] if str(s.get("nombre") or "").strip()]
+
+
+def precio_txt(valor) -> str:
+    return f"${int(valor):,}".replace(",", ".")
+
+
+def lista_servicios() -> str:
+    items = servicios()
+    if not items:
+        return NO_HAY
+    return "Lista: " + ", ".join(f"{s['nombre']} {precio_txt(s.get('precio') or 0)}" for s in items) + ". ¿Cuál te interesa?"
+
+
+def servicio_en(text: str) -> Optional[dict]:
+    """El servicio de la KB nombrado en el texto; el nombre más largo gana ('corte + barba' antes que 'corte')."""
+    plano = _plano(text)
+    for s in sorted(servicios(), key=lambda s: -len(str(s["nombre"]))):
+        nombre = _plano(str(s["nombre"])).strip()
+        for forma in {nombre, nombre.replace(" + ", " y ")}:
+            if re.search(rf"(?<!\w){re.escape(forma)}(?!\w)", plano):
+                return s
+    return None
+
+
+def answer_servicio(text: str) -> Optional[str]:
+    """Precio de un servicio, la lista, o NO_HAY. None si el texto no habla de precios ni de servicios."""
+    s = servicio_en(text)
+    if s:
+        cupo = " ¿Quieres que te reserve un cupo?" if load_kb().get("agenda") else ""
+        nombre = str(s["nombre"])
+        return f"{nombre[:1].upper()}{nombre[1:]}: {precio_txt(s.get('precio') or 0)}.{cupo}"
+    plano = _plano(text)
+    if not _PIDE_PRECIO.search(plano):
+        return None
+    resto = [w for w in re.findall(r"\w+", plano) if w not in _RELLENO]
+    return NO_HAY if resto else lista_servicios()
+
+
 def answer_pitch(text: str) -> Optional[str]:
     raw = (text or "").lower()
     path = Path(__file__).resolve().parents[1] / "pitch.json"
@@ -88,19 +143,15 @@ def set_price(producto: str, pesos: str) -> str:
     kb = load_kb()
     marca = f"${int(pesos):,}".replace(",", ".")
     cambiado = False
+    for s in kb.get("servicios") or []:
+        if _plano(str(s.get("nombre") or "")).strip() == _plano(producto):
+            s["precio"] = int(pesos)
+            cambiado = True
     for item in kb.get("faqs", []):
         keys = " ".join(item.get("q") or [])
         if producto in keys:
             item["a"] = f"El {producto} quedó en {marca}."
             cambiado = True
-    if producto == "corte":
-        for item in kb.get("faqs", []):
-            if "precio" in " ".join(item.get("q") or []):
-                item["a"] = (
-                    f"Lista piloto: corte {marca}, "
-                    "barba $15.000, corte + barba $35.000. ¿Cuál te interesa?"
-                )
-                cambiado = True
     if not cambiado:
         return ""
     path.write_text(json.dumps(kb, ensure_ascii=False, indent=2), encoding="utf-8")
