@@ -1,10 +1,10 @@
 {
   "faqs": [
     {"q": ["quien eres", "quién eres", "que eres", "qué eres", "que es axel", "qué es axel"], "a": "Soy AXEL AI OS: un encargado digital para un negocio pequeño. Atiendo WhatsApp y un panel, recuerdo al cliente, cito, escalo quejas al dueño y no invento precios. Hoy estoy en piloto en un PC en Cali."},
-    {"q": ["como vas", "cómo vas", "como va el proyecto", "cómo va el proyecto", "avance", "en que vamos", "en qué vamos"], "a": "Listo: CRM, 3 niveles, KB, panel 8090, citas piloto y WhatsApp de prueba. Falta token que no caduque, número real y cobro real."},
+    {"q": ["como vas", "cómo vas", "como va el proyecto", "cómo va el proyecto", "avance", "en que vamos", "en qué vamos"], "a": "Al 27 sep: CRM, 3 niveles, KB, panel 8090, citas según horario, dueño configura nombre y horario, WhatsApp real de Colombia (+57 314 5801851) por ngrok. Falta: app Meta en producción, cobro real y servidor 24/7."},
     {"q": ["cafeteria", "cafetería", "cafe", "café"], "a": "A una cafetería: pedidos o mesa por WhatsApp, menú sin inventar, recordatorio, queja al dueño. Ella no instala otra app. Lo distinto: AXEL no cierra descuentos ni reembolsos solo."},
     {"q": ["barberia", "barbería", "peluqueria", "peluquería"], "a": "A una barbería: horario de Cali, precios, una cita, reprogramar, ficha. El dueño ve el panel. No es un bot genérico: tiene reglas del local y freno humano."},
-    {"q": ["ofrecer", "le ofrezco", "como se lo explico", "cómo se lo explico", "pitch", "vender axel"], "a": "Dile: no te reemplazo. Contesto precio, hora y cita a las 11 de la noche. Si piden plata rara o se enojan, te aviso. Se prueba en un WhatsApp de prueba. Que escriba horario y quiero una cita."},
+    {"q": ["ofrecer", "le ofrezco", "como se lo explico", "cómo se lo explico", "pitch", "vender axel"], "a": "Dile: no te reemplazo. Contesto precio, hora y cita a las 11 de la noche. Si piden plata rara o se enojan, te aviso. Se prueba en el WhatsApp del piloto. Que escriba horario y quiero una cita."},
     {"q": ["como funciona", "cómo funciona", "para ella", "para el dueno", "para el dueño"], "a": "El cliente escribe. AXEL mira KB y agenda. Nivel 1 solo. Nivel 2 confirma cita. Nivel 3 se detiene (reembolso, queja) y avisa al dueño. Queda en el panel."}
   ]
 }
