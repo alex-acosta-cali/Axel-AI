@@ -76,6 +76,7 @@ OWNER_KB = [
     ("agrega_faq", re.compile(_ADMIN + r"agrega(?:r)?\s+(?:la\s+)?pregunta\s+(.+?)(?:\s+respuesta\s*:?\s*(.*?))?\s*$", re.I)),
     ("quita_faq", re.compile(_ADMIN + r"quita(?:r)?\s+(?:la\s+)?pregunta\s+(.+?)\s*\.?$", re.I)),
     ("franjas", re.compile(_ADMIN + r"franjas\s+([\d:\s,y]+?)\s*\.?$", re.I)),
+    ("politica", re.compile(_ADMIN + r"pol[ií]tica\s+(?:de\s+)?(cancelaci[oó]n|garant[ií]a)\s*:?\s*(.*?)\s*$", re.I)),
 ]
 PREGUNTA_NOMBRE = "¿Cómo quieres que te llame?"
 PREGUNTA_NOMBRE_VIEJA = "¿Cómo te llamas?"
@@ -164,6 +165,13 @@ def _editar_kb(cual: str, m: re.Match) -> str:
     if cual == "quita_faq":
         clave = kb_mod.nombre_servicio(m.group(1))
         return f"Listo, quité la pregunta {clave}." if kb_mod.remove_faq(clave) else f"No tengo la pregunta {clave}."
+    if cual == "politica":
+        clave = _norm(m.group(1))
+        texto = kb_mod.set_politica(clave, m.group(2))
+        if not texto:
+            ejemplo = "Puedes cancelar hasta 1 hora antes" if clave == "cancelacion" else "7 días si el servicio no quedó bien"
+            return f"Falta el texto. Ejemplo: politica {clave} {ejemplo}"
+        return f"Listo, política de {clave}: {texto}"
     guardado = _guardar_franjas(m.group(1))
     return f"Listo, {guardado}" if guardado else "No entendí las franjas. Ejemplo: franjas 8 12 16"
 
@@ -362,10 +370,11 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         env.reply_text = (
             "Comandos dueño: estado, limpiar, pendientes, citas, clientes, pedidos, catalogo, "
             "aceptar/aprobar, rechazo/rechazar, ayuda, "
-            "configurar, el negocio se llama NOMBRE, abrimos de H1 a H2, "
+            "configurar, cancelar configurar, el negocio se llama NOMBRE, abrimos de H1 a H2, "
             "el rubro es X, agenda si/no, agrega servicio X a N, "
             "cambia el precio de X a N, quita servicio X, franjas 8 12 16, "
-            "agrega pregunta X respuesta Y, quita pregunta X, la ubicacion es X."
+            "agrega pregunta X respuesta Y, quita pregunta X, la ubicacion es X, "
+            "politica cancelacion X, politica garantia X."
         )
         env.result = "ok"
         env.approval_status = "na"

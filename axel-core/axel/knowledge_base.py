@@ -235,6 +235,16 @@ def answer_politica(text: str) -> Optional[str]:
     return None
 
 
+def set_politica(clave: str, texto: str) -> str:
+    """kb["politicas"][cancelacion|garantia] con el texto del dueño."""
+    texto = " ".join((texto or "").split())[:300]
+    if texto:
+        kb = load_kb()
+        kb.setdefault("politicas", {})[clave] = texto
+        _guardar(kb)
+    return texto
+
+
 def set_ubicacion(texto: str) -> str:
     texto = " ".join((texto or "").split()).strip(" ¿?\"'")[:150]
     if texto:
