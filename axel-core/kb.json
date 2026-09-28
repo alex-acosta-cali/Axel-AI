@@ -39,21 +39,6 @@
     },
     {
       "q": [
-        "corte",
-        "cortarme",
-        "peluqueada",
-        "pelo"
-      ],
-      "a": "El corte está en $25.000. ¿Quieres que te reserve un cupo?"
-    },
-    {
-      "q": [
-        "barba"
-      ],
-      "a": "Arreglo de barba $15.000. Corte + barba $35.000."
-    },
-    {
-      "q": [
         "dirección",
         "direccion",
         "ubicación",
@@ -61,17 +46,6 @@
         "donde"
       ],
       "a": "Estamos en Cali. Dime tu barrio y te orientamos."
-    },
-    {
-      "q": [
-        "precio",
-        "cuanto",
-        "cuánto",
-        "vale",
-        "valores",
-        "lista"
-      ],
-      "a": "Lista piloto: corte $25.000, barba $15.000, corte + barba $35.000. ¿Cuál te interesa?"
     },
     {
       "q": [
