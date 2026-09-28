@@ -48,6 +48,82 @@ def _fuera_de_horario_hoy(now: datetime | None = None) -> str:
     return f"{inicio} Atendemos {horario}. ¿Te sirve {proximo} {_franjas()}?"
 
 
+_DIAS = {"lunes": 0, "martes": 1, "miercoles": 2, "jueves": 3, "viernes": 4, "sabado": 5, "domingo": 6}
+
+
+def _sin_tildes(text: str) -> str:
+    return (text or "").lower().translate(str.maketrans("áéíóúü", "aeiouu"))
+
+
+def _dia_hora(text: str, base: datetime) -> tuple[str, int] | None:
+    """Fecha (ISO) y hora pedidas en el texto, contando desde 'base'. None si falta algo."""
+    t = _sin_tildes(text)
+    fecha = None
+    if re.search(r"\bpasado manana\b", t):
+        fecha = base.date() + timedelta(days=2)
+    elif re.search(r"\bmanana\b", t):
+        fecha = base.date() + timedelta(days=1)
+    elif re.search(r"\bhoy\b", t):
+        fecha = base.date()
+    else:
+        for nombre, num in _DIAS.items():
+            if re.search(rf"\b{nombre}\b", t):
+                fecha = base.date() + timedelta(days=(num - base.weekday()) % 7)
+                break
+    m = re.search(r"\b(\d{1,2})(?:[:.](\d{2}))?\s*(a\.?\s?m\.?|p\.?\s?m\.?)?(?![\d/-])", t)
+    if fecha is None or not m:
+        return None
+    hora = int(m.group(1))
+    suf = re.sub(r"[\s.]", "", m.group(3) or "")
+    if suf == "pm" and hora < 12:
+        hora += 12
+    elif not suf and 1 <= hora <= 7:
+        hora += 12
+    if hora > 23:
+        return None
+    return fecha.isoformat(), hora
+
+
+def _creada_cali(created_at: str) -> datetime:
+    try:
+        utc = datetime.strptime(created_at or "", "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+    except ValueError:
+        return _ahora_cali()
+    return utc.astimezone(_CALI)
+
+
+def _ocupadas(memory, customer_id: str, fecha: str) -> set[int]:
+    """Horas de 'fecha' ya confirmadas por otros clientes."""
+    horas = set()
+    for fila in memory.list_confirmed_reservas(500):
+        if fila.get("customer_id") == customer_id:
+            continue
+        otra = _dia_hora(str(fila.get("summary") or ""), _creada_cali(str(fila.get("created_at") or "")))
+        if otra and otra[0] == fecha:
+            horas.add(otra[1])
+    return horas
+
+
+def _cupo_tomado(env: Envelope, memory) -> str:
+    """Texto de 'ocupado' si otro cliente ya tiene ese día y hora; '' si está libre."""
+    if memory is None:
+        return ""
+    pedida = _dia_hora(env.text or "", _ahora_cali())
+    if not pedida:
+        return ""
+    ocupadas = _ocupadas(memory, env.customer_id or "", pedida[0])
+    if pedida[1] not in ocupadas:
+        return ""
+    abre, cierra = kb.get_hours()
+    libres = [_hhmm(f) for f in FRANJAS_PILOTO if abre <= f < cierra and f[0] not in ocupadas]
+    if not libres:
+        return "Ese cupo ya está tomado y ese día no quedan franjas libres. ¿Probamos otro día?"
+    if len(libres) == 1:
+        return f"Ese cupo ya está tomado. Ese día sigue libre a las {libres[0]}. ¿Te sirve?"
+    opciones = ", ".join(libres[:-1]) + f" o {libres[-1]}"
+    return f"Ese cupo ya está tomado. Ese día siguen libres las {opciones}. ¿Cuál te sirve?"
+
+
 def _tiene_cuando(text: str) -> bool:
     t = (text or "").lower()
     if re.search(r"\b\d{1,2}([:.]\d{2})?\s*(am|pm)?\b", t):
@@ -124,6 +200,12 @@ def handle(env: Envelope, memory=None) -> Envelope:
             env.result = "pending"
             env.approval_status = "pending_customer"
             return env
+        tomado = _cupo_tomado(env, memory)
+        if tomado:
+            env.reply_text = tomado
+            env.result = "pending"
+            env.approval_status = "pending_customer"
+            return env
         memory.cancel_last_reserva(env.customer_id or "")
         env.reply_text = f"Pasé la cita a «{env.text}»."
         env.result = "ok"
@@ -148,6 +230,12 @@ def handle(env: Envelope, memory=None) -> Envelope:
         return env
 
     if _tiene_cuando(env.text or "") and "cita" not in bajo and "reserva" not in bajo:
+        tomado = _cupo_tomado(env, memory)
+        if tomado:
+            env.reply_text = tomado
+            env.result = "pending"
+            env.approval_status = "pending_customer"
+            return env
         env.reply_text = (
             f"Quedó anotada la reserva para «{env.text}». "
             "En el piloto no hay agenda real todavía; el cupo queda como confirmado de prueba."
