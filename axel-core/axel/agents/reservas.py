@@ -7,7 +7,22 @@ from axel import knowledge_base as kb
 from axel.envelope import Envelope
 
 _CALI = timezone(timedelta(hours=-5))
-FRANJAS = "9:00, 11:00, 15:00 o 17:00"
+FRANJAS_PILOTO = [(9, 0), (11, 0), (15, 0), (17, 0)]
+
+
+def _hhmm(h: tuple[int, int]) -> str:
+    return f"{h[0]}:{h[1]:02d}"
+
+
+def _franjas() -> str:
+    """Franjas piloto que caben en el horario de la KB, ya con 'a las' o 'entre'."""
+    abre, cierra = kb.get_hours()
+    validas = [_hhmm(f) for f in FRANJAS_PILOTO if abre <= f < cierra]
+    if not validas:
+        return f"entre {_hhmm(abre)} y {_hhmm(cierra)}"
+    if len(validas) == 1:
+        return f"a las {validas[0]}"
+    return "a las " + ", ".join(validas[:-1]) + f" o {validas[-1]}"
 
 
 def _ahora_cali() -> datetime:
@@ -24,13 +39,13 @@ def _cerrado_ahora(now: datetime | None = None) -> bool:
 def _fuera_de_horario_hoy(now: datetime | None = None) -> str:
     now = now or _ahora_cali()
     abre, cierra = kb.get_hours()
-    horario = f"lunes a sábado, {abre[0]}:{abre[1]:02d} a {cierra[0]}:{cierra[1]:02d}"
+    horario = f"lunes a sábado, {_hhmm(abre)} a {_hhmm(cierra)}"
     proximo = "el lunes" if now.weekday() in (5, 6) else "mañana"
     if now.weekday() == 6:
         inicio = "Hoy es domingo y no abrimos."
     else:
         inicio = "Hoy ya no agendo: estamos fuera de horario."
-    return f"{inicio} Atendemos {horario}. ¿Te sirve {proximo} a las {FRANJAS}?"
+    return f"{inicio} Atendemos {horario}. ¿Te sirve {proximo} {_franjas()}?"
 
 
 def _tiene_cuando(text: str) -> bool:
@@ -104,7 +119,7 @@ def handle(env: Envelope, memory=None) -> Envelope:
         if not _tiene_cuando(env.text or ""):
             env.reply_text = (
                 f"Tienes «{vigente.get('summary')}». "
-                f"¿La pasamos a {FRANJAS}?"
+                f"¿La pasamos {_franjas()}?"
             )
             env.result = "pending"
             env.approval_status = "pending_customer"
@@ -142,7 +157,7 @@ def handle(env: Envelope, memory=None) -> Envelope:
         return env
 
     env.reply_text = (
-        f"Puedo reservarte. Franjas piloto: {FRANJAS}, lunes a sábado. "
+        f"Puedo reservarte {_franjas()}, lunes a sábado. "
         "Dime día y hora."
     )
     env.result = "pending"
