@@ -247,7 +247,7 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         env.agent = "escalamiento"
         env.supervision_level = 1
         env.reply_text = (
-            "Comandos dueño: estado, limpiar, pendientes, citas, clientes, "
+            "Comandos dueño: estado, limpiar, pendientes, citas, clientes, catalogo, "
             "aceptar/aprobar, rechazo/rechazar, ayuda, "
             "configurar, el negocio se llama NOMBRE, abrimos de H1 a H2, "
             "el rubro es X, agenda si/no, agrega servicio X a N, "
@@ -292,6 +292,33 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
                 franja = reservas.franja_de(str(c.get("summary") or ""), str(c.get("created_at") or ""))
                 lineas.append(f"- {franja} · {c.get('name') or 'sin nombre'} · {cli.get('phone') or 'sin teléfono'}")
             env.reply_text = "Citas confirmadas:\n" + "\n".join(lineas)
+        env.result = "ok"
+        env.approval_status = "na"
+        return True
+    if t == "catalogo":
+        env.intent = "admin"
+        env.agent = "escalamiento"
+        env.supervision_level = 1
+        datos = load_kb()
+        abre, cierra = kb_mod.get_hours()
+        franjas = reservas._franjas_kb()
+        fuera = [reservas._hhmm(f) for f in franjas if not abre <= f < cierra]
+        franjas_txt = ", ".join(reservas._hhmm(f) for f in franjas) or "ninguna"
+        if fuera:
+            franjas_txt += f" (fuera de horario: {', '.join(fuera)})"
+        servicios = kb_mod.servicios()
+        lineas = [f"- {s['nombre']} {kb_mod.precio_txt(s.get('precio') or 0)}" for s in servicios]
+        env.reply_text = "\n".join(
+            [
+                "Catálogo:",
+                f"Rubro: {datos.get('rubro') or '—'}",
+                f"Agenda: {'sí' if kb_mod.agenda() else 'no'}",
+                f"Horario: {reservas._hhmm(abre)} a {reservas._hhmm(cierra)}",
+                f"Franjas: {franjas_txt}",
+                "Servicios:" if lineas else "Servicios: ninguno",
+                *lineas,
+            ]
+        )
         env.result = "ok"
         env.approval_status = "na"
         return True
