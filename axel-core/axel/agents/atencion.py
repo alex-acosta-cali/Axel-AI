@@ -16,6 +16,17 @@ def es_pedido(text: str) -> bool:
     return any(p in bajo for p in PEDIDO_FRASES)
 
 
+_RELLENO_PEDIDO = {"el", "la", "los", "las", "un", "una", "unos", "unas", "de", "del", "por", "favor", "porfa", "pls"}
+
+
+def _pedido_sin_servicio(text: str) -> str:
+    """Lo que el cliente nombró después de 'me lo llevo' ('pizza'). '' si no nombró nada."""
+    bajo = (text or "").lower()
+    frase = next(p for p in PEDIDO_FRASES if p in bajo)
+    palabras = re.findall(r"[a-záéíóúüñ0-9+]+", bajo.split(frase, 1)[1])
+    return " ".join(w for w in palabras if w not in _RELLENO_PEDIDO)[:40]
+
+
 def estado_cali(ahora: datetime | None = None) -> tuple[bool, str]:
     now = ahora or datetime.now(_CALI)
     if now.tzinfo is None:
@@ -93,6 +104,9 @@ def handle(env: Envelope, memory=None) -> Envelope:
         env.result = "ok"
         if not servicio:
             env.reply_text = kb.lista_servicios() if kb.servicios() else kb.NO_HAY
+            pedido = _pedido_sin_servicio(text)
+            if pedido and kb.servicios():
+                env.reply_text = f"No tengo {pedido}. {env.reply_text}"
             return env
         pedido = f"{servicio['nombre']} {kb.precio_txt(servicio.get('precio') or 0)}"
         env.reply_text = f"Pedido anotado: {pedido}. El dueño confirma el pago."
