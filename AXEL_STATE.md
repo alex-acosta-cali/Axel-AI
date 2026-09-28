@@ -1,5 +1,5 @@
 # AXEL_STATE.md
-Actualizado: 2026-09-27 (Cali)
+Actualizado: 2026-09-28 (Cali)
 Dueño: Alex. Repo: C:\Proyectos\Axel-AI
 GitHub: https://github.com/alex-acosta-cali/Axel-AI (privado)
 
@@ -10,6 +10,10 @@ GitHub: https://github.com/alex-acosta-cali/Axel-AI (privado)
 - Claude Code trabaja en el repo (ejecutor; Grok revisa, Alex aprueba).
 - Pruebas OK: `test_memory_cross_channel` y `test_level3_approval`.
 - App de Meta sigue **En desarrollo** (no publicada).
+- 28 sep: un cupo confirmado por franja (probado). Cancelar y reprogramar sueltan el cupo viejo.
+- 28 sep: reembolso N3, el dueño aprueba y el cliente recibe el aviso. Probado con un segundo celular.
+- 28 sep: aprobar/rechazar y comandos del dueño solo desde WA_OWNER_PHONE o el panel.
+- Hosting 24/7, Instagram y modelo de lenguaje: solo notas en `docs/`. No construidos.
 
 ## 1. Visión (fija hasta que Alex apruebe cambio)
 AXEL AI OS opera un negocio: atiende por WhatsApp, Instagram, web, email y voz; memoria de cliente; agenda; venta; cobro; marketing. Supervisión en 3 niveles. Trazabilidad de cada acto.
@@ -24,9 +28,13 @@ Hoy el piloto corre en local (panel http://127.0.0.1:8090) con ngrok hacia Whats
 | M4 Permisos 1/2/3 + auditoría + panel dueño | construido |
 | M5 WhatsApp Cloud API | conectado vía ngrok; app Meta en desarrollo |
 | Panel local HTML | construido |
-| Reservas confirmar / cancelar / reprogramar | construido (piloto, no cupos reales) |
+| Reservas confirmar / cancelar / reprogramar | construido (piloto): un cupo por franja, cancelar/reprogramar sueltan el cupo |
+| Panel: cupos de la semana LIBRE/TOMADA | construido |
 | KB precios | construido (corte/barba piloto) |
-| Llamadas / Instagram / factura / marketing | pendiente |
+| Instagram | solo nota (`docs/CANAL_INSTAGRAM.md`) |
+| Hosting 24/7 | solo nota (`docs/HOSTING_24_7.md`) |
+| Modelo de lenguaje | solo nota (`docs/MODELO_LENGUAJE.md`); router no llama APIs |
+| Llamadas / factura / marketing | pendiente |
 
 ## 3. Decisiones
 - Nombre: AXEL AI OS.
@@ -50,7 +58,8 @@ Chrome: http://127.0.0.1:8090/
 
 ## 5. Pendientes / bugs conocidos
 - Meta WABA no creado en cuenta propia.
-- Agenda no tiene cupos ni calendario.
+- Agenda: un cupo por franja, pero sin calendario real. La cita se guarda como texto.
+- Reservas aceptan horas fuera de las franjas (ej. 17 o 10).
 - Model router no llama APIs de pago.
 - “am” dentro de palabras ya no debe contar como hora (corregido en reservas).
 - Git a veces deja archivos sin commit: revisar `git status` antes de parar.
