@@ -44,12 +44,11 @@ sudo systemctl enable --now axel
 journalctl -u axel -f
 ```
 
-## 4. Red
-- **Ojo:** hoy `axel.demo` escucha solo en `127.0.0.1:8090`. Abrir el puerto 8090 en el firewall **no basta** para entrar desde fuera.
-- Camino recomendado: nginx en el mismo VPS, en los puertos 80/443, reenviando a `127.0.0.1:8090`. Así no se toca el código.
-- HTTPS con Let's Encrypt (certbot) cuando haya dominio.
-- Probar por `IP:8090` directo exigiría cambiar el código. Eso es una decisión: se consulta antes.
-- Meta solo acepta webhooks con HTTPS. Sin dominio y certificado, el webhook no se puede mover al VPS.
+## 4. Red (decidido por Grok)
+- `axel.demo` **sigue en `127.0.0.1:8090`**. No se cambia el código para escuchar en `0.0.0.0`.
+- Desde fuera **solo nginx con HTTPS** (Let's Encrypt / certbot), reenviando a `127.0.0.1:8090`.
+- **Prohibido** probar por `IP:8090`. El puerto 8090 no se abre en el firewall.
+- Meta solo acepta webhooks con HTTPS. Sin dominio y certificado, el webhook no se mueve al VPS.
 
 ## 5. Webhook en Meta
 - Nueva URL: `https://DOMINIO/webhooks/whatsapp`.
