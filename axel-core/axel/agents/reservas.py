@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from datetime import datetime, timedelta, timezone
 
+from axel import knowledge_base as kb
 from axel.envelope import Envelope
 
 _CALI = timezone(timedelta(hours=-5))
@@ -13,9 +14,23 @@ def _ahora_cali() -> datetime:
     return datetime.now(_CALI)
 
 
-def _cerrado_ahora() -> bool:
-    now = _ahora_cali()
-    return now.weekday() == 6 or now.hour < 8 or now.hour >= 19
+def _cerrado_ahora(now: datetime | None = None) -> bool:
+    now = now or _ahora_cali()
+    abre, cierra = kb.get_hours()
+    actual = (now.hour, now.minute)
+    return now.weekday() == 6 or actual < abre or actual >= cierra
+
+
+def _fuera_de_horario_hoy(now: datetime | None = None) -> str:
+    now = now or _ahora_cali()
+    abre, cierra = kb.get_hours()
+    horario = f"lunes a sábado, {abre[0]}:{abre[1]:02d} a {cierra[0]}:{cierra[1]:02d}"
+    proximo = "el lunes" if now.weekday() in (5, 6) else "mañana"
+    if now.weekday() == 6:
+        inicio = "Hoy es domingo y no abrimos."
+    else:
+        inicio = "Hoy ya no agendo: estamos fuera de horario."
+    return f"{inicio} Atendemos {horario}. ¿Te sirve {proximo} a las {FRANJAS}?"
 
 
 def _tiene_cuando(text: str) -> bool:
@@ -50,10 +65,7 @@ def handle(env: Envelope, memory=None) -> Envelope:
         return env
 
     if "hoy" in bajo and _cerrado_ahora() and env.intent in {"reserva", "reprogramar"}:
-        env.reply_text = (
-            "Hoy en Cali ya no hay cupo (cerramos a las 19:00). "
-            f"¿Mañana a las {FRANJAS}?"
-        )
+        env.reply_text = _fuera_de_horario_hoy()
         env.result = "denied"
         env.approval_status = "na"
         env.intent = "reserva_denegada"
