@@ -12,7 +12,7 @@ from urllib.parse import parse_qs, urlparse
 from datetime import timedelta
 
 from axel import knowledge_base as kb
-from axel.agents.reservas import FRANJAS_PILOTO, _ahora_cali, _creada_cali, _dia_hora, _hhmm
+from axel.agents.reservas import FRANJAS_PILOTO, _ahora_cali, _creada_cali, _dia_hora, _hhmm, franja_de
 from axel.connectors import whatsapp
 from axel.envelope import Envelope
 from axel.memory import Memory
@@ -105,10 +105,13 @@ class Handler(BaseHTTPRequestHandler):
         ficha = memory.find_by_identity("panel", "alex_pc")
         notas = memory.list_notes(str(ficha.get("customer_id") or ""), 3)
         notas_txt = " | ".join(str(n.get("note") or "") for n in notas) or "—"
+        cita = memory.last_reserva(str(ficha.get("customer_id") or ""))
+        cita_txt = franja_de(str(cita.get("summary") or ""), str(cita.get("created_at") or "")) if cita else "—"
         ficha_html = (
             f"Nombre: {html.escape(str(ficha.get('name') or '—'))} · "
             f"Celular: {html.escape(str(ficha.get('phone') or '—'))} · "
             f"Correo: {html.escape(str(ficha.get('email') or '—'))} · "
+            f"Cita: {html.escape(cita_txt)} · "
             f"Notas: {html.escape(notas_txt)}"
         )
         citas = []
