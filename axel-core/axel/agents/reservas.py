@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from axel import knowledge_base as kb
 from axel.envelope import Envelope
@@ -56,21 +56,25 @@ def _sin_tildes(text: str) -> str:
     return (text or "").lower().translate(str.maketrans("áéíóúü", "aeiouu"))
 
 
+def _fecha(text: str, base: datetime) -> date | None:
+    """Día pedido en el texto, contando desde 'base'. None si no nombra día."""
+    t = _sin_tildes(text)
+    if re.search(r"\bpasado manana\b", t):
+        return base.date() + timedelta(days=2)
+    if re.search(r"\bmanana\b", t):
+        return base.date() + timedelta(days=1)
+    if re.search(r"\bhoy\b", t):
+        return base.date()
+    for nombre, num in _DIAS.items():
+        if re.search(rf"\b{nombre}\b", t):
+            return base.date() + timedelta(days=(num - base.weekday()) % 7)
+    return None
+
+
 def _dia_hora(text: str, base: datetime) -> tuple[str, int] | None:
     """Fecha (ISO) y hora pedidas en el texto, contando desde 'base'. None si falta algo."""
     t = _sin_tildes(text)
-    fecha = None
-    if re.search(r"\bpasado manana\b", t):
-        fecha = base.date() + timedelta(days=2)
-    elif re.search(r"\bmanana\b", t):
-        fecha = base.date() + timedelta(days=1)
-    elif re.search(r"\bhoy\b", t):
-        fecha = base.date()
-    else:
-        for nombre, num in _DIAS.items():
-            if re.search(rf"\b{nombre}\b", t):
-                fecha = base.date() + timedelta(days=(num - base.weekday()) % 7)
-                break
+    fecha = _fecha(text, base)
     m = re.search(r"\b(\d{1,2})(?:[:.](\d{2}))?\s*(a\.?\s?m\.?|p\.?\s?m\.?)?(?![\d/-])", t)
     if fecha is None or not m:
         return None
@@ -137,6 +141,33 @@ def _tiene_cuando(text: str) -> bool:
     return False
 
 
+_HORA_CORTA = re.compile(r"^(?:a\s+)?(?:las?\s+)?(\d{1,2})(?:[:.](\d{2}))?\s*(a\.?\s?m\.?|p\.?\s?m\.?)?\s*\.?$")
+_OFERTA_ABIERTA = {"reserva", "reprogramar", "oferta_cita"}
+
+
+def _hora_corta(env: Envelope, memory) -> str:
+    """Respuesta solo con hora ('11', 'a las 11', '11:00') a una oferta abierta.
+    Completa el día con el último mensaje del cliente que lo nombró.
+    Devuelve '' si no aplica, o un texto para pedir el día."""
+    m = _HORA_CORTA.match(_sin_tildes(env.text).strip())
+    if not m or memory is None or memory.get_open_task(env.customer_id or "") not in _OFERTA_ABIERTA:
+        return ""
+    hoy = _ahora_cali().date()
+    dia = None
+    for h in memory.last_summaries(env.customer_id or "", 3):
+        creada = _creada_cali(str(h.get("created_at") or ""))
+        if creada.date() != hoy:
+            break
+        dia = _fecha(str(h.get("summary") or ""), creada)
+        if dia is not None:
+            break
+    hora = f"{m.group(1)}:{m.group(2) or '00'}{(' ' + m.group(3)) if m.group(3) else ''}"
+    if dia is None or dia < hoy:
+        return f"¿Para qué día a las {hora}? Dime día y hora, por ejemplo: lunes a las {hora}."
+    env.text = f"{_NOMBRE_DIA[dia.weekday()]} a las {hora}"
+    return ""
+
+
 def handle(env: Envelope, memory=None) -> Envelope:
     if env.intent == "mi_cita" and memory is not None:
         fila = memory.last_reserva(env.customer_id or "")
@@ -146,6 +177,13 @@ def handle(env: Envelope, memory=None) -> Envelope:
             env.reply_text = "No tienes una cita confirmada ahora."
         env.result = "ok"
         env.approval_status = "na"
+        return env
+
+    pedir_dia = _hora_corta(env, memory)
+    if pedir_dia:
+        env.reply_text = pedir_dia
+        env.result = "pending"
+        env.approval_status = "pending_customer"
         return env
 
     bajo = (env.text or "").lower()
