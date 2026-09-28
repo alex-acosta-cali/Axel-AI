@@ -11,11 +11,13 @@ from urllib.parse import parse_qs, urlparse
 
 from datetime import timedelta
 
+from axel import knowledge_base as kb
 from axel.agents.reservas import (
     _NOMBRE_DIA,
     _ahora_cali,
     _creada_cali,
     _cuando,
+    _franjas_kb,
     _hhmm,
     cupos_de,
     franja_de,
@@ -83,6 +85,29 @@ def _tabla_cupos() -> str:
     cab = "".join(f"<th>{_hhmm(f)}</th>" for f in franjas)
     fuera = "".join(f"<p>{html.escape(l)}</p>" for l in _fuera_de_franja())
     return f"<table><tr><th>Día</th>{cab}</tr>{''.join(filas)}</table>{fuera}"
+
+
+def _tabla_catalogo() -> str:
+    """Lo que AXEL sabe del negocio desde la KB. Solo lectura: se cambia con comandos del dueño."""
+    datos = kb.load_kb()
+    abre, cierra = kb.get_hours()
+    franjas = ", ".join(_hhmm(f) for f in _franjas_kb()) or "ninguna"
+    filas = [
+        ("Negocio", datos.get("negocio") or "—"),
+        ("Rubro", datos.get("rubro") or "—"),
+        ("Agenda", "sí" if kb.agenda() else "no"),
+        ("Horario", f"{_hhmm(abre)} a {_hhmm(cierra)}"),
+        ("Franjas", franjas),
+    ]
+    datos_html = "".join(f"<tr><th>{k}</th><td>{html.escape(str(v))}</td></tr>" for k, v in filas)
+    servicios = "".join(
+        f"<tr><td>{html.escape(str(s['nombre']))}</td><td>{kb.precio_txt(s.get('precio') or 0)}</td></tr>"
+        for s in kb.servicios()
+    ) or "<tr><td colspan='2'>Sin servicios</td></tr>"
+    return (
+        f"<table>{datos_html}</table>"
+        f"<table style='margin-top:8px'><tr><th>Servicio</th><th>Precio</th></tr>{servicios}</table>"
+    )
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -212,6 +237,8 @@ th{{background:#222}} .ok{{color:#8f8}} .tomada{{color:#f99}} .paso{{color:#888}
 <table><tr><th>Evento</th><th>Intent</th><th>Pedido</th><th>Decisión</th></tr>{pendientes}</table>
 <h2>Clientes</h2>
 <table><tr><th>Nombre</th><th>Celular</th><th>Correo</th><th>ID</th></tr>{tabla_cli}</table>
+<h2>Catalogo</h2>
+{_tabla_catalogo()}
 <h2>Cupos de la semana</h2>
 {_tabla_cupos()}
 <h2>Citas</h2>
