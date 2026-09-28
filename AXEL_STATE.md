@@ -16,6 +16,7 @@ GitHub: https://github.com/alex-acosta-cali/Axel-AI (privado)
 - Hosting 24/7, Instagram y modelo de lenguaje: solo notas en `docs/`. No construidos.
 
 ## 1. Visión (fija hasta que Alex apruebe cambio)
+AXEL es el asistente del comercio, no de un rubro. La barbería fue el primer catálogo de prueba, no el producto. Una categoría nueva = llenar la KB (`kb.json`), no un programa nuevo.
 AXEL AI OS opera un negocio: atiende por WhatsApp, Instagram, web, email y voz; memoria de cliente; agenda; venta; cobro; marketing. Supervisión en 3 niveles. Trazabilidad de cada acto.
 Hoy el piloto corre en local (panel http://127.0.0.1:8090) con ngrok hacia WhatsApp real. App de Meta en desarrollo.
 
@@ -30,7 +31,7 @@ Hoy el piloto corre en local (panel http://127.0.0.1:8090) con ngrok hacia Whats
 | Panel local HTML | construido |
 | Reservas confirmar / cancelar / reprogramar | construido (piloto): un cupo por franja, cancelar/reprogramar sueltan el cupo |
 | Panel: cupos de la semana LIBRE/TOMADA | construido |
-| KB precios | construido (corte/barba piloto) |
+| KB del comercio | construido: negocio, rubro, agenda, horario, franjas, servicios, políticas. El dueño la edita por chat. Primer catálogo de prueba: barbería |
 | Instagram | solo nota (`docs/CANAL_INSTAGRAM.md`) |
 | Hosting 24/7 | solo nota (`docs/HOSTING_24_7.md`) |
 | Modelo de lenguaje | solo nota (`docs/MODELO_LENGUAJE.md`); router no llama APIs |
@@ -59,7 +60,7 @@ Chrome: http://127.0.0.1:8090/
 ## 5. Pendientes / bugs conocidos
 - Meta WABA no creado en cuenta propia.
 - Agenda: un cupo por franja, pero sin calendario real. La cita se guarda como texto.
-- Reservas solo en franjas visibles (hoy 9, 11 y 15). Las viejas fuera de franja salen aparte en el panel.
+- Reservas solo en franjas visibles, que salen de `kb.json` (hoy 9, 11 y 15). Las viejas fuera de franja salen aparte en el panel.
 - Model router no llama APIs de pago.
 - “am” dentro de palabras ya no debe contar como hora (corregido en reservas).
 - Git a veces deja archivos sin commit: revisar `git status` antes de parar.

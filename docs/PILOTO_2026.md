@@ -2,6 +2,11 @@
 
 WhatsApp del negocio: +57 314 5801851.
 
+## Qué es AXEL
+- AXEL es el asistente del comercio.
+- La barbería fue el primer catálogo de prueba, no el producto.
+- Una categoría nueva = llenar la KB, no un programa nuevo.
+
 ## Ya funciona
 - Panel local.
 - CRM: ficha por cliente.
