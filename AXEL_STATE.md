@@ -53,16 +53,22 @@ AXEL es comercio, no barbería. Todo sale de la KB.
 - El cliente ve sus pedidos: «mi pedido» / «mis pedidos» lista solo los suyos (servicio, precio, estado, hora Cali); si no tiene, «No tienes pedidos.». El dueño sigue con `pedidos` para todos.
 - El dueño recibe aviso de pedido nuevo por el canal de alertas N3 (`WA_OWNER_PHONE`): «Pedido nuevo: quién · servicio $. AXEL no cobra.». Solo informa: no crea pendiente.
 
-## 0.7 Alcance
+## 0.7 Habitación 10-13 (hecha 29 sep)
+- 10. Saludo con cita o pedido: primera línea la cita o el pedido; segunda, negocio + abierto/cerrado. Sin ofrecer cita. Dueño sin cambios.
+- 11. `pedido listo` del dueño: sin más, solo si hay un anotado hoy; con varios, lista (nombre, $, hora, cel …1234) y pide `pedido listo NOMBRE` o las 4 últimas cifras del celular. Mismo nombre en dos clientes: pide las cifras. Nunca marca el de otra persona. El cliente no lo usa.
+- 12. Al entregar, aviso a ESE cliente: «Tu pedido de SERVICIO quedó listo. El dueño confirma el pago. AXEL no cobra.». Sin celular no se envía: queda en el log.
+- 13. Pack en `test_piloto_2026.py`: hola con turno y negocio, hola sin reserva sin turno, dos anotados no se cierran juntos, texto al cliente al entregar.
+
+## 0.8 Alcance
 - Hoy: 1 negocio, 1 WhatsApp, dueño por número (`WA_OWNER_PHONE`), panel de ese negocio.
 - 2028: varios negocios. No se construye ahora.
 
-## 0.8 Siguiente capítulo: VPS
-- VPS cuando haya tarjeta.
-- No cobro real.
-- No segundo panel.
+## 0.9 Siguiente capítulo: VPS
+- Código local 2026: nada más. Solo VPS cuando haya tarjeta.
 - Llevar AXEL a un VPS 24/7 (nginx con HTTPS hacia `127.0.0.1:8090`).
 - No Meta producción.
+- No segundo panel.
+- No cobro.
 - No Instagram.
 
 ## 1. Visión (fija hasta que Alex apruebe cambio)
