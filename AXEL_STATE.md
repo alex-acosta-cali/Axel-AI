@@ -59,11 +59,16 @@ AXEL es comercio, no barbería. Todo sale de la KB.
 - 12. Al entregar, aviso a ESE cliente: «Tu pedido de SERVICIO quedó listo. El dueño confirma el pago. AXEL no cobra.». Sin celular no se envía: queda en el log.
 - 13. Pack en `test_piloto_2026.py`: hola con turno y negocio, hola sin reserva sin turno, dos anotados no se cierran juntos, texto al cliente al entregar.
 
-## 0.8 Alcance
+## 0.8 Tono de la KB (hecho 29 sep)
+- `kb.json` tiene `tono`: `cercano` (tú, piloto) o `formal` (usted). Si falta o no se entiende, cercano.
+- Lo usan el saludo (con cita, pedido, abierto o cerrado), «No tengo esa información…» y la pregunta de nombre («¿Cómo quiere que le llame?» en formal).
+- No cambia precios ni permisos.
+
+## 0.9 Alcance
 - Hoy: 1 negocio, 1 WhatsApp, dueño por número (`WA_OWNER_PHONE`), panel de ese negocio.
 - 2028: varios negocios. No se construye ahora.
 
-## 0.9 Siguiente capítulo: VPS
+## 0.10 Siguiente capítulo: VPS
 - Código local 2026: nada más. Solo VPS cuando haya tarjeta.
 - Llevar AXEL a un VPS 24/7 (nginx con HTTPS hacia `127.0.0.1:8090`).
 - No Meta producción.
