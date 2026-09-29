@@ -110,9 +110,13 @@ class Memory:
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
         with self._conn() as conn:
             conn.executescript(SCHEMA)
-            for col, typ in (("why", "TEXT"), ("data_used", "TEXT")):
+            for tabla, col, typ in (
+                ("audit_events", "why", "TEXT"),
+                ("audit_events", "data_used", "TEXT"),
+                ("pedidos", "estado", "TEXT NOT NULL DEFAULT 'anotado'"),
+            ):
                 try:
-                    conn.execute(f"ALTER TABLE audit_events ADD COLUMN {col} {typ}")
+                    conn.execute(f"ALTER TABLE {tabla} ADD COLUMN {col} {typ}")
                 except sqlite3.OperationalError:
                     pass
             # Pedidos viejos guardados como nota: se copian una vez; la nota no se toca.
@@ -471,7 +475,7 @@ class Memory:
         with self._conn() as conn:
             rows = conn.execute(
                 """
-                SELECT p.servicio, p.precio, p.created_at, p.customer_id, c.name, c.phone
+                SELECT p.servicio, p.precio, p.estado, p.created_at, p.customer_id, c.name, c.phone
                 FROM pedidos p
                 LEFT JOIN customers c ON c.customer_id = p.customer_id
                 ORDER BY p.created_at DESC, p.pedido_id DESC
@@ -480,6 +484,24 @@ class Memory:
                 (limit,),
             ).fetchall()
         return [dict(r) for r in rows]
+
+    def entregar_ultimo_pedido(self) -> dict[str, Any] | None:
+        """El pedido 'anotado' más nuevo pasa a 'entregado'. Entregado no es pagado: AXEL no cobra."""
+        with self._conn() as conn:
+            row = conn.execute(
+                """
+                SELECT p.pedido_id, p.servicio, p.precio, c.name, c.phone
+                FROM pedidos p
+                LEFT JOIN customers c ON c.customer_id = p.customer_id
+                WHERE p.estado = 'anotado'
+                ORDER BY p.created_at DESC, p.pedido_id DESC
+                LIMIT 1
+                """
+            ).fetchone()
+            if not row:
+                return None
+            conn.execute("UPDATE pedidos SET estado = 'entregado' WHERE pedido_id = ?", (row["pedido_id"],))
+        return dict(row)
 
     def get_customer(self, customer_id: str) -> dict[str, Any] | None:
         if not customer_id:

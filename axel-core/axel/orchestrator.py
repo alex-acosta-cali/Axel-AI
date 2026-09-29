@@ -378,13 +378,13 @@ def _try_owner_setup(env: Envelope, memory: Memory) -> bool:
     return True
 
 
-def pedidos_filas(memory: Memory, limit: int = 15) -> list[tuple[str, str, str]]:
-    """(hora Cali, nombre o celular, 'servicio $N') de los últimos pedidos. Solo para el dueño."""
+def pedidos_filas(memory: Memory, limit: int = 15) -> list[tuple[str, str, str, str]]:
+    """(hora Cali, nombre o celular, 'servicio $N', anotado/entregado) de los últimos pedidos. Solo para el dueño."""
     filas = []
     for p in memory.list_pedidos(limit):
         pedido = f"{p['servicio']} {kb_mod.precio_txt(p['precio'])}"
         hora = reservas._creada_cali(str(p.get("created_at") or "")).strftime("%d/%m %H:%M")
-        filas.append((hora, str(p.get("name") or p.get("phone") or "sin nombre"), pedido))
+        filas.append((hora, str(p.get("name") or p.get("phone") or "sin nombre"), pedido, str(p.get("estado") or "anotado")))
     return filas
 
 
@@ -435,7 +435,7 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         env.agent = "escalamiento"
         env.supervision_level = 1
         env.reply_text = (
-            "Comandos dueño: estado, reporte, limpiar, pendientes, citas, clientes, pedidos, catalogo, "
+            "Comandos dueño: estado, reporte, limpiar, pendientes, citas, clientes, pedidos, pedido listo, catalogo, "
             "aceptar/aprobar, rechazo/rechazar, ayuda, "
             "configurar, cancelar configurar, el negocio se llama NOMBRE, abrimos de H1 a H2, "
             "el rubro es X, agenda si/no, agrega servicio X a N, "
@@ -493,6 +493,20 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         env.result = "ok"
         env.approval_status = "na"
         return True
+    if t == "pedido listo":
+        env.intent = "admin"
+        env.agent = "escalamiento"
+        env.supervision_level = 1
+        p = memory.entregar_ultimo_pedido()
+        env.reply_text = (
+            f"Entregado: {p['servicio']} {kb_mod.precio_txt(p['precio'])} · {p.get('name') or p.get('phone') or 'sin nombre'}. "
+            "AXEL no cobra."
+            if p
+            else "No hay pedidos anotados."
+        )
+        env.result = "ok"
+        env.approval_status = "na"
+        return True
     if t == "reporte":
         env.intent = "admin"
         env.agent = "escalamiento"
@@ -505,7 +519,7 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         env.intent = "admin"
         env.agent = "escalamiento"
         env.supervision_level = 1
-        lineas = [f"- {hora} · {quien} · {pedido}" for hora, quien, pedido in pedidos_filas(memory)]
+        lineas = [f"- {hora} · {quien} · {pedido} · {estado}" for hora, quien, pedido, estado in pedidos_filas(memory)]
         env.reply_text = "Pedidos:\n" + "\n".join(lineas) if lineas else "No hay pedidos."
         env.result = "ok"
         env.approval_status = "na"

@@ -77,6 +77,14 @@ def main() -> int:
         ajeno = dice("pedidos", AJENO).reply_text or ""
         assert "Pedidos:" not in ajeno and "$4.000" not in ajeno, ajeno
 
+        # Estado del pedido: anotado -> entregado solo por el dueño. Entregado no es cobrado.
+        assert dueno.endswith("cafe $4.000 · anotado"), dueno
+        dice("pedido listo", CLIENTE)
+        assert [p["estado"] for p in memory.list_pedidos()] == ["anotado"], "el cliente no cambia estado"
+        assert dice("pedido listo", DUENO).reply_text == "Entregado: cafe $4.000 · sin nombre. AXEL no cobra."
+        assert (dice("pedidos", DUENO).reply_text or "").endswith("cafe $4.000 · entregado")
+        assert dice("pedido listo", DUENO).reply_text == "No hay pedidos anotados."
+
         # Reembolso queda en nivel 3, pendiente del dueño, sin ejecutar.
         reembolso = dice("quiero un reembolso de mi compra")
         assert reembolso.supervision_level == 3

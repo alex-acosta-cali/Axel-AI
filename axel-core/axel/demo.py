@@ -125,8 +125,8 @@ def _tabla_pedidos() -> str:
     """Últimos 15 pedidos, igual que el comando pedidos. Solo lectura."""
     filas = "".join(
         "<tr>" + "".join(f"<td>{html.escape(c)}</td>" for c in fila) + "</tr>" for fila in pedidos_filas(memory)
-    ) or "<tr><td colspan='3'>No hay pedidos.</td></tr>"
-    return f"<table><tr><th>Hora Cali</th><th>Cliente</th><th>Pedido</th></tr>{filas}</table>"
+    ) or "<tr><td colspan='4'>No hay pedidos.</td></tr>"
+    return f"<table><tr><th>Hora Cali</th><th>Cliente</th><th>Pedido</th><th>Estado</th></tr>{filas}</table>"
 
 
 class Handler(BaseHTTPRequestHandler):
