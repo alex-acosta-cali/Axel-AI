@@ -218,6 +218,19 @@ def set_price(producto: str, pesos: str) -> str:
     return precio_txt(pesos)
 
 
+def set_stock(producto: str, cantidad: int) -> bool:
+    """Pone servicios[].stock. Solo lo escribe el dueño; vender no lo resta."""
+    kb = load_kb()
+    cambiado = False
+    for s in kb.get("servicios") or []:
+        if _plano(str(s.get("nombre") or "")).strip() == _plano(producto).strip():
+            s["stock"] = int(cantidad)
+            cambiado = True
+    if cambiado:
+        _guardar(kb)
+    return cambiado
+
+
 def _guardar(kb: dict) -> None:
     _kb_path().write_text(json.dumps(kb, ensure_ascii=False, indent=2), encoding="utf-8")
 

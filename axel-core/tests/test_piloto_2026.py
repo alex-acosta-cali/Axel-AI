@@ -269,6 +269,19 @@ def main() -> int:
         assert [s.get("stock") for s in kb.servicios()] == [2, 0, None], "no se resta stock al vender"
         kb_tmp.write_bytes(real.read_bytes())
 
+        # El dueño edita stock; el cliente no. "catalogo" muestra stock solo si el campo existe.
+        assert dice("stock corte 0", rita).reply_text == "Eso solo lo cambia el dueño."
+        assert "stock" not in kb.buscar_servicio("corte")
+        assert dice("stock corte 0", DUENO).reply_text == "Listo, corte: stock 0. Queda agotado: no se vende."
+        assert dice("me lo llevo el corte", rita).reply_text == "No hay corte ahora."
+        cat = dice("catalogo", DUENO).reply_text or ""
+        assert "- corte $25.000 · stock 0 (agotado)" in cat and "- barba $15.000\n" in cat, cat
+        assert dice("stock corte 5", DUENO).reply_text == "Listo, corte: stock 5."
+        assert "- corte $25.000 · stock 5\n" in (dice("catalogo", DUENO).reply_text or "")
+        assert (dice("me lo llevo el corte", rita).reply_text or "").startswith("Pedido anotado: corte $25.000")
+        assert dice("stock pizza 3", DUENO).reply_text == "No tengo el servicio pizza."
+        kb_tmp.write_bytes(real.read_bytes())
+
         # Nombre: un comando o acción de agenda no se guarda como nombre; se responde la intención.
         for n, texto in enumerate(("cancelar la mesa", "precios", "horario", "ficha", "ayuda")):
             nuevo = f"57300000010{n}"
