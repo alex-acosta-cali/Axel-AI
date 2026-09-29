@@ -16,6 +16,7 @@ from axel.agents.reservas import (
     _NOMBRE_DIA,
     _ahora_cali,
     _creada_cali,
+    avisos_cita,
     _cuando,
     _franjas_kb,
     _hhmm,
@@ -363,6 +364,16 @@ def _recordatorio_loop() -> None:
     ultimo = ""
     while True:
         time.sleep(60)
+        try:
+            # Aviso al cliente 24 h y 2 h antes. Si el demo está apagado a esa hora, se pierde.
+            for fila, texto in avisos_cita(memory):
+                cli = memory.get_customer(str(fila.get("customer_id") or "")) or {}
+                destino = "".join(ch for ch in str(cli.get("phone") or "") if ch.isdigit())
+                if destino:
+                    send_text(destino, texto)
+                    print("AVISO CITA", fila.get("event_id"), texto)
+        except Exception as exc:
+            print("AVISO CITA error:", exc)
         try:
             hoy = date.today().isoformat()
             if ultimo == hoy:

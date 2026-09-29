@@ -89,6 +89,12 @@ CREATE TABLE IF NOT EXISTS pedidos (
     created_at TEXT,
     nota_id INTEGER UNIQUE
 );
+CREATE TABLE IF NOT EXISTS avisos_cita (
+    event_id TEXT NOT NULL,
+    plazo TEXT NOT NULL,
+    created_at TEXT,
+    PRIMARY KEY (event_id, plazo)
+);
 """
 # Nota vieja "Pedido piloto corte $25.000 (sin cobro)" -> fila en pedidos.
 _NOTA_PEDIDO = re.compile(r"^Pedido piloto (.+) \$([\d.]+) \(sin cobro\)$")
@@ -440,6 +446,15 @@ class Memory:
                 "INSERT INTO pedidos(customer_id, servicio, precio, created_at) VALUES (?,?,?,datetime('now'))",
                 (customer_id, servicio, int(precio)),
             )
+
+    def marcar_aviso(self, event_id: str, plazo: str) -> bool:
+        """True la primera vez para esa cita y ese plazo; False si ya estaba avisada."""
+        with self._conn() as conn:
+            cur = conn.execute(
+                "INSERT OR IGNORE INTO avisos_cita(event_id, plazo, created_at) VALUES (?,?,datetime('now'))",
+                (event_id, plazo),
+            )
+            return cur.rowcount == 1
 
     def last_pedido(self, customer_id: str) -> dict[str, Any] | None:
         if not customer_id:

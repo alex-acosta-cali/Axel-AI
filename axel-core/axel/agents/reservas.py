@@ -133,6 +133,26 @@ def franja_de(summary: str, created_at: str) -> str:
     return f"{_NOMBRE_DIA[cuando[0].weekday()]} {cuando[0].strftime('%d/%m')} {cuando[1]}:{cuando[2]:02d}"
 
 
+def avisos_cita(memory, ahora: datetime | None = None) -> list[tuple[dict, str]]:
+    """(fila, texto) de las citas confirmadas que entraron en el plazo de 2 h o de 24 h.
+    Cada aviso se marca al salir: no se repite aunque el envío falle."""
+    ahora = ahora or _ahora_cali()
+    salida = []
+    for fila in memory.list_confirmed_reservas(500):
+        c = _cuando(str(fila.get("summary") or ""), _creada_cali(str(fila.get("created_at") or "")))
+        if not c:
+            continue
+        cita = datetime(c[0].year, c[0].month, c[0].day, c[1], c[2], tzinfo=_CALI)
+        falta = cita - ahora
+        if falta <= timedelta(0) or falta > timedelta(hours=24):
+            continue
+        plazo = "2h" if falta <= timedelta(hours=2) else "24h"
+        if memory.marcar_aviso(str(fila.get("event_id") or ""), plazo):
+            dia = "hoy" if c[0] == ahora.date() else f"el {_NOMBRE_DIA[c[0].weekday()]} {c[0].strftime('%d/%m')}"
+            salida.append((fila, f"Recordatorio: tu cita es {dia} a las {c[1]}:{c[2]:02d}."))
+    return salida
+
+
 def cupos_de(memory, fecha: date, excepto: str = "") -> dict[tuple[int, int], dict]:
     """Franjas válidas de 'fecha' ya confirmadas, con su fila. Las citas fuera de franja no ocupan cupo."""
     validas = franjas_validas()
