@@ -72,7 +72,8 @@ def handle(env: Envelope, memory=None) -> Envelope:
             partes.append(f"celular: {env.phone}")
         if env.email:
             partes.append(f"correo: {env.email}")
-        env.reply_text = ("Quedó tu " + " y ".join(partes) + ".") if partes else "Recibí tus datos."
+        su = "su" if kb.tono() == "formal" else "tu"
+        env.reply_text = (f"Quedó {su} " + " y ".join(partes) + ".") if partes else f"Recibí {su}s datos."
         env.result = "ok"
         return env
     if any(p in bajo for p in ("mi ficha", "quien soy", "quién soy", "mis datos")):

@@ -241,7 +241,7 @@ def main() -> int:
         assert no_hay.endswith("¿Cómo quiere que le llame?") and "te llame" not in no_hay, no_hay
         # La pregunta formal también toma el nombre.
         dice("venden naves espaciales", "573000000017")
-        assert dice("Leo", "573000000017").reply_text == "Quedó tu nombre: Leo."
+        assert dice("Leo", "573000000017").reply_text == "Quedó su nombre: Leo."
         usted = dice("hola", "573000000016").reply_text or ""
         assert ("le puedo ayudar" in usted or "agendarle" in usted) and "te ayudo" not in usted and "agendarte" not in usted, usted
         assert "Su turno es sábado 11:00." in (dice("hola", hab).reply_text or "")
