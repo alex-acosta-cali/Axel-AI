@@ -270,7 +270,26 @@ th{{background:#222}} .ok{{color:#8f8}} .tomada{{color:#f99}} .paso{{color:#888}
 <table><tr><th>Cuando</th><th>Canal</th><th>Agente</th><th>Nivel</th><th>Aprobación</th><th>Entró</th><th>Respondió</th></tr>{tabla}</table>
 </body></html>"""
 
+    def _es_local(self) -> bool:
+        """Local = Host 127.0.0.1/localhost y sin cabeceras de proxy. ngrok llega como 127.0.0.1: no se mira la IP."""
+        host = (self.headers.get("Host") or "").lower()
+        if "ngrok" in host or self.headers.get("X-Forwarded-For") or self.headers.get("X-Forwarded-Host"):
+            return False
+        return host.rsplit(":", 1)[0] in {"127.0.0.1", "localhost"}
+
+    def _bloqueado(self, metodo: str) -> bool:
+        """Desde fuera solo /webhooks/whatsapp y GET /health. El resto: 403 solo_local."""
+        if self._es_local():
+            return False
+        ruta = urlparse(self.path).path
+        if ruta == "/webhooks/whatsapp" or (metodo == "GET" and ruta == "/health"):
+            return False
+        self._json(403, {"error": "solo_local"})
+        return True
+
     def do_GET(self) -> None:
+        if self._bloqueado("GET"):
+            return
         if self.path in ("/", "/index.html"):
             self._html(200, self._panel())
             return
@@ -315,6 +334,8 @@ th{{background:#222}} .ok{{color:#8f8}} .tomada{{color:#f99}} .paso{{color:#888}
         return process(env, memory).model_dump()
 
     def do_POST(self) -> None:
+        if self._bloqueado("POST"):
+            return
         length = int(self.headers.get("Content-Length", "0"))
         raw = self.rfile.read(length) or b""
         if self.path == "/panel":
