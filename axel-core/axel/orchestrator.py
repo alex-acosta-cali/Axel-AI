@@ -33,10 +33,25 @@ def _norm(text: str) -> str:
     return raw.translate(table)
 
 
+# "cancelar la mesa", "reprogramar turno": verbo + (artículo) + palabra.
+_CAMBIO_AGENDA = re.compile(r"\b(cancelar|anular|reprogramar|cambiar)\s+(la\s+|el\s+|mi\s+)?([a-zñ]+)")
+_NO_ES_AGENDA = {"cancelar", "reprogramar", "reserva"}
+
+
 def classify_intent(text: str) -> str:
     raw = _norm(text)
     if not raw:
         return "pregunta"
+    cambio = _CAMBIO_AGENDA.search(raw)
+    if cambio:
+        palabras = {"cita"} | {_norm(p) for p in kb_mod.agenda_palabras()}
+        if cambio.group(3) in palabras:
+            return "cancelar" if cambio.group(1) in {"cancelar", "anular"} else "reprogramar"
+        if cambio.group(2):
+            # "cancelar el pedido": la palabra no es de agenda; no toca citas ni abre reserva.
+            return next(
+                (n for n, p in INTENTS if n not in _NO_ES_AGENDA and p.search(raw)), "pregunta"
+            )
     intent = next((name for name, pattern in INTENTS if pattern.search(raw)), "pregunta")
     # Palabras de agenda del negocio ("mesa", "turno"): abren la reserva. Sin agenda, reservas dice que no agenda.
     if intent in {"pregunta", "saludo"} and any(

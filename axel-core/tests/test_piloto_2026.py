@@ -92,6 +92,23 @@ def main() -> int:
             assert "Dime día y hora" in r, r
         corte = dice("cuanto vale el corte", "573000000006").reply_text or ""
         assert corte.startswith("Corte: $") and "¿Te anoto un turno?" in corte, corte
+
+        # Cancelar / reprogramar con la palabra de agenda. "pedido" y "mesa" no están en la lista: no tocan la cita.
+        eva = "573000000007"
+        dice("quiero turno", eva)
+        cita = dice("jueves a las 11", eva)
+        assert (cita.reply_text or "").startswith("Quedó tu cita"), cita.reply_text
+        cid = cita.customer_id
+        for texto in ("cancelar el pedido", "cancelar la mesa"):
+            r = dice(texto, eva).reply_text or ""
+            assert "Cancelé" not in r and memory.last_reserva(cid), r
+        r = dice("reprogramar turno", eva).reply_text or ""
+        assert "No tienes cita" not in r and "Cancelé" not in r, r
+        assert (dice("cancelar el turno", eva).reply_text or "").startswith("Cancelé la cita")
+        assert memory.last_reserva(cid) is None
+        dice("quiero una reserva", eva)
+        dice("jueves a las 11", eva)
+        assert (dice("cancelar la reserva", eva).reply_text or "").startswith("Cancelé la cita")
     finally:
         kb._kb_path = original
         kb_tmp.unlink(missing_ok=True)
