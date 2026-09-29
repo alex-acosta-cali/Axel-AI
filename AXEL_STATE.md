@@ -101,12 +101,25 @@ Muros 14-17 hechos (29 sep): 14 tono en la KB, 15 stock 0 no se vende, 16 dueño
 - 5. Tabla de envíos: hecha (muro 19). Falta el estado «fuera de 24 h».
 - 6. Cita con hora exacta: hecha (29 sep). Ver arriba.
 - 7. Respaldo diario de `axel.db` y `kb.json`: con el VPS (Hetzner). Hoy solo copia manual (ver abajo).
-- 8. Ley 1581 (habeas data): antes de Meta producción, no ahora.
+- 8. Ley 1581 (habeas data): aviso de datos y borrado N3 hechos (ver abajo). Lo demás, antes de Meta producción.
 
 ### Copia local (hecho 29 sep)
 - Manual: `powershell -ExecutionPolicy Bypass -File C:\Proyectos\Axel-AI\axel-core\scripts\copia.ps1`.
 - Copia `axel.db` (con backup de sqlite3, sirve con el demo prendido) y `kb.json` a `C:\Proyectos\Axel-AI\copias\`, con fecha y hora en el nombre. No copia `.env`. `copias/` está en `.gitignore`.
 - No es el backup del VPS: mismo disco, no corre solo, no borra copias viejas.
+
+### Aviso de datos y borrado (hecho 29 sep)
+- Primer saludo de un cliente WhatsApp (una vez, antes de pedir nombre): «Tus datos (nombre y celular) quedan en la ficha de este negocio. Escribe borrar mis datos y el dueño lo revisa.» En tono formal, usted. Al dueño no.
+- Si el primer mensaje no es saludo, el aviso sale en el primer saludo después.
+- «borrar mis datos» es N3: pendiente del dueño. AXEL no borra nada solo.
+- El dueño aprueba o rechaza como un reembolso. Aprobar no borra: el borrado lo hace el dueño. No hay comando de borrado.
+- Prueba en `test_piloto_2026.py`.
+- No es Meta producción.
+
+### Siguiente
+- Código de producto: ninguno por ahora.
+- VPS: cuando haya tarjeta.
+- Plantillas 24 h: solo papel (`docs/WHATSAPP_24H.md`).
 
 ## 0.10 Alcance
 - Hoy: 1 negocio, 1 WhatsApp, dueño por número (`WA_OWNER_PHONE`), panel de ese negocio.
