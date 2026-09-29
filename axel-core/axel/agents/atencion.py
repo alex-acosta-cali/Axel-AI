@@ -112,7 +112,7 @@ def handle(env: Envelope, memory=None) -> Envelope:
         env.reply_text = f"Pedido anotado: {pedido}. El dueño confirma el pago."
         env.intent = "pedido"
         if memory is not None and env.customer_id:
-            memory.add_note(env.customer_id, f"Pedido piloto {pedido} (sin cobro)")
+            memory.add_pedido(env.customer_id, str(servicio["nombre"]), int(servicio.get("precio") or 0))
         return env
     if "domingo" in bajo:
         _, msg = estado_cali()

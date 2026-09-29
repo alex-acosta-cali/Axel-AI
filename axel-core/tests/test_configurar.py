@@ -118,6 +118,18 @@ def main() -> int:
         assert dice("precios y quiero cortarme el pelo", canal="whatsapp").startswith("Lista: corte $25.000")
         assert "Cra" not in dice("donde pago", canal="whatsapp")
         assert dice("que garantia tienen", canal="whatsapp") == kb.NO_HAY
+
+        # Pedidos: fila en la tabla, no nota. Nota vieja se pasa una vez.
+        assert dice("me lo llevo el corte", canal="whatsapp").startswith("Pedido anotado: corte $25.000")
+        cid = memory.list_pedidos()[0]["customer_id"]
+        memory.add_note(cid, "Pedido piloto barba $10.000 (sin cobro)")
+        memory = Memory(str(db))
+        memory = Memory(str(db))
+        filas = [(p["servicio"], p["precio"]) for p in memory.list_pedidos()]
+        assert sorted(filas) == [("barba", 10000), ("corte", 25000)], filas
+        lista = dice("pedidos")
+        assert "corte $25.000" in lista and "barba $10.000" in lista, lista
+
         kb_tmp.write_text(json.dumps({**KB_VIEJA, "servicios": []}), encoding="utf-8")
         assert "$" not in dice("cuanto vale cortarme el pelo", canal="whatsapp"), "sin corte no inventa precio"
     finally:

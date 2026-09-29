@@ -350,7 +350,7 @@ def pedidos_filas(memory: Memory, limit: int = 15) -> list[tuple[str, str, str]]
     """(hora Cali, nombre o celular, 'servicio $N') de los últimos pedidos. Solo para el dueño."""
     filas = []
     for p in memory.list_pedidos(limit):
-        pedido = re.sub(r"^Pedido piloto\s+|\s*\(sin cobro\)$", "", str(p.get("note") or ""))
+        pedido = f"{p['servicio']} {kb_mod.precio_txt(p['precio'])}"
         hora = reservas._creada_cali(str(p.get("created_at") or "")).strftime("%d/%m %H:%M")
         filas.append((hora, str(p.get("name") or p.get("phone") or "sin nombre"), pedido))
     return filas

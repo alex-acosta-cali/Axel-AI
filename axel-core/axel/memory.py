@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import sqlite3
 from pathlib import Path
 from typing import Any, Optional
@@ -80,7 +81,17 @@ CREATE TABLE IF NOT EXISTS customer_notes (
     note TEXT NOT NULL,
     created_at TEXT
 );
+CREATE TABLE IF NOT EXISTS pedidos (
+    pedido_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id TEXT NOT NULL,
+    servicio TEXT NOT NULL,
+    precio INTEGER NOT NULL,
+    created_at TEXT,
+    nota_id INTEGER UNIQUE
+);
 """
+# Nota vieja "Pedido piloto corte $25.000 (sin cobro)" -> fila en pedidos.
+_NOTA_PEDIDO = re.compile(r"^Pedido piloto (.+) \$([\d.]+) \(sin cobro\)$")
 
 
 def _new_customer_id() -> str:
@@ -98,6 +109,16 @@ class Memory:
                     conn.execute(f"ALTER TABLE audit_events ADD COLUMN {col} {typ}")
                 except sqlite3.OperationalError:
                     pass
+            # Pedidos viejos guardados como nota: se copian una vez; la nota no se toca.
+            for n in conn.execute(
+                "SELECT note_id, customer_id, note, created_at FROM customer_notes WHERE note LIKE 'Pedido piloto %'"
+            ).fetchall():
+                m = _NOTA_PEDIDO.match(n["note"])
+                if m:
+                    conn.execute(
+                        "INSERT OR IGNORE INTO pedidos(customer_id, servicio, precio, created_at, nota_id) VALUES (?,?,?,?,?)",
+                        (n["customer_id"], m.group(1), int(m.group(2).replace(".", "")), n["created_at"], n["note_id"]),
+                    )
 
     def _conn(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path)
@@ -411,16 +432,24 @@ class Memory:
             ).fetchall()
         return [dict(r) for r in rows]
 
+    def add_pedido(self, customer_id: str, servicio: str, precio: int) -> None:
+        if not customer_id or not servicio:
+            return
+        with self._conn() as conn:
+            conn.execute(
+                "INSERT INTO pedidos(customer_id, servicio, precio, created_at) VALUES (?,?,?,datetime('now'))",
+                (customer_id, servicio, int(precio)),
+            )
+
     def list_pedidos(self, limit: int = 15) -> list[dict[str, Any]]:
-        """Notas 'Pedido piloto ...' de todos los clientes, las más nuevas primero. Solo para el dueño."""
+        """Filas de pedidos de todos los clientes, las más nuevas primero. Solo para el dueño."""
         with self._conn() as conn:
             rows = conn.execute(
                 """
-                SELECT n.note, n.created_at, n.customer_id, c.name, c.phone
-                FROM customer_notes n
-                LEFT JOIN customers c ON c.customer_id = n.customer_id
-                WHERE n.note LIKE 'Pedido piloto %'
-                ORDER BY n.note_id DESC
+                SELECT p.servicio, p.precio, p.created_at, p.customer_id, c.name, c.phone
+                FROM pedidos p
+                LEFT JOIN customers c ON c.customer_id = p.customer_id
+                ORDER BY p.created_at DESC, p.pedido_id DESC
                 LIMIT ?
                 """,
                 (limit,),
