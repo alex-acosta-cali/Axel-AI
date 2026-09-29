@@ -1,11 +1,23 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
 import os
 from typing import Any
 
 import httpx
 
 GRAPH = "https://graph.facebook.com/v21.0"
+
+
+def firma_valida(raw: bytes, firma: str) -> bool:
+    """X-Hub-Signature-256 = 'sha256=' + HMAC-SHA256(body crudo, WA_APP_SECRET). Sin secreto o sin firma: False."""
+    secreto = os.getenv("WA_APP_SECRET", "")
+    firma = (firma or "").strip()
+    if not secreto or not firma.startswith("sha256="):
+        return False
+    esperada = hmac.new(secreto.encode("utf-8"), raw or b"", hashlib.sha256).hexdigest()
+    return hmac.compare_digest(firma[len("sha256="):].lower(), esperada)
 
 
 def parse_incoming(body: dict[str, Any]) -> list[dict[str, Any]]:

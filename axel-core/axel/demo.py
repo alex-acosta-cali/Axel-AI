@@ -353,6 +353,15 @@ th{{background:#222}} .ok{{color:#8f8}} .tomada{{color:#f99}} .paso{{color:#888}
             self.end_headers()
             return
         if self.path == "/webhooks/whatsapp":
+            # Solo Meta: firma HMAC del body crudo con WA_APP_SECRET. Sin secreto o sin firma, no se procesa.
+            if not os.getenv("WA_APP_SECRET"):
+                print("WA IN rechazado: falta WA_APP_SECRET en .env")
+                self._json(403, {"error": "sin_secreto"})
+                return
+            if not whatsapp.firma_valida(raw, self.headers.get("X-Hub-Signature-256") or ""):
+                print("WA IN rechazado: firma inválida o ausente")
+                self._json(403, {"error": "firma_invalida"})
+                return
             try:
                 body = json.loads(raw or b"{}")
             except json.JSONDecodeError:
