@@ -79,9 +79,19 @@ Muros 14-17 hechos (29 sep): 14 tono en la KB, 15 stock 0 no se vende, 16 dueño
 - 18.3 wamid: el mismo mensaje reintentado por Meta se ignora. 200 a Meta antes de responder al cliente.
 - Falta: prueba real en el 314 con el demo reiniciado.
 
+### Muro 19 — envíos (hecho 29 sep)
+- Tabla `envios`: una fila por aviso saliente. A quién, texto corto (80), para qué, estado, hora (se muestra en Cali).
+- Para qué: `aviso_24h`, `aviso_2h`, `pedido_listo`, `n3_cliente`, `n3_dueno`, `pedido_nuevo`.
+- Estado: `enviado`, `fallo`, `sin_celular`, `omitido_dueno` (el celular del cliente es el del dueño).
+- Un solo intento. No reintenta solo. Si Meta falla (o falta token), queda `fallo` en la fila.
+- Comando `envios` del dueño: últimas 10 filas (hora Cali · dueño o cel …1234 · para qué · texto corto · estado). El cliente no las ve.
+- Panel local, debajo del reporte: últimas 8 filas (hora Cali, para qué, estado, a quién: dueño, nombre o …1234). Sin texto. Solo lectura.
+- Prueba en `test_piloto_2026.py`. El panel no tiene prueba automática.
+- Pendiente: la tabla crece sin límite.
+
 ### Siguiente, huecos 4-8 (según Grok)
 - 4. Ventana 24 h / plantillas: papel hecho (`docs/WHATSAPP_24H.md`). No pedir plantillas a Meta todavía.
-- 5. Tabla de envíos (enviado / falló / sin celular / fuera de 24 h): después del muro 18.
+- 5. Tabla de envíos: hecha (muro 19). Falta el estado «fuera de 24 h».
 - 6. Cita con fecha y hora exactas (no solo texto): antes o con el VPS.
 - 7. Respaldo diario de `axel.db` y `kb.json`: con el VPS (Hetzner).
 - 8. Ley 1581 (habeas data): antes de Meta producción, no ahora.
