@@ -131,6 +131,10 @@ def main() -> int:
         assert sorted(filas) == [("barba", 10000), ("corte", 25000)], filas
         lista = dice("pedidos")
         assert "corte $25.000" in lista and "barba $10.000" in lista, lista
+        reporte = dice("reporte")
+        assert reporte.startswith("Reporte ") and "(Cali)" in reporte, reporte
+        assert "Citas hoy: 0" in reporte and "Pedidos hoy: 2 · total $35.000" in reporte and "Pendientes N3: 0" in reporte
+        assert "Pedidos hoy" not in dice("reporte", canal="whatsapp"), "el cliente no ve el reporte"
         assert re.search(r"Último pedido: barba \$10\.000, \d\d/\d\d \d\d:\d\d\.$", dice("mi ficha", canal="whatsapp"))
 
         kb_tmp.write_text(json.dumps({**KB_VIEJA, "servicios": []}), encoding="utf-8")

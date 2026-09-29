@@ -356,6 +356,28 @@ def pedidos_filas(memory: Memory, limit: int = 15) -> list[tuple[str, str, str]]
     return filas
 
 
+def _reporte(memory: Memory) -> str:
+    """Resumen de hoy en Cali: citas, pedidos y pendientes N3. Solo para el dueño."""
+    hoy = reservas._ahora_cali().date()
+    citas = []
+    for c in memory.list_confirmed_reservas(500):
+        cuando = reservas._cuando(str(c.get("summary") or ""), reservas._creada_cali(str(c.get("created_at") or "")))
+        if cuando and cuando[0] == hoy:
+            citas.append((cuando[1], cuando[2], str(c.get("name") or "sin nombre")))
+    pedidos = [
+        p for p in memory.list_pedidos(500)
+        if reservas._creada_cali(str(p.get("created_at") or "")).date() == hoy
+    ]
+    lineas = [
+        f"Reporte {hoy.strftime('%d/%m/%Y')} (Cali)",
+        f"Citas hoy: {len(citas)}",
+        *[f"- {h}:{m:02d} · {quien}" for h, m, quien in sorted(citas)[:8]],
+        f"Pedidos hoy: {len(pedidos)} · total {kb_mod.precio_txt(sum(int(p['precio']) for p in pedidos))}",
+        f"Pendientes N3: {len(memory.list_pending())}",
+    ]
+    return "\n".join(lineas)
+
+
 def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
     if not _es_dueno(env):
         return False
@@ -381,7 +403,7 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         env.agent = "escalamiento"
         env.supervision_level = 1
         env.reply_text = (
-            "Comandos dueño: estado, limpiar, pendientes, citas, clientes, pedidos, catalogo, "
+            "Comandos dueño: estado, reporte, limpiar, pendientes, citas, clientes, pedidos, catalogo, "
             "aceptar/aprobar, rechazo/rechazar, ayuda, "
             "configurar, cancelar configurar, el negocio se llama NOMBRE, abrimos de H1 a H2, "
             "el rubro es X, agenda si/no, agrega servicio X a N, "
@@ -436,6 +458,14 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         env.agent = "escalamiento"
         env.supervision_level = 1
         env.reply_text = _catalogo()
+        env.result = "ok"
+        env.approval_status = "na"
+        return True
+    if t == "reporte":
+        env.intent = "admin"
+        env.agent = "escalamiento"
+        env.supervision_level = 1
+        env.reply_text = _reporte(memory)
         env.result = "ok"
         env.approval_status = "na"
         return True
