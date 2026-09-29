@@ -37,11 +37,16 @@ AXEL es comercio, no barbería. Todo sale de la KB.
 - El dueño la cambia: `agenda palabras cita reserva mesa turno` (reemplaza la lista). Sale en `catalogo` y `ayuda`. El cliente no la cambia.
 - La oferta usa la palabra: con «mesa», «¿Reservamos mesa?»; con «turno», «¿Te anoto un turno?»; sin lista, «¿Quieres que te reserve un cupo?».
 
-## 0.4 Alcance
+## 0.4 Muro 7 (hecho 29 sep)
+- Piloto sin mesa: `agenda_palabras` = cita, reservar, reserva, turno. La oferta dice «¿Te anoto un turno?».
+- Cancelar / reprogramar con palabras de agenda: «cancelar el turno», «cancelar la reserva», «reprogramar turno». «cita» vale siempre. Una palabra fuera de la lista («cancelar el pedido») no toca citas.
+- El cliente ve solo lo suyo: «mi cita», «mis citas», «mi reserva», «mi turno» listan sus reservas vivas; si no tiene, «No tienes reserva.». El dueño sigue con `citas` para todas.
+
+## 0.5 Alcance
 - Hoy: 1 negocio, 1 WhatsApp, dueño por número (`WA_OWNER_PHONE`), panel de ese negocio.
 - 2028: varios negocios. No se construye ahora.
 
-## 0.5 Siguiente capítulo: VPS
+## 0.6 Siguiente capítulo: VPS
 - VPS cuando haya tarjeta.
 - Llevar AXEL a un VPS 24/7 (nginx con HTTPS hacia `127.0.0.1:8090`).
 - No Meta producción.
@@ -96,6 +101,7 @@ Chrome: http://127.0.0.1:8090/
 - Model router no llama APIs de pago.
 - “am” dentro de palabras ya no debe contar como hora (corregido en reservas).
 - Git a veces deja archivos sin commit: revisar `git status` antes de parar.
+- Nombre: si AXEL acaba de preguntar el nombre y el cliente escribe «cancelar la mesa», se guarda como nombre. Sin arreglar.
 
 ## 6. Criterios del piloto actual
 - N1: horario, KB, nombre, celular, correo.
