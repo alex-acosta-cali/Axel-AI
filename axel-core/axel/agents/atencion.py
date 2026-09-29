@@ -165,7 +165,15 @@ def handle(env: Envelope, memory=None) -> Envelope:
         negocio = str(kb.load_kb().get("negocio") or "").strip()
         soy = f"soy AXEL de {negocio}." if negocio else "soy AXEL."
         base = f"Hola {env.name}, {soy}" if env.name else f"Hola, {soy}"
-        if abierto:
+        # Cliente con reserva viva: el saludo la recuerda. Al dueño no.
+        viva = ""
+        if memory is not None and env.customer_id and not env.payload.get("es_dueno"):
+            viva = reservas.proxima_viva(memory, env.customer_id)
+        if viva:
+            palabra = "turno" if "turno" in {p.lower() for p in kb.agenda_palabras()} else "cita"
+            hola = f"Hola {env.name}" if env.name else "Hola"
+            env.reply_text = f"{hola}, soy AXEL. Tu {palabra} es {viva}."
+        elif abierto:
             env.reply_text = f"{base} ¿En qué te ayudo?"
         else:
             oferta = "Puedo agendarte para mañana o responder horarios y precios." if kb.agenda() else (

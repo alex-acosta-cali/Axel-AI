@@ -153,6 +153,19 @@ def avisos_cita(memory, ahora: datetime | None = None) -> list[tuple[dict, str]]
     return salida
 
 
+def proxima_viva(memory, customer_id: str, ahora: datetime | None = None) -> str:
+    """'martes 11:00' de la próxima cita confirmada y futura del cliente. '' si no tiene."""
+    ahora = ahora or _ahora_cali()
+    proxima = None
+    for fila in memory.list_confirmed_reservas(500):
+        if not customer_id or fila.get("customer_id") != customer_id:
+            continue
+        c = _cuando(str(fila.get("summary") or ""), _creada_cali(str(fila.get("created_at") or "")))
+        if c and datetime(c[0].year, c[0].month, c[0].day, c[1], c[2], tzinfo=_CALI) > ahora:
+            proxima = min(proxima, c) if proxima else c
+    return _texto_cuando(proxima) if proxima else ""
+
+
 def cupos_de(memory, fecha: date, excepto: str = "") -> dict[tuple[int, int], dict]:
     """Franjas válidas de 'fecha' ya confirmadas, con su fila. Las citas fuera de franja no ocupan cupo."""
     validas = franjas_validas()

@@ -132,6 +132,13 @@ def main() -> int:
         todas = dice("citas", DUENO).reply_text or ""
         assert "viernes" in todas and "sábado" in todas, todas
 
+        # Saludo con reserva viva: la recuerda con la palabra del piloto. Sin reserva, saludo de siempre. Dueño no.
+        hola_fer = dice("hola", fer).reply_text or ""
+        assert hola_fer.startswith("Hola, soy AXEL. Tu turno es viernes 9:00."), hola_fer
+        sin = dice("buenas", "573000000009").reply_text or ""
+        assert "Tu turno" not in sin and "soy AXEL" in sin, sin
+        assert "Tu turno" not in (dice("hola", DUENO).reply_text or "")
+
         # Nombre: un comando o acción de agenda no se guarda como nombre; se responde la intención.
         for n, texto in enumerate(("cancelar la mesa", "precios", "horario", "ficha", "ayuda")):
             nuevo = f"57300000010{n}"
