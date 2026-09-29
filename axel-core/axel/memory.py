@@ -559,10 +559,19 @@ class Memory:
         with self._conn() as conn:
             rows = conn.execute(
                 """
-                SELECT customer_id FROM customers
+                SELECT customer_id FROM customers c
                 WHERE (name IS NULL OR TRIM(name) = '')
                   AND (phone IS NULL OR TRIM(phone) = '')
                   AND (email IS NULL OR TRIM(email) = '')
+                  -- Sin datos pero con pedido, cita viva o N3 pendiente no es fantasma.
+                  AND NOT EXISTS (SELECT 1 FROM pedidos p WHERE p.customer_id = c.customer_id)
+                  AND NOT EXISTS (
+                      SELECT 1 FROM conversation_summaries s
+                      WHERE s.customer_id = c.customer_id AND s.intent = 'reserva' AND s.result = 'ok'
+                  )
+                  AND NOT EXISTS (
+                      SELECT 1 FROM pending_approvals a WHERE a.customer_id = c.customer_id AND a.status = 'pending'
+                  )
                 """
             ).fetchall()
             ids = [r["customer_id"] for r in rows]

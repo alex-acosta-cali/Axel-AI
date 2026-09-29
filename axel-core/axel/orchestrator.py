@@ -109,8 +109,13 @@ PREGUNTA_NOMBRE = "¿Cómo quieres que te llame?"
 PREGUNTA_NOMBRE_VIEJA = "¿Cómo te llamas?"
 NOMBRE_CORTO = re.compile(r"[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ ]{2,40}")
 NO_ES_NOMBRE = {"si", "no", "ok", "okay", "dale", "bien", "nada", "claro", "vale"}
-# Si la respuesta empieza así, es una pregunta, no un nombre.
-NO_EMPIEZA_NOMBRE = {"donde", "cual", "que", "cuanto", "cuando", "quiero", "hola", "precios"}
+# Si la respuesta empieza así, es una pregunta, un comando o una acción de agenda, no un nombre.
+NO_EMPIEZA_NOMBRE = {
+    "donde", "cual", "que", "cuanto", "cuando", "quiero", "hola", "precios",
+    "cancelar", "reprogramar", "anular", "pedido", "pedidos", "reporte", "catalogo", "citas", "cita",
+    "reserva", "turno", "mesa", "horario", "ayuda", "aprobar", "aceptar", "rechazar", "limpiar",
+    "configurar", "clientes", "ficha",
+}
 
 
 def _nombre_usable(nombre: str | None) -> bool:

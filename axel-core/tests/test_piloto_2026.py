@@ -131,6 +131,23 @@ def main() -> int:
         assert de_fer.startswith("Tus reservas:\n- viernes") and "sábado" not in de_fer, de_fer
         todas = dice("citas", DUENO).reply_text or ""
         assert "viernes" in todas and "sábado" in todas, todas
+
+        # Nombre: un comando o acción de agenda no se guarda como nombre; se responde la intención.
+        for n, texto in enumerate(("cancelar la mesa", "precios", "horario", "ficha", "ayuda")):
+            nuevo = f"57300000010{n}"
+            assert "¿Cómo quieres que te llame?" in (dice("hola", nuevo).reply_text or "")
+            r = dice(texto, nuevo)
+            assert not r.name and "Quedó tu nombre" not in (r.reply_text or ""), r.reply_text
+            assert not memory.find_by_identity("whatsapp", nuevo).get("name"), texto
+
+        # limpiar: borra fantasmas de verdad, no clientes con pedido, cita viva o N3 pendiente.
+        assert memory.find_by_identity("whatsapp", AJENO), "el ajeno existe antes de limpiar"
+        assert (dice("limpiar", DUENO).reply_text or "").startswith("Eliminé")
+        assert not memory.find_by_identity("whatsapp", AJENO), "fantasma sin nada se borra"
+        assert memory.find_by_identity("whatsapp", CLIENTE), "con pedido y N3 no se borra"
+        assert memory.find_by_identity("whatsapp", fer), "con cita viva no se borra"
+        assert (dice("mi turno", fer).reply_text or "").startswith("Tus reservas:\n- viernes")
+        assert all(memory.get_customer(p["customer_id"]) for p in memory.list_pedidos()), "ningún pedido queda sin cliente"
     finally:
         kb._kb_path = original
         kb_tmp.unlink(missing_ok=True)
