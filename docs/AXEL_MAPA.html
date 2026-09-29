@@ -38,6 +38,7 @@
   .dot.ok { background: #2ecc71; }
   .dot.mid { background: #f1c40f; }
   .dot.off { background: #7f8c8d; }
+  .dot.risk { background: #e74c3c; }
   .stage {
     padding: 8px 28px 24px;
   }
@@ -62,6 +63,7 @@
   .node.ok { background: var(--ok2); border-color: #2ecc71; }
   .node.mid { background: var(--mid2); border-color: #f1c40f; }
   .node.core { background: #102030; border-color: #5dade2; }
+  .node.risk { background: #3d1414; border-color: #e74c3c; }
   .node b { display: block; font-size: 13px; margin-bottom: 4px; }
   .node span { font-size: 11px; color: var(--muted); }
   .node .tip {
@@ -99,6 +101,7 @@
   <span><i class="dot ok"></i>Hecho en el piloto</span>
   <span><i class="dot mid"></i>Empezado o papel</span>
   <span><i class="dot off"></i>Plan 2028/2030 — no se pica ahora</span>
+  <span><i class="dot risk"></i>Riesgo abierto</span>
 </div>
 
 <section class="stage">
@@ -131,7 +134,7 @@
     <div class="node ok"><b>Auditoría</b><span>log por evento</span>
       <div class="tip">HECHO en SQLite. Panel lista eventos. No hay SIEM ni costo/hora de modelos reales.</div></div>
     <div class="node ok"><b>KB comercio</b><span>no es barbería</span>
-      <div class="tip">HECHO. rubro, agenda sí/no, franjas, servicios[], políticas, FAQ, ubicación, agenda_palabras. Dueño edita por chat.</div></div>
+      <div class="tip">HECHO. rubro, agenda sí/no, franjas, servicios[] (con stock opcional), políticas, FAQ, ubicación, agenda_palabras, tono cercano/formal (tú/usted). Dueño edita por chat: stock X N, tono formal/cercano.</div></div>
   </div>
 </section>
 
@@ -143,7 +146,7 @@
     <div class="node ok"><b>Reservas</b><span>franjas KB</span>
       <div class="tip">HECHO. Choque de cupos, mañana/ñ, cancelar/reprogramar con palabras de agenda, avisos 24h y 2h si el proceso vive, mis citas.</div></div>
     <div class="node mid"><b>Ventas / pedidos</b><span>anota, no cobra</span>
-      <div class="tip">PARCIAL. me lo llevo → fila. pedido listo por nombre o 4 cifras. Aviso al dueño y al cliente. NO hay cotización formal, stock, ni plata.</div></div>
+      <div class="tip">PARCIAL. me lo llevo → fila. pedido listo por nombre o 4 cifras. Aviso al dueño y al cliente. Stock 0 no se vende («agotado»); no es inventario, no resta. No cobra: el dueño confirma el pago. NO hay cotización formal ni plata.</div></div>
     <div class="node"><b>Facturación / cobro</b><span>N3 + humano</span>
       <div class="tip">NO. Plan: factura después de venta confirmada y cobro real. Hoy: “el dueño confirma el pago”.</div></div>
     <div class="node mid"><b>Postventa</b><span>solo pedido listo</span>
@@ -165,7 +168,25 @@
     <div class="node"><b>Meta producción</b><span>después del VPS</span>
       <div class="tip">NO PULSAR. Solo testers. docs/META_PRODUCCION.md.</div></div>
     <div class="node mid"><b>GitHub</b><span>alex-acosta-cali/Axel-AI</span>
-      <div class="tip">HECHO. main al día (habitación a4b4b33). .env nunca va al repo.</div></div>
+      <div class="tip">HECHO. main en GitHub. .env nunca va al repo.</div></div>
+  </div>
+</section>
+
+<section class="stage">
+  <h2>Seguridad y confianza — muro 18</h2>
+  <div class="row">
+    <div class="node ok"><b>Panel solo local</b><span>ngrok solo ve el webhook</span>
+      <div class="tip">HECHO. Desde fuera (Host ngrok o X-Forwarded-*) solo /webhooks/whatsapp y GET /health. Panel, /audit, /panel y /decidir: 403 solo_local.</div></div>
+    <div class="node ok"><b>Firma webhook</b><span>X-Hub-Signature-256</span>
+      <div class="tip">HECHO. HMAC-SHA256 del body con WA_APP_SECRET (.env). Sin secreto o sin firma válida: 403. Falta la prueba real en el 314 con el demo reiniciado.</div></div>
+    <div class="node ok"><b>wamid</b><span>sin duplicados</span>
+      <div class="tip">HECHO. Meta reintenta: el mismo wamid se ignora. 200 a Meta antes de responder al cliente.</div></div>
+    <div class="node mid"><b>Plantillas 24 h</b><span>papel</span>
+      <div class="tip">PAPEL. docs/WHATSAPP_24H.md. Sin plantilla se caen: aviso 24h/2h, pedido listo, N3 al cliente, a veces avisos al dueño. No se piden a Meta todavía.</div></div>
+    <div class="node risk"><b>Respaldo</b><span>con el VPS</span>
+      <div class="tip">RIESGO ABIERTO. axel.db y kb.json sin copia. Copia diaria en el VPS (Hetzner).</div></div>
+    <div class="node risk"><b>Habeas data</b><span>Ley 1581</span>
+      <div class="tip">RIESGO ABIERTO. Se guardan nombre, celular y notas sin aviso de privacidad. Antes de Meta producción.</div></div>
   </div>
 </section>
 

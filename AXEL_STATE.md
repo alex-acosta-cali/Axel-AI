@@ -73,6 +73,19 @@ Muros 14-17 hechos (29 sep): 14 tono en la KB, 15 stock 0 no se vende, 16 dueño
 - El dueño lo cambia: `stock corte 0`, `stock corte 5`. El cliente no. `catalogo` muestra el stock si existe.
 - No es inventario: vender no resta.
 
+### Muro 18 — seguridad 1-3 (hecho 29 sep)
+- 18.1 Panel solo local: desde ngrok (Host ngrok o `X-Forwarded-*`) solo pasan `/webhooks/whatsapp` y `GET /health`. Panel, `/audit`, `/panel`, `/decidir`: 403 `solo_local`.
+- 18.2 Firma Meta: `X-Hub-Signature-256` con `WA_APP_SECRET` (solo en `.env`). Sin secreto o sin firma válida: 403.
+- 18.3 wamid: el mismo mensaje reintentado por Meta se ignora. 200 a Meta antes de responder al cliente.
+- Falta: prueba real en el 314 con el demo reiniciado.
+
+### Siguiente, huecos 4-8 (según Grok)
+- 4. Ventana 24 h / plantillas: papel hecho (`docs/WHATSAPP_24H.md`). No pedir plantillas a Meta todavía.
+- 5. Tabla de envíos (enviado / falló / sin celular / fuera de 24 h): después del muro 18.
+- 6. Cita con fecha y hora exactas (no solo texto): antes o con el VPS.
+- 7. Respaldo diario de `axel.db` y `kb.json`: con el VPS (Hetzner).
+- 8. Ley 1581 (habeas data): antes de Meta producción, no ahora.
+
 ## 0.10 Alcance
 - Hoy: 1 negocio, 1 WhatsApp, dueño por número (`WA_OWNER_PHONE`), panel de ese negocio.
 - 2028: varios negocios. No se construye ahora.
