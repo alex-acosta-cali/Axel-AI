@@ -441,6 +441,16 @@ class Memory:
                 (customer_id, servicio, int(precio)),
             )
 
+    def last_pedido(self, customer_id: str) -> dict[str, Any] | None:
+        if not customer_id:
+            return None
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT servicio, precio FROM pedidos WHERE customer_id = ? ORDER BY created_at DESC, pedido_id DESC LIMIT 1",
+                (customer_id,),
+            ).fetchone()
+        return dict(row) if row else None
+
     def list_pedidos(self, limit: int = 15) -> list[dict[str, Any]]:
         """Filas de pedidos de todos los clientes, las más nuevas primero. Solo para el dueño."""
         with self._conn() as conn:

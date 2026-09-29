@@ -76,14 +76,17 @@ def handle(env: Envelope, memory=None) -> Envelope:
     if any(p in bajo for p in ("mi ficha", "quien soy", "quién soy", "mis datos")):
         notas = []
         cita = None
+        pedido = None
         if memory is not None and env.customer_id:
             notas = [str(n.get("note") or "") for n in memory.list_notes(env.customer_id, 3)]
             cita = memory.last_reserva(env.customer_id)
+            pedido = memory.last_pedido(env.customer_id)
         env.reply_text = (
             f"Tu ficha AXEL: {env.name or 'sin nombre'}, "
             f"cel {env.phone or '—'}, correo {env.email or '—'}. "
             f"Notas: {(' | '.join(notas) if notas else 'ninguna')}. "
-            f"Cita: {(cita or {}).get('summary') if cita else 'ninguna'}."
+            f"Cita: {(cita or {}).get('summary') if cita else 'ninguna'}. "
+            f"Último pedido: {pedido['servicio'] + ' ' + kb.precio_txt(pedido['precio']) if pedido else 'ninguno'}."
         )
         env.result = "ok"
         return env

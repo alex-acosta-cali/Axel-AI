@@ -113,7 +113,8 @@ def main() -> int:
         kb_tmp.write_text(json.dumps({**KB_VIEJA, "ubicacion": "Cra 9 Cali"}), encoding="utf-8")
         # AXEL acaba de preguntar el nombre: una pregunta no se guarda como nombre.
         assert dice("donde quedan", canal="whatsapp") == "Cra 9 Cali"
-        assert "sin nombre" in dice("mi ficha", canal="whatsapp")
+        ficha = dice("mi ficha", canal="whatsapp")
+        assert "sin nombre" in ficha and "Último pedido: ninguno" in ficha
         assert dice("quiero cortarme el pelo", canal="whatsapp").startswith("Corte: $25.000")
         assert dice("precios y quiero cortarme el pelo", canal="whatsapp").startswith("Lista: corte $25.000")
         assert "Cra" not in dice("donde pago", canal="whatsapp")
@@ -129,6 +130,7 @@ def main() -> int:
         assert sorted(filas) == [("barba", 10000), ("corte", 25000)], filas
         lista = dice("pedidos")
         assert "corte $25.000" in lista and "barba $10.000" in lista, lista
+        assert "Último pedido: barba $10.000" in dice("mi ficha", canal="whatsapp")
 
         kb_tmp.write_text(json.dumps({**KB_VIEJA, "servicios": []}), encoding="utf-8")
         assert "$" not in dice("cuanto vale cortarme el pelo", canal="whatsapp"), "sin corte no inventa precio"
