@@ -53,6 +53,16 @@ def agenda_palabras() -> list[str]:
     return [str(p).strip() for p in load_kb().get("agenda_palabras") or [] if str(p).strip()]
 
 
+# Pregunta para ofrecer hueco según la palabra del negocio; "mesa" gana a "turno". Sin ninguna, la de siempre.
+OFERTAS_AGENDA = (("mesa", "¿Reservamos mesa?"), ("turno", "¿Te anoto un turno?"))
+OFERTA_CITA = "¿Quieres que te reserve un cupo?"
+
+
+def oferta_agenda() -> str:
+    palabras = {_plano(p) for p in agenda_palabras()}
+    return next((texto for palabra, texto in OFERTAS_AGENDA if palabra in palabras), OFERTA_CITA)
+
+
 def set_agenda_palabras(texto: str) -> list[str]:
     """Reemplaza kb["agenda_palabras"] con las palabras del dueño. [] si no trae ninguna."""
     palabras = []
@@ -108,7 +118,7 @@ def answer_servicio(text: str) -> Optional[str]:
     if s and _PIDE_LISTA.search(_plano(text)):
         return lista_servicios()
     if s:
-        cupo = " ¿Quieres que te reserve un cupo?" if agenda() else ""
+        cupo = f" {oferta_agenda()}" if agenda() else ""
         nombre = str(s["nombre"])
         return f"{nombre[:1].upper()}{nombre[1:]}: {precio_txt(s.get('precio') or 0)}.{cupo}"
     plano = _plano(text)

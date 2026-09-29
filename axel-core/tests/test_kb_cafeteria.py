@@ -49,9 +49,9 @@ def main() -> int:
     original = kb._kb_path
     kb._kb_path = lambda: kb_tmp
     try:
-        def pregunta(texto: str) -> str:
+        def pregunta(texto: str, quien: str = "wa_cafe") -> str:
             out = process(
-                Envelope(text=texto, channel="whatsapp", channel_user_id="wa_cafe", name="Ana"),
+                Envelope(text=texto, channel="whatsapp", channel_user_id=quien, name="Ana"),
                 memory,
             )
             print(repr(texto), "->", out.reply_text)
@@ -74,6 +74,20 @@ def main() -> int:
         # "mesa" es palabra de agenda, pero sin agenda no se agenda.
         mesa = pregunta("quiero mesa")
         assert mesa == "Este negocio no agenda citas por este canal.", mesa
+
+        # Con agenda, la oferta usa la palabra del negocio: mesa, turno, o cupo si no hay lista.
+        for palabras, oferta in (
+            (["cita", "turno", "mesa"], "¿Reservamos mesa?"),
+            (["cita", "turno"], "¿Te anoto un turno?"),
+            ([], "¿Quieres que te reserve un cupo?"),
+        ):
+            kb_tmp.write_text(
+                json.dumps({**KB_CAFETERIA, "agenda": True, "franjas": [9], "agenda_palabras": palabras}), encoding="utf-8"
+            )
+            quien = "wa_cafe_" + ("_".join(palabras) or "sin")
+            r = pregunta("cuánto vale el cafe", quien)
+            assert r == f"Cafe: $4.000. {oferta}", r
+            assert "Dime día y hora" in pregunta("sí", quien), "la oferta queda abierta"
     finally:
         kb._kb_path = original
         kb_tmp.unlink(missing_ok=True)
