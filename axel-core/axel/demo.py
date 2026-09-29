@@ -35,6 +35,15 @@ memory = Memory("./axel.db")
 DIAS_ES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
 
 
+def _salud_kb() -> dict:
+    """kb.json existe y se lee como JSON, y cuántos servicios tiene. Sin datos del negocio."""
+    try:
+        datos = json.loads(kb._kb_path().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {"kb_ok": False, "servicios": 0}
+    return {"kb_ok": isinstance(datos, dict), "servicios": len(kb.servicios()) if isinstance(datos, dict) else 0}
+
+
 def _quien(fila: dict) -> str:
     cli = memory.get_customer(str(fila.get("customer_id") or "")) or {}
     return str(fila.get("name") or cli.get("phone") or "sin nombre")
@@ -266,7 +275,7 @@ th{{background:#222}} .ok{{color:#8f8}} .tomada{{color:#f99}} .paso{{color:#888}
             self._html(200, self._panel())
             return
         if self.path == "/health":
-            self._json(200, {"ok": True, "service": "axel-core-demo"})
+            self._json(200, {"ok": True, "service": "axel-core-demo", **_salud_kb()})
             return
         parsed = urlparse(self.path)
         if parsed.path == "/webhooks/whatsapp":
