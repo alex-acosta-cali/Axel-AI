@@ -243,11 +243,17 @@ def _hora_corta(env: Envelope, memory) -> str:
 
 def handle(env: Envelope, memory=None) -> Envelope:
     if env.intent == "mi_cita" and memory is not None:
-        fila = memory.last_reserva(env.customer_id or "")
-        if fila:
-            env.reply_text = f"Tu cita confirmada es: «{fila.get('summary')}»."
-        else:
-            env.reply_text = "No tienes una cita confirmada ahora."
+        # Solo las del cliente, vivas: sin canceladas ni pasadas. Las que no se entienden se muestran tal cual.
+        ahora = _ahora_cali()
+        suyas = []
+        for fila in memory.list_confirmed_reservas(500):
+            if not env.customer_id or fila.get("customer_id") != env.customer_id:
+                continue
+            c = _cuando(str(fila.get("summary") or ""), _creada_cali(str(fila.get("created_at") or "")))
+            if c and datetime(c[0].year, c[0].month, c[0].day, c[1], c[2], tzinfo=_CALI) < ahora:
+                continue
+            suyas.append(f"- {franja_de(str(fila.get('summary') or ''), str(fila.get('created_at') or ''))}")
+        env.reply_text = "Tus reservas:\n" + "\n".join(reversed(suyas)) if suyas else "No tienes reserva."
         env.result = "ok"
         env.approval_status = "na"
         return env

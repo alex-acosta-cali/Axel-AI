@@ -52,6 +52,13 @@ def classify_intent(text: str) -> str:
             return next(
                 (n for n, p in INTENTS if n not in _NO_ES_AGENDA and p.search(raw)), "pregunta"
             )
+    # "mis citas", "mi turno": el cliente pregunta por sus reservas.
+    mia = re.search(r"\bmis?\s+([a-zñ]+)", raw)
+    if mia and (
+        mia.group(1) in {"cita", "citas"}
+        or mia.group(1) in {w for p in kb_mod.agenda_palabras() for w in (_norm(p), _norm(p) + "s")}
+    ):
+        return "mi_cita"
     intent = next((name for name, pattern in INTENTS if pattern.search(raw)), "pregunta")
     # Palabras de agenda del negocio ("mesa", "turno"): abren la reserva. Sin agenda, reservas dice que no agenda.
     if intent in {"pregunta", "saludo"} and any(

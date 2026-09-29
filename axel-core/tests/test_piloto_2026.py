@@ -109,6 +109,20 @@ def main() -> int:
         dice("quiero una reserva", eva)
         dice("jueves a las 11", eva)
         assert (dice("cancelar la reserva", eva).reply_text or "").startswith("Cancelé la cita")
+
+        # Cliente ve solo sus reservas vivas; el dueño ve todas con "citas".
+        fer = "573000000008"
+        assert dice("mi reserva", eva).reply_text == "No tienes reserva."
+        dice("quiero turno", fer)
+        dice("viernes a las 9", fer)
+        dice("quiero turno", eva)
+        dice("sabado a las 15", eva)
+        suya = dice("mis citas", eva).reply_text or ""
+        assert suya.startswith("Tus reservas:\n- sábado") and "viernes" not in suya, suya
+        de_fer = dice("mi turno", fer).reply_text or ""
+        assert de_fer.startswith("Tus reservas:\n- viernes") and "sábado" not in de_fer, de_fer
+        todas = dice("citas", DUENO).reply_text or ""
+        assert "viernes" in todas and "sábado" in todas, todas
     finally:
         kb._kb_path = original
         kb_tmp.unlink(missing_ok=True)
