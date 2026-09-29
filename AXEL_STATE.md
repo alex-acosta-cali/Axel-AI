@@ -48,11 +48,16 @@ AXEL es comercio, no barbería. Todo sale de la KB.
 - `limpiar` no borra ventas: pedidos, citas y N3 quedan en la base. Solo borra clientes sin nombre, celular ni correo.
 - `reporte` (y el panel) parte los pedidos de hoy en anotados y entregados, con total $ de cada uno.
 
-## 0.6 Alcance
+## 0.6 Muro 9 (hecho 29 sep)
+- Saludo con reserva o pedido: si el cliente dice hola/buenas y tiene cita viva, «Hola NOMBRE, soy AXEL. Tu turno es martes 11:00.» (palabra del piloto: turno; si no, cita). Sin cita pero con pedido anotado: «Tienes un pedido anotado: corte $25.000.». Gana la cita. Sin nada, el saludo de siempre. Al dueño no.
+- El cliente ve sus pedidos: «mi pedido» / «mis pedidos» lista solo los suyos (servicio, precio, estado, hora Cali); si no tiene, «No tienes pedidos.». El dueño sigue con `pedidos` para todos.
+- El dueño recibe aviso de pedido nuevo por el canal de alertas N3 (`WA_OWNER_PHONE`): «Pedido nuevo: quién · servicio $. AXEL no cobra.». Solo informa: no crea pendiente.
+
+## 0.7 Alcance
 - Hoy: 1 negocio, 1 WhatsApp, dueño por número (`WA_OWNER_PHONE`), panel de ese negocio.
 - 2028: varios negocios. No se construye ahora.
 
-## 0.7 Siguiente capítulo: VPS
+## 0.8 Siguiente capítulo: VPS
 - VPS cuando haya tarjeta.
 - No cobro real.
 - No segundo panel.
