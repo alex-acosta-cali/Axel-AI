@@ -59,12 +59,15 @@ AXEL es comercio, no barbería. Todo sale de la KB.
 - 12. Al entregar, aviso a ESE cliente: «Tu pedido de SERVICIO quedó listo. El dueño confirma el pago. AXEL no cobra.». Sin celular no se envía: queda en el log.
 - 13. Pack en `test_piloto_2026.py`: hola con turno y negocio, hola sin reserva sin turno, dos anotados no se cierran juntos, texto al cliente al entregar.
 
-## 0.8 Tono de la KB (hecho 29 sep)
+Muros 14-17 hechos (29 sep): 14 tono en la KB, 15 stock 0 no se vende, 16 dueño edita stock, 17 dueño cambia tono.
+
+## 0.8 Tono de la KB (muros 14 y 17)
 - `kb.json` tiene `tono`: `cercano` (tú, piloto) o `formal` (usted). Si falta o no se entiende, cercano.
 - Lo usan el saludo (con cita, pedido, abierto o cerrado), «No tengo esa información…» y la pregunta de nombre («¿Cómo quiere que le llame?» en formal).
+- El dueño lo cambia por chat: `tono formal` / `tono cercano` (responde cuál quedó). El cliente no. Sale en `catalogo` y `ayuda`.
 - No cambia precios ni permisos.
 
-## 0.9 Stock (hecho 29 sep)
+## 0.9 Stock (muros 15 y 16)
 - `servicios[].stock` es opcional. Sin el campo, se vende como siempre.
 - Stock 0 = no se vende: «No hay NOMBRE ahora.», sin pedido ni oferta de cita. En `precios` sale «agotado».
 - El dueño lo cambia: `stock corte 0`, `stock corte 5`. El cliente no. `catalogo` muestra el stock si existe.
@@ -75,7 +78,7 @@ AXEL es comercio, no barbería. Todo sale de la KB.
 - 2028: varios negocios. No se construye ahora.
 
 ## 0.11 Siguiente capítulo: VPS
-- Código local 2026: nada más. Solo VPS cuando haya tarjeta.
+- Siguiente código 2026: solo VPS cuando haya tarjeta. Nada más en local.
 - Llevar AXEL a un VPS 24/7 (nginx con HTTPS hacia `127.0.0.1:8090`).
 - No Meta producción.
 - No segundo panel.
