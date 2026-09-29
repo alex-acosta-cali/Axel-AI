@@ -1,5 +1,5 @@
 # AXEL_STATE.md
-Actualizado: 2026-09-28 (Cali)
+Actualizado: 2026-09-29 (Cali)
 Dueño: Alex. Repo: C:\Proyectos\Axel-AI
 GitHub: https://github.com/alex-acosta-cali/Axel-AI (privado)
 
@@ -31,7 +31,17 @@ AXEL es comercio, no barbería. Todo sale de la KB.
 - `/health` dice si `kb.json` está bien y cuántos servicios tiene.
 - Pack de aceptación: `tests/test_piloto_2026.py`.
 
-## 0.3 Siguiente capítulo: VPS
+## 0.3 Muro 6 (hecho 29 sep)
+- Español: reservas igualan tildes y ñ. «mañana 11» reserva el día siguiente a las 11 si la franja existe y está libre. Las citas con «mañana» ya tienen aviso 24h/2h y cuentan en `reporte`.
+- `agenda_palabras` en `kb.json` (piloto: cita, reservar, reserva, turno, mesa). Con agenda, abren la reserva; sin agenda, AXEL dice que no agenda por este canal.
+- El dueño la cambia: `agenda palabras cita reserva mesa turno` (reemplaza la lista). Sale en `catalogo` y `ayuda`. El cliente no la cambia.
+- La oferta usa la palabra: con «mesa», «¿Reservamos mesa?»; con «turno», «¿Te anoto un turno?»; sin lista, «¿Quieres que te reserve un cupo?».
+
+## 0.4 Alcance
+- Hoy: 1 negocio, 1 WhatsApp, dueño por número (`WA_OWNER_PHONE`), panel de ese negocio.
+- 2028: varios negocios. No se construye ahora.
+
+## 0.5 Siguiente capítulo: VPS
 - VPS cuando haya tarjeta.
 - Llevar AXEL a un VPS 24/7 (nginx con HTTPS hacia `127.0.0.1:8090`).
 - No Meta producción.
@@ -86,7 +96,6 @@ Chrome: http://127.0.0.1:8090/
 - Model router no llama APIs de pago.
 - “am” dentro de palabras ya no debe contar como hora (corregido en reservas).
 - Git a veces deja archivos sin commit: revisar `git status` antes de parar.
-- Cita guardada con «mañana» (ñ) no se entiende: sin aviso 24h/2h y no cuenta en `reporte`. Sin arreglar.
 
 ## 6. Criterios del piloto actual
 - N1: horario, KB, nombre, celular, correo.
