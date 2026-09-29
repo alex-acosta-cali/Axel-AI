@@ -21,6 +21,7 @@ KB_CAFETERIA = {
     "negocio": "Cafetería de prueba",
     "rubro": "cafeteria",
     "agenda": False,
+    "agenda_palabras": ["cita", "reservar", "reserva", "turno", "mesa"],
     "horario": "7:00 a 19:00",
     "franjas": [],
     "servicios": [
@@ -69,6 +70,10 @@ def main() -> int:
         empanada = pregunta("cuánto vale la empanada")
         assert "$3.000" in empanada, empanada
         assert not any(k in empanada.lower() for k in OFRECE_CITA), empanada
+
+        # "mesa" es palabra de agenda, pero sin agenda no se agenda.
+        mesa = pregunta("quiero mesa")
+        assert mesa == "Este negocio no agenda citas por este canal.", mesa
     finally:
         kb._kb_path = original
         kb_tmp.unlink(missing_ok=True)

@@ -37,10 +37,13 @@ def classify_intent(text: str) -> str:
     raw = _norm(text)
     if not raw:
         return "pregunta"
-    for name, pattern in INTENTS:
-        if pattern.search(raw):
-            return name
-    return "pregunta"
+    intent = next((name for name, pattern in INTENTS if pattern.search(raw)), "pregunta")
+    # Palabras de agenda del negocio ("mesa", "turno"): abren la reserva. Sin agenda, reservas dice que no agenda.
+    if intent in {"pregunta", "saludo"} and any(
+        re.search(rf"\b{re.escape(_norm(p))}\b", raw) for p in kb_mod.agenda_palabras()
+    ):
+        return "reserva"
+    return intent
 
 
 def _digits(raw: str) -> str:

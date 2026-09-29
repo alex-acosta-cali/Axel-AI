@@ -48,6 +48,11 @@ def agenda() -> bool:
     return bool(load_kb().get("agenda", True))
 
 
+def agenda_palabras() -> list[str]:
+    """kb["agenda_palabras"]: palabras del negocio que piden reserva ('mesa', 'turno')."""
+    return [str(p).strip() for p in load_kb().get("agenda_palabras") or [] if str(p).strip()]
+
+
 def servicios() -> list[dict]:
     return [s for s in load_kb().get("servicios") or [] if str(s.get("nombre") or "").strip()]
 

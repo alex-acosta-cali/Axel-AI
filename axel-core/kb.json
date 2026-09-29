@@ -2,6 +2,13 @@
   "negocio": "Negocio piloto AXEL",
   "rubro": "barberia",
   "agenda": true,
+  "agenda_palabras": [
+    "cita",
+    "reservar",
+    "reserva",
+    "turno",
+    "mesa"
+  ],
   "horario": "9:00 a 17:00",
   "ubicacion": "",
   "franjas": [

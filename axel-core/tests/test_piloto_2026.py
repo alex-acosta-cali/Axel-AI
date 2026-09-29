@@ -83,6 +83,13 @@ def main() -> int:
         assert reembolso.result == "pending" and reembolso.approval_status == "pending_owner"
         assert reembolso.payload.get("executed") is None
         assert any(p["event_id"] == reembolso.event_id for p in memory.list_pending())
+
+        # KB del piloto (copia del kb.json real, con agenda): "mesa" abre la reserva y pide día y hora.
+        kb_tmp.write_bytes(real.read_bytes())
+        assert kb.agenda() is True and "mesa" in kb.agenda_palabras()
+        for quien, texto in (("573000000004", "reservar mesa"), ("573000000005", "quiero mesa")):
+            r = dice(texto, quien).reply_text or ""
+            assert "Dime día y hora" in r, r
     finally:
         kb._kb_path = original
         kb_tmp.unlink(missing_ok=True)
