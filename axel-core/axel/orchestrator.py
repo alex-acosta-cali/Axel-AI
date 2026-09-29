@@ -395,6 +395,53 @@ def pedidos_filas(memory: Memory, limit: int = 15) -> list[tuple[str, str, str, 
     return filas
 
 
+PEDIDO_LISTO_AYUDA = "Escribe pedido listo NOMBRE o las últimas 4 cifras del celular."
+
+
+def _pedido_listo(memory: Memory, quien: str) -> str:
+    """Marca entregado un pedido anotado. Sin 'quien': solo si hay uno hoy. Nunca el de otra persona."""
+    anotados = [p for p in memory.list_pedidos(500) if (p.get("estado") or "anotado") == "anotado"]
+    if not anotados:
+        return "No hay pedidos anotados."
+    if quien:
+        cifras = _digits(quien)
+        if len(cifras) == 4 and cifras == quien:
+            cands = [p for p in anotados if _digits(str(p.get("phone") or "")).endswith(cifras)]
+        else:
+            cands = [
+                p for p in anotados
+                if _norm(str(p.get("name") or "")) == quien or _norm(str(p.get("name") or "")).startswith(quien + " ")
+            ]
+        if not cands:
+            return f"No hay pedido anotado de {quien}. {PEDIDO_LISTO_AYUDA}"
+        # Mismo nombre en dos clientes: no se adivina.
+        if len({p["customer_id"] for p in cands}) > 1:
+            return "Hay varios con ese nombre:\n" + _lista_anotados(cands) + "\nEscribe pedido listo y las últimas 4 cifras del celular."
+    else:
+        hoy = reservas._ahora_cali().date()
+        cands = [p for p in anotados if reservas._creada_cali(str(p.get("created_at") or "")).date() == hoy]
+        if not cands:
+            return f"No hay pedidos anotados hoy. {PEDIDO_LISTO_AYUDA}"
+        if len(cands) > 1:
+            return "Pedidos anotados:\n" + _lista_anotados(cands) + f"\n{PEDIDO_LISTO_AYUDA}"
+    p = cands[0]
+    if not memory.entregar_pedido(int(p["pedido_id"])):
+        return "No hay pedidos anotados."
+    return (
+        f"Entregado: {p['servicio']} {kb_mod.precio_txt(p['precio'])} · "
+        f"{p.get('name') or p.get('phone') or 'sin nombre'}. AXEL no cobra."
+    )
+
+
+def _lista_anotados(pedidos: list[dict]) -> str:
+    return "\n".join(
+        f"- {p.get('name') or 'sin nombre'} · {p['servicio']} {kb_mod.precio_txt(p['precio'])} · "
+        f"{reservas._creada_cali(str(p.get('created_at') or '')).strftime('%d/%m %H:%M')}"
+        + (f" · cel …{_digits(str(p.get('phone') or ''))[-4:]}" if p.get("phone") else "")
+        for p in pedidos[:10]
+    )
+
+
 def _reporte(memory: Memory) -> str:
     """Resumen de hoy en Cali: citas, pedidos y pendientes N3. Solo para el dueño."""
     hoy = reservas._ahora_cali().date()
@@ -505,17 +552,12 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         env.result = "ok"
         env.approval_status = "na"
         return True
-    if t == "pedido listo":
+    listo = re.match(r"^pedido listo(?:\s+(.+))?$", t)
+    if listo:
         env.intent = "admin"
         env.agent = "escalamiento"
         env.supervision_level = 1
-        p = memory.entregar_ultimo_pedido()
-        env.reply_text = (
-            f"Entregado: {p['servicio']} {kb_mod.precio_txt(p['precio'])} · {p.get('name') or p.get('phone') or 'sin nombre'}. "
-            "AXEL no cobra."
-            if p
-            else "No hay pedidos anotados."
-        )
+        env.reply_text = _pedido_listo(memory, (listo.group(1) or "").strip())
         env.result = "ok"
         env.approval_status = "na"
         return True

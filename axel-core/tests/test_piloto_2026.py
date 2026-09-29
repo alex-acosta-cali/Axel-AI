@@ -165,6 +165,32 @@ def main() -> int:
         todos = dice("pedidos", DUENO).reply_text or ""
         assert todos.startswith("Pedidos:") and todos.count("\n- ") >= 3, todos
 
+        # "pedido listo": con varios anotados hoy lista y pide nombre o cel. Nunca marca el de otra persona.
+        def estados():
+            return sorted((p["customer_id"][-4:], p["estado"]) for p in memory.list_pedidos(50) if p["servicio"] == "corte")
+        antes_listo = estados()
+        assert [e for _, e in antes_listo] == ["anotado", "anotado"], antes_listo
+        dice("pedido listo", gil)
+        assert estados() == antes_listo, "el cliente no usa pedido listo"
+        varios = dice("pedido listo", DUENO).reply_text or ""
+        assert varios.startswith("Pedidos anotados:\n") and varios.count("\n- ") == 2 and "pedido listo NOMBRE" in varios, varios
+        assert estados() == antes_listo, varios
+        dice("me llamo Gil", gil)
+        dice("me llamo Gil", fer)
+        dice("mi celular 3001112233", fer)
+        mismo = dice("pedido listo gil", DUENO).reply_text or ""
+        assert mismo.startswith("Hay varios con ese nombre") and "cel …2233" in mismo, mismo
+        assert estados() == antes_listo, mismo
+        r = dice("pedido listo 2233", DUENO).reply_text or ""
+        assert r.startswith("Entregado: corte $") and r.endswith(" · Gil. AXEL no cobra."), r
+        fer_id = memory.find_by_identity("whatsapp", fer)["customer_id"]
+        assert dict((p["customer_id"], p["estado"]) for p in memory.list_pedidos(50) if p["servicio"] == "corte") == {
+            fer_id: "entregado", memory.find_by_identity("whatsapp", gil)["customer_id"]: "anotado"
+        }
+        r = dice("pedido listo", DUENO).reply_text or ""
+        assert r.startswith("Entregado: corte $") and r.endswith(" · Gil. AXEL no cobra."), r
+        assert dice("pedido listo", DUENO).reply_text == "No hay pedidos anotados."
+
         # Nombre: un comando o acción de agenda no se guarda como nombre; se responde la intención.
         for n, texto in enumerate(("cancelar la mesa", "precios", "horario", "ficha", "ayuda")):
             nuevo = f"57300000010{n}"

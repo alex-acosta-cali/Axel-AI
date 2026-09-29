@@ -475,7 +475,7 @@ class Memory:
         with self._conn() as conn:
             rows = conn.execute(
                 """
-                SELECT p.servicio, p.precio, p.estado, p.created_at, p.customer_id, c.name, c.phone
+                SELECT p.pedido_id, p.servicio, p.precio, p.estado, p.created_at, p.customer_id, c.name, c.phone
                 FROM pedidos p
                 LEFT JOIN customers c ON c.customer_id = p.customer_id
                 ORDER BY p.created_at DESC, p.pedido_id DESC
@@ -485,23 +485,14 @@ class Memory:
             ).fetchall()
         return [dict(r) for r in rows]
 
-    def entregar_ultimo_pedido(self) -> dict[str, Any] | None:
-        """El pedido 'anotado' más nuevo pasa a 'entregado'. Entregado no es pagado: AXEL no cobra."""
+    def entregar_pedido(self, pedido_id: int) -> bool:
+        """Ese pedido 'anotado' pasa a 'entregado'. Entregado no es pagado: AXEL no cobra."""
         with self._conn() as conn:
-            row = conn.execute(
-                """
-                SELECT p.pedido_id, p.servicio, p.precio, c.name, c.phone
-                FROM pedidos p
-                LEFT JOIN customers c ON c.customer_id = p.customer_id
-                WHERE p.estado = 'anotado'
-                ORDER BY p.created_at DESC, p.pedido_id DESC
-                LIMIT 1
-                """
-            ).fetchone()
-            if not row:
-                return None
-            conn.execute("UPDATE pedidos SET estado = 'entregado' WHERE pedido_id = ?", (row["pedido_id"],))
-        return dict(row)
+            cur = conn.execute(
+                "UPDATE pedidos SET estado = 'entregado' WHERE pedido_id = ? AND estado = 'anotado'",
+                (pedido_id,),
+            )
+            return cur.rowcount == 1
 
     def get_customer(self, customer_id: str) -> dict[str, Any] | None:
         if not customer_id:
