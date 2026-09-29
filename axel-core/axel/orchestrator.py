@@ -108,6 +108,8 @@ OWNER_KB = [
 ]
 PREGUNTA_NOMBRE = "¿Cómo quieres que te llame?"
 PREGUNTA_NOMBRE_VIEJA = "¿Cómo te llamas?"
+PREGUNTA_NOMBRE_FORMAL = "¿Cómo quiere que le llame?"
+PREGUNTAS_NOMBRE = (PREGUNTA_NOMBRE, PREGUNTA_NOMBRE_VIEJA, PREGUNTA_NOMBRE_FORMAL)
 NOMBRE_CORTO = re.compile(r"[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ ]{2,40}")
 NO_ES_NOMBRE = {"si", "no", "ok", "okay", "dale", "bien", "nada", "claro", "vale"}
 # Si la respuesta empieza así, es una pregunta, un comando o una acción de agenda, no un nombre.
@@ -717,7 +719,7 @@ def process(env: Envelope, memory: Memory) -> Envelope:
         env.name = nombre
         env.intent = "datos"
     pedir_nombre = env.channel == "whatsapp" and not env.payload["es_dueno"] and not env.name
-    if pedir_nombre and memory.last_reply(env.customer_id).endswith((PREGUNTA_NOMBRE, PREGUNTA_NOMBRE_VIEJA)):
+    if pedir_nombre and memory.last_reply(env.customer_id).endswith(PREGUNTAS_NOMBRE):
         candidato = (env.text or "").strip().rstrip(".!")
         if (
             NOMBRE_CORTO.fullmatch(candidato)
@@ -806,10 +808,10 @@ def process(env: Envelope, memory: Memory) -> Envelope:
         pedir_nombre
         and not env.name
         and env.intent in {"saludo", "pregunta"}
-        and not memory.replied_with(env.customer_id, PREGUNTA_NOMBRE)
-        and not memory.replied_with(env.customer_id, PREGUNTA_NOMBRE_VIEJA)
+        and not any(memory.replied_with(env.customer_id, p) for p in PREGUNTAS_NOMBRE)
     ):
-        env.reply_text = f"{env.reply_text or ''} {PREGUNTA_NOMBRE}".strip()
+        pregunta = PREGUNTA_NOMBRE_FORMAL if kb_mod.tono() == "formal" else PREGUNTA_NOMBRE
+        env.reply_text = f"{env.reply_text or ''} {pregunta}".strip()
 
     if env.intent == "reserva" and env.result == "pending":
         memory.set_open_task(env.customer_id, "reserva")
