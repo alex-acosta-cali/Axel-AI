@@ -42,12 +42,20 @@ AXEL es comercio, no barbería. Todo sale de la KB.
 - Cancelar / reprogramar con palabras de agenda: «cancelar el turno», «cancelar la reserva», «reprogramar turno». «cita» vale siempre. Una palabra fuera de la lista («cancelar el pedido») no toca citas.
 - El cliente ve solo lo suyo: «mi cita», «mis citas», «mi reserva», «mi turno» listan sus reservas vivas; si no tiene, «No tienes reserva.». El dueño sigue con `citas` para todas.
 
-## 0.5 Alcance
+## 0.5 Muro 8 (hecho 29 sep)
+- Pedidos con estado: `anotado` → `entregado`. El dueño escribe `pedido listo` (el último anotado). Entregado no es pagado: AXEL no cobra. El cliente no cambia estado.
+- `pedidos` y el panel muestran el estado.
+- `limpiar` no borra ventas: pedidos, citas y N3 quedan en la base. Solo borra clientes sin nombre, celular ni correo.
+- `reporte` (y el panel) parte los pedidos de hoy en anotados y entregados, con total $ de cada uno.
+
+## 0.6 Alcance
 - Hoy: 1 negocio, 1 WhatsApp, dueño por número (`WA_OWNER_PHONE`), panel de ese negocio.
 - 2028: varios negocios. No se construye ahora.
 
-## 0.6 Siguiente capítulo: VPS
+## 0.7 Siguiente capítulo: VPS
 - VPS cuando haya tarjeta.
+- No cobro real.
+- No segundo panel.
 - Llevar AXEL a un VPS 24/7 (nginx con HTTPS hacia `127.0.0.1:8090`).
 - No Meta producción.
 - No Instagram.
@@ -101,6 +109,7 @@ Chrome: http://127.0.0.1:8090/
 - Model router no llama APIs de pago.
 - “am” dentro de palabras ya no debe contar como hora (corregido en reservas).
 - Git a veces deja archivos sin commit: revisar `git status` antes de parar.
+- `limpiar` borra al cliente fantasma aunque tenga pedido, cita viva o N3: esas filas quedan sin dueño («sin nombre»); si vuelve a escribir es cliente nuevo y no ve ni cancela su cita. Sin arreglar.
 - Nombre: si AXEL acaba de preguntar el nombre y el cliente escribe «cancelar la mesa», se guarda como nombre. Sin arreglar.
 
 ## 6. Criterios del piloto actual
