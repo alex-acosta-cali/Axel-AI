@@ -3,16 +3,20 @@
 
 from __future__ import annotations
 
+import json
 import sys
 import tempfile
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from axel.agents.reservas import _CALI, avisos_cita
+from axel import knowledge_base as kb
+from axel.agents.reservas import _CALI, _NOMBRE_DIA, _ahora_cali, _cuando, avisos_cita
+from axel.envelope import Envelope
 from axel.memory import Memory
+from axel.orchestrator import process
 
 
 def main() -> int:
@@ -54,7 +58,38 @@ def main() -> int:
     assert avisos(2, 7) == [("evt_25h", "Recordatorio: tu cita es hoy a las 9:00.")]
     assert avisos(2, 7, 30) == [] and avisos(2, 10) == [], "sin repetir y nada después de la cita"
 
-    print("OK — aviso 24 h y 2 h, uno por cita y plazo, hora Cali; ni canceladas ni pasadas")
+    # "mañana" con ñ o sin tilde es el día siguiente.
+    base = datetime(2026, 10, 1, 8, 0, tzinfo=_CALI)
+    for texto in ("mañana 11", "MAÑANA a las 11", "manana 11"):
+        assert _cuando(texto, base) == (date(2026, 10, 2), 11, 0), texto
+
+    # De punta a punta: "mañana 11" reserva el día siguiente si la franja existe y está libre.
+    kb_tmp = Path(tempfile.gettempdir()) / "axel_kb_aviso_cita.json"
+    kb_tmp.write_text(json.dumps({"agenda": True, "horario": "8:00 a 19:00", "franjas": [9, 11, 15]}), encoding="utf-8")
+    original = kb._kb_path
+    kb._kb_path = lambda: kb_tmp
+    try:
+        def dice(texto: str, quien: str) -> str:
+            out = process(Envelope(text=texto, channel="test", channel_user_id=quien), memory)
+            print(quien, repr(texto), "->", out.reply_text)
+            return out.reply_text or ""
+
+        manana = _ahora_cali().date() + timedelta(days=1)
+        dice("quiero una cita", "ana")
+        r = dice("mañana 11", "ana")
+        if manana.weekday() == 6:
+            assert not r.startswith("Quedó tu cita"), "domingo no se agenda"
+        else:
+            assert r.startswith(f"Quedó tu cita: {_NOMBRE_DIA[manana.weekday()]} 11:00"), r
+            dice("quiero una cita", "beto")
+            assert not dice("mañana 11", "beto").startswith("Quedó tu cita"), "franja tomada"
+        dice("quiero una cita", "caro")
+        assert not dice("mañana 10", "caro").startswith("Quedó tu cita"), "10 no es franja"
+    finally:
+        kb._kb_path = original
+        kb_tmp.unlink(missing_ok=True)
+
+    print("OK — aviso 24 h y 2 h, uno por cita y plazo, hora Cali; ni canceladas ni pasadas; mañana con ñ")
     return 0
 
 

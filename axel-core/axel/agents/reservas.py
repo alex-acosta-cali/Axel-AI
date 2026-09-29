@@ -69,7 +69,7 @@ _NOMBRE_DIA = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", 
 
 
 def _sin_tildes(text: str) -> str:
-    return (text or "").lower().translate(str.maketrans("áéíóúü", "aeiouu"))
+    return (text or "").lower().translate(str.maketrans("áéíóúüñ", "aeiouun"))
 
 
 def _fecha(text: str, base: datetime) -> date | None:
