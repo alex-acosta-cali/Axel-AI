@@ -114,8 +114,6 @@ Chrome: http://127.0.0.1:8090/
 - Model router no llama APIs de pago.
 - “am” dentro de palabras ya no debe contar como hora (corregido en reservas).
 - Git a veces deja archivos sin commit: revisar `git status` antes de parar.
-- `limpiar` borra al cliente fantasma aunque tenga pedido, cita viva o N3: esas filas quedan sin dueño («sin nombre»); si vuelve a escribir es cliente nuevo y no ve ni cancela su cita. Sin arreglar.
-- Nombre: si AXEL acaba de preguntar el nombre y el cliente escribe «cancelar la mesa», se guarda como nombre. Sin arreglar.
 
 ## 6. Criterios del piloto actual
 - N1: horario, KB, nombre, celular, correo.
