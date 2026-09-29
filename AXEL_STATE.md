@@ -8,7 +8,7 @@ GitHub: https://github.com/alex-acosta-cali/Axel-AI (privado)
 - WhatsApp real: +57 314 5801851. Phone ID y tokens solo en `.env`.
 - Demo en http://127.0.0.1:8090 expuesto con ngrok para el webhook.
 - Claude Code trabaja en el repo (ejecutor; Grok revisa, Alex aprueba).
-- Pruebas OK: `test_memory_cross_channel`, `test_level3_approval`, `test_message`, `test_kb_cafeteria` y `test_kb_ferreteria`.
+- Pruebas OK: `test_memory_cross_channel`, `test_level3_approval`, `test_message`, `test_kb_cafeteria`, `test_kb_ferreteria`, `test_configurar`, `test_aviso_cita` y `test_piloto_2026`.
 - App de Meta sigue **En desarrollo** (no publicada).
 - 28 sep: un cupo confirmado por franja (probado). Cancelar y reprogramar sueltan el cupo viejo.
 - 28 sep: reembolso N3, el dueño aprueba y el cliente recibe el aviso. Probado con un segundo celular.
@@ -24,7 +24,15 @@ AXEL es comercio, no barbería. Todo sale de la KB.
 - Prueba ferretería (`test_kb_ferreteria`): sin agenda, sin corte, sin cita.
 - Panel: muestra catálogo y pedidos.
 
-## 0.2 Siguiente capítulo: VPS
+## 0.2 Muro 5 (hecho 28 sep)
+- Pedidos en tabla `pedidos` (cliente, servicio, precio, hora), no en nota. Los viejos se pasaron solos.
+- Avisos al cliente 24 h y 2 h antes de la cita (hora Cali). Uno por cita y plazo. Solo citas vivas. Si el demo está apagado, el aviso se pierde.
+- `reporte` del dueño: fecha Cali, citas de hoy, pedidos de hoy con total, pendientes N3. También en el panel.
+- `/health` dice si `kb.json` está bien y cuántos servicios tiene.
+- Pack de aceptación: `tests/test_piloto_2026.py`.
+
+## 0.3 Siguiente capítulo: VPS
+- VPS cuando haya tarjeta.
 - Llevar AXEL a un VPS 24/7 (nginx con HTTPS hacia `127.0.0.1:8090`).
 - No Meta producción.
 - No Instagram.
@@ -78,6 +86,7 @@ Chrome: http://127.0.0.1:8090/
 - Model router no llama APIs de pago.
 - “am” dentro de palabras ya no debe contar como hora (corregido en reservas).
 - Git a veces deja archivos sin commit: revisar `git status` antes de parar.
+- Cita guardada con «mañana» (ñ) no se entiende: sin aviso 24h/2h y no cuenta en `reporte`. Sin arreglar.
 
 ## 6. Criterios del piloto actual
 - N1: horario, KB, nombre, celular, correo.
