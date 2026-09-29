@@ -193,13 +193,15 @@ def handle(env: Envelope, memory=None) -> Envelope:
                 None,
             )
         hola = f"Hola {env.name}" if env.name else "Hola"
+        # Segunda línea con cita o pedido: negocio + abierto/cerrado.
+        linea2 = f"{negocio}. {estado}" if negocio else estado
         if viva:
             palabra = "turno" if "turno" in {p.lower() for p in kb.agenda_palabras()} else "cita"
-            env.reply_text = f"{hola}, soy AXEL. Tu {palabra} es {viva}."
+            env.reply_text = f"{hola}, soy AXEL. Tu {palabra} es {viva}.\n{linea2}"
         elif anotado:
             env.reply_text = (
                 f"{hola}, soy AXEL. Tienes un pedido anotado: "
-                f"{anotado['servicio']} {kb.precio_txt(anotado['precio'])}."
+                f"{anotado['servicio']} {kb.precio_txt(anotado['precio'])}.\n{linea2}"
             )
         elif abierto:
             env.reply_text = f"{base} ¿En qué te ayudo?"

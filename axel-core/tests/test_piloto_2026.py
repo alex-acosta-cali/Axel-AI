@@ -137,7 +137,10 @@ def main() -> int:
 
         # Saludo con reserva viva: la recuerda con la palabra del piloto. Sin reserva, saludo de siempre. Dueño no.
         hola_fer = dice("hola", fer).reply_text or ""
-        assert hola_fer.startswith("Hola, soy AXEL. Tu turno es viernes 9:00."), hola_fer
+        assert hola_fer.startswith("Hola, soy AXEL. Tu turno es viernes 9:00.\n"), hola_fer
+        # Segunda línea: negocio + abierto o cerrado.
+        linea2 = hola_fer.split("\n")[1]
+        assert linea2.startswith(kb.load_kb()["negocio"]) and ("abiertos" in linea2 or "No abrimos" in linea2 or "cerrados" in linea2), linea2
         sin = dice("buenas", "573000000009").reply_text or ""
         assert "Tu turno" not in sin and "soy AXEL" in sin, sin
         assert "Tu turno" not in (dice("hola", DUENO).reply_text or "")
@@ -147,6 +150,7 @@ def main() -> int:
         dice("me lo llevo el corte", gil)
         hola_gil = dice("hola", gil).reply_text or ""
         assert hola_gil.startswith("Hola, soy AXEL. Tienes un pedido anotado: corte $"), hola_gil
+        assert hola_gil.split("\n")[1].startswith(kb.load_kb()["negocio"]), hola_gil
         dice("me lo llevo el corte", fer)
         hola_fer = dice("hola", fer).reply_text or ""
         assert "Tu turno es viernes" in hola_fer and "pedido" not in hola_fer, hola_fer
