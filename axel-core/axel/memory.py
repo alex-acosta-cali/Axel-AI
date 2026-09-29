@@ -126,6 +126,8 @@ class Memory:
                 ("audit_events", "why", "TEXT"),
                 ("audit_events", "data_used", "TEXT"),
                 ("pedidos", "estado", "TEXT NOT NULL DEFAULT 'anotado'"),
+                # Cita confirmada: 'AAAA-MM-DD HH:MM' hora Cali. Las viejas quedan NULL y se leen del texto.
+                ("conversation_summaries", "cita_at", "TEXT"),
             ):
                 try:
                     conn.execute(f"ALTER TABLE {tabla} ADD COLUMN {col} {typ}")
@@ -238,7 +240,7 @@ class Memory:
         with self._conn() as conn:
             rows = conn.execute(
                 """
-                SELECT s.event_id, s.customer_id, s.channel, s.summary, s.created_at, c.name
+                SELECT s.event_id, s.customer_id, s.channel, s.summary, s.created_at, s.cita_at, c.name
                 FROM conversation_summaries s
                 LEFT JOIN customers c ON c.customer_id = s.customer_id
                 WHERE s.intent = 'reserva' AND s.result = 'ok'
@@ -253,7 +255,7 @@ class Memory:
         with self._conn() as conn:
             row = conn.execute(
                 """
-                SELECT summary, created_at FROM conversation_summaries
+                SELECT summary, created_at, cita_at FROM conversation_summaries
                 WHERE customer_id = ? AND intent = 'reserva' AND result = 'ok'
                 ORDER BY summary_id DESC LIMIT 1
                 """,
@@ -289,14 +291,15 @@ class Memory:
         text: str,
         reply: str,
         result: str,
+        cita_at: Optional[str] = None,
     ) -> None:
         with self._conn() as conn:
             conn.execute(
                 """
-                INSERT INTO conversation_summaries(customer_id, event_id, channel, intent, summary, result, created_at)
-                VALUES (?,?,?,?,?,?,datetime('now'))
+                INSERT INTO conversation_summaries(customer_id, event_id, channel, intent, summary, result, created_at, cita_at)
+                VALUES (?,?,?,?,?,?,datetime('now'),?)
                 """,
-                (customer_id, event_id, channel, intent, text[:240], result),
+                (customer_id, event_id, channel, intent, text[:240], result, cita_at),
             )
             conn.execute(
                 """

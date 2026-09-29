@@ -127,10 +127,27 @@ def _creada_cali(created_at: str) -> datetime:
 
 def franja_de(summary: str, created_at: str) -> str:
     """'miércoles 30/09 11:00' a partir de la cita guardada; el texto tal cual si no se entiende."""
-    cuando = _cuando(summary, _creada_cali(created_at))
+    return _franja_txt(_cuando(summary, _creada_cali(created_at)), summary)
+
+
+def _franja_txt(cuando: tuple[date, int, int] | None, summary: str) -> str:
     if not cuando:
         return (summary or "")[:60]
     return f"{_NOMBRE_DIA[cuando[0].weekday()]} {cuando[0].strftime('%d/%m')} {cuando[1]}:{cuando[2]:02d}"
+
+
+def _cita_at(c: tuple[date, int, int]) -> str:
+    """'AAAA-MM-DD HH:MM' hora Cali (UTC-5), para la columna cita_at."""
+    return f"{c[0].isoformat()} {c[1]:02d}:{c[2]:02d}"
+
+
+def cuando_fila(fila: dict) -> tuple[date, int, int] | None:
+    """Fecha y hora de una cita guardada: cita_at si existe; si no, el cálculo de siempre desde el texto."""
+    try:
+        exacta = datetime.strptime(str(fila.get("cita_at") or ""), "%Y-%m-%d %H:%M")
+        return exacta.date(), exacta.hour, exacta.minute
+    except ValueError:
+        return _cuando(str(fila.get("summary") or ""), _creada_cali(str(fila.get("created_at") or "")))
 
 
 def avisos_cita(memory, ahora: datetime | None = None) -> list[tuple[dict, str]]:
@@ -139,7 +156,7 @@ def avisos_cita(memory, ahora: datetime | None = None) -> list[tuple[dict, str]]
     ahora = ahora or _ahora_cali()
     salida = []
     for fila in memory.list_confirmed_reservas(500):
-        c = _cuando(str(fila.get("summary") or ""), _creada_cali(str(fila.get("created_at") or "")))
+        c = cuando_fila(fila)
         if not c:
             continue
         cita = datetime(c[0].year, c[0].month, c[0].day, c[1], c[2], tzinfo=_CALI)
@@ -262,10 +279,10 @@ def handle(env: Envelope, memory=None) -> Envelope:
         for fila in memory.list_confirmed_reservas(500):
             if not env.customer_id or fila.get("customer_id") != env.customer_id:
                 continue
-            c = _cuando(str(fila.get("summary") or ""), _creada_cali(str(fila.get("created_at") or "")))
+            c = cuando_fila(fila)
             if c and datetime(c[0].year, c[0].month, c[0].day, c[1], c[2], tzinfo=_CALI) < ahora:
                 continue
-            suyas.append(f"- {franja_de(str(fila.get('summary') or ''), str(fila.get('created_at') or ''))}")
+            suyas.append(f"- {_franja_txt(c, str(fila.get('summary') or ''))}")
         env.reply_text = "Tus reservas:\n" + "\n".join(reversed(suyas)) if suyas else "No tienes reserva."
         env.result = "ok"
         env.approval_status = "na"
@@ -347,7 +364,9 @@ def handle(env: Envelope, memory=None) -> Envelope:
             env.approval_status = "pending_customer"
             return env
         memory.cancel_last_reserva(env.customer_id or "")
-        env.reply_text = f"Pasé la cita a {_texto_cuando(_cuando(env.text or '', _ahora_cali()))}."
+        nueva = _cuando(env.text or "", _ahora_cali())
+        env.payload["cita_at"] = _cita_at(nueva)
+        env.reply_text = f"Pasé la cita a {_texto_cuando(nueva)}."
         env.result = "ok"
         env.approval_status = "confirmed_customer"
         env.intent = "reserva"
@@ -376,7 +395,9 @@ def handle(env: Envelope, memory=None) -> Envelope:
             env.result = "pending"
             env.approval_status = "pending_customer"
             return env
-        cuando = _texto_cuando(_cuando(env.text or "", _ahora_cali()))
+        nueva = _cuando(env.text or "", _ahora_cali())
+        env.payload["cita_at"] = _cita_at(nueva)
+        cuando = _texto_cuando(nueva)
         env.reply_text = f"Quedó tu cita: {cuando}. Para cambiar escribe cancelar la cita o reprogramar la cita."
         env.result = "ok"
         env.approval_status = "confirmed_customer"

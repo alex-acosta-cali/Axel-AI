@@ -38,6 +38,11 @@ def main() -> int:
                 " VALUES (?,?,'whatsapp','reserva',?,'ok','2026-10-01 13:00:00')",
                 (f"cus_{event_id}", event_id, texto),
             )
+        # Con hora exacta (sábado 03/10 11:00) gana cita_at, aunque el texto diga otra cosa.
+        conn.execute(
+            "INSERT INTO conversation_summaries(customer_id, event_id, channel, intent, summary, result, created_at, cita_at)"
+            " VALUES ('cus_exacta','evt_exacta','whatsapp','reserva','hoy a las 9:30','ok','2026-10-01 13:00:00','2026-10-03 11:00')"
+        )
     # El cliente cancela: la cita queda 'cancelled' y no se avisa.
     assert memory.cancel_last_reserva("cus_evt_cancelada")
 
@@ -57,6 +62,8 @@ def main() -> int:
     # Viernes 7:00: 2 h antes.
     assert avisos(2, 7) == [("evt_25h", "Recordatorio: tu cita es hoy a las 9:00.")]
     assert avisos(2, 7, 30) == [] and avisos(2, 10) == [], "sin repetir y nada después de la cita"
+    assert avisos(2, 11) == [("evt_exacta", "Recordatorio: tu cita es el sábado 03/10 a las 11:00.")]
+    assert avisos(3, 9, 30) == [("evt_exacta", "Recordatorio: tu cita es hoy a las 11:00.")]
 
     # "mañana" con ñ o sin tilde es el día siguiente.
     base = datetime(2026, 10, 1, 8, 0, tzinfo=_CALI)
@@ -81,6 +88,9 @@ def main() -> int:
             assert not r.startswith("Quedó tu cita"), "domingo no se agenda"
         else:
             assert r.startswith(f"Quedó tu cita: {_NOMBRE_DIA[manana.weekday()]} 11:00"), r
+            ana = memory.find_by_identity("test", "ana")["customer_id"]
+            assert memory.last_reserva(ana)["cita_at"] == f"{manana.isoformat()} 11:00", memory.last_reserva(ana)
+            assert dice("mis citas", "ana") == f"Tus reservas:\n- {_NOMBRE_DIA[manana.weekday()]} {manana.strftime('%d/%m')} 11:00"
             dice("quiero una cita", "beto")
             assert not dice("mañana 11", "beto").startswith("Quedó tu cita"), "franja tomada"
         dice("quiero una cita", "caro")

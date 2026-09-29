@@ -467,7 +467,7 @@ def _reporte(memory: Memory) -> str:
     hoy = reservas._ahora_cali().date()
     citas = []
     for c in memory.list_confirmed_reservas(500):
-        cuando = reservas._cuando(str(c.get("summary") or ""), reservas._creada_cali(str(c.get("created_at") or "")))
+        cuando = reservas.cuando_fila(c)
         if cuando and cuando[0] == hoy:
             citas.append((cuando[1], cuando[2], str(c.get("name") or "sin nombre")))
     pedidos = [
@@ -868,6 +868,7 @@ def process(env: Envelope, memory: Memory) -> Envelope:
         text=env.text or "",
         reply=env.reply_text or "",
         result=env.result or "",
+        cita_at=env.payload.get("cita_at") if env.intent == "reserva" and env.result == "ok" else None,
     )
     memory.write_audit(
         {
