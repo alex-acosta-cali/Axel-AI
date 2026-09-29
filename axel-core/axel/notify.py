@@ -30,6 +30,18 @@ def aviso_pedido(quien: str, pedido: str) -> str:
     return text
 
 
+def aviso_cliente_listo(phone: str, servicio: str) -> str:
+    """Avisa a ESE cliente que su pedido quedó entregado. Sin celular no se envía: solo queda en el log."""
+    text = f"Tu pedido de {servicio} quedó listo. El dueño confirma el pago. AXEL no cobra."
+    destino = "".join(ch for ch in (phone or "") if ch.isdigit())
+    owner = "".join(ch for ch in (os.getenv("WA_OWNER_PHONE") or "") if ch.isdigit())
+    if not destino or destino == owner:
+        print(f"AVISO PEDIDO LISTO sin envío (cliente sin celular): {text}")
+        return ""
+    print("WA CLIENTE:", send_text(destino, text))
+    return text
+
+
 def notify_owner(env: Envelope, memory: Memory) -> str:
     if memory.has_pending(env.customer_id or "", env.intent or ""):
         env.owner_notified = True

@@ -4,6 +4,7 @@ import os
 import re
 
 from axel import knowledge_base as kb_mod
+from axel import notify
 from axel.agents import atencion, escalamiento, reservas
 from axel.connectors.whatsapp import send_text
 from axel.envelope import Envelope, now_iso
@@ -427,6 +428,7 @@ def _pedido_listo(memory: Memory, quien: str) -> str:
     p = cands[0]
     if not memory.entregar_pedido(int(p["pedido_id"])):
         return "No hay pedidos anotados."
+    notify.aviso_cliente_listo(str(p.get("phone") or ""), str(p["servicio"]))
     return (
         f"Entregado: {p['servicio']} {kb_mod.precio_txt(p['precio'])} · "
         f"{p.get('name') or p.get('phone') or 'sin nombre'}. AXEL no cobra."

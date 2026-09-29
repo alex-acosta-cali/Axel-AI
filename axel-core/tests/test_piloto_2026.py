@@ -21,6 +21,7 @@ os.environ["WA_OWNER_PHONE"] = "573000000001"
 DUENO, CLIENTE, AJENO = "573000000001", "573000000002", "573000000003"
 
 from axel import knowledge_base as kb
+from axel import notify
 from axel.envelope import Envelope
 from axel.memory import Memory
 from axel.orchestrator import process
@@ -181,14 +182,21 @@ def main() -> int:
         mismo = dice("pedido listo gil", DUENO).reply_text or ""
         assert mismo.startswith("Hay varios con ese nombre") and "cel …2233" in mismo, mismo
         assert estados() == antes_listo, mismo
+        # Al entregar, aviso a ESE cliente por su celular. Sin celular no se envía (solo log).
+        enviados = []
+        envio_real = notify.send_text
+        notify.send_text = lambda to, text: enviados.append((to, text)) or {"fake": True}
         r = dice("pedido listo 2233", DUENO).reply_text or ""
         assert r.startswith("Entregado: corte $") and r.endswith(" · Gil. AXEL no cobra."), r
+        assert enviados == [("3001112233", "Tu pedido de corte quedó listo. El dueño confirma el pago. AXEL no cobra.")], enviados
         fer_id = memory.find_by_identity("whatsapp", fer)["customer_id"]
         assert dict((p["customer_id"], p["estado"]) for p in memory.list_pedidos(50) if p["servicio"] == "corte") == {
             fer_id: "entregado", memory.find_by_identity("whatsapp", gil)["customer_id"]: "anotado"
         }
         r = dice("pedido listo", DUENO).reply_text or ""
         assert r.startswith("Entregado: corte $") and r.endswith(" · Gil. AXEL no cobra."), r
+        assert len(enviados) == 1, "gil sin celular: no se inventa envío"
+        notify.send_text = envio_real
         assert dice("pedido listo", DUENO).reply_text == "No hay pedidos anotados."
 
         # Nombre: un comando o acción de agenda no se guarda como nombre; se responde la intención.
