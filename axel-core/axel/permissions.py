@@ -16,6 +16,7 @@ LEVELS = {
     "venta": 1,
     "queja": 3,
     "reembolso": 3,
+    "borrar_datos": 3,
     "descuento_grande": 3,
     "admin": 3,
 }

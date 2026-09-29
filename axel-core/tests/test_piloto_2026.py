@@ -320,6 +320,21 @@ def main() -> int:
         assert " · dueño · " in env_dueno and " · aviso_24h · " in env_dueno and " · fallo" in env_dueno, env_dueno
         assert "Envíos:" not in (dice("envios", CLIENTE).reply_text or ""), "el cliente no ve envios"
 
+        # Aviso de datos en el primer saludo, una vez, antes de la pregunta de nombre. Al dueño no.
+        from axel.orchestrator import AVISO_DATOS
+        nuevo = "573000000400"
+        primero = dice("hola", nuevo).reply_text or ""
+        assert AVISO_DATOS in primero and primero.endswith("¿Cómo quieres que te llame?"), primero
+        assert AVISO_DATOS not in (dice("hola", nuevo).reply_text or ""), "solo una vez"
+        assert AVISO_DATOS not in (dice("hola", DUENO).reply_text or "")
+        # "borrar mis datos" es N3: pendiente del dueño, no se borra nada.
+        borrar = dice("borrar mis datos", nuevo)
+        assert borrar.supervision_level == 3 and borrar.approval_status == "pending_owner", borrar
+        assert "No se borra nada solo" in (borrar.reply_text or "")
+        assert [p["intent"] for p in memory.list_pending()] == ["borrar_datos"], memory.list_pending()
+        assert "Quedó approved" in (dice("aprobar", DUENO).reply_text or "")
+        assert memory.find_by_identity("whatsapp", nuevo), "aprobar no ejecuta el borrado"
+
         # Nombre: un comando o acción de agenda no se guarda como nombre; se responde la intención.
         for n, texto in enumerate(("cancelar la mesa", "precios", "horario", "ficha", "ayuda")):
             nuevo = f"57300000010{n}"

@@ -15,6 +15,7 @@ from axel.router_model import route
 
 
 INTENTS = [
+    ("borrar_datos", re.compile(r"\b(borr|elimin)\w*\s+(mis|mi)\s+datos", re.I)),
     ("queja", re.compile(r"queja|reclamo|molesto|pésimo|pesimo|nunca más|abogado", re.I)),
     ("reembolso", re.compile(r"reembols|rembols|devolver plata|devoluci", re.I)),
     ("cancelar", re.compile(r"cancelar (la )?cita|anular reserva", re.I)),
@@ -110,6 +111,8 @@ OWNER_KB = [
 PREGUNTA_NOMBRE = "¿Cómo quieres que te llame?"
 PREGUNTA_NOMBRE_VIEJA = "¿Cómo te llamas?"
 PREGUNTA_NOMBRE_FORMAL = "¿Cómo quiere que le llame?"
+AVISO_DATOS = "Tus datos (nombre y celular) quedan en la ficha de este negocio. Escribe borrar mis datos y el dueño lo revisa."
+AVISO_DATOS_FORMAL = "Sus datos (nombre y celular) quedan en la ficha de este negocio. Escriba borrar mis datos y el dueño lo revisa."
 PREGUNTAS_NOMBRE = (PREGUNTA_NOMBRE, PREGUNTA_NOMBRE_VIEJA, PREGUNTA_NOMBRE_FORMAL)
 NOMBRE_CORTO = re.compile(r"[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ ]{2,40}")
 NO_ES_NOMBRE = {"si", "no", "ok", "okay", "dale", "bien", "nada", "claro", "vale"}
@@ -670,7 +673,7 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
 def pick_agent(intent: str) -> str:
     if intent in {"reserva", "reprogramar", "cancelar", "mi_cita"}:
         return "reservas"
-    if intent in {"queja", "reembolso", "descuento_grande", "admin"}:
+    if intent in {"queja", "reembolso", "borrar_datos", "descuento_grande", "admin"}:
         return "escalamiento"
     if intent == "venta":
         return "atencion"
@@ -841,6 +844,16 @@ def process(env: Envelope, memory: Memory) -> Envelope:
 
     if env.result is None:
         env.result = "ok"
+
+    # Primer saludo de un cliente WhatsApp: aviso de datos una sola vez, antes de la pregunta de nombre.
+    if (
+        env.channel == "whatsapp"
+        and not env.payload["es_dueno"]
+        and env.intent == "saludo"
+        and not memory.replied_with(env.customer_id, "borrar mis datos")
+    ):
+        aviso = AVISO_DATOS_FORMAL if kb_mod.tono() == "formal" else AVISO_DATOS
+        env.reply_text = f"{env.reply_text or ''} {aviso}".strip()
 
     if (
         pedir_nombre
