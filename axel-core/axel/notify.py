@@ -20,6 +20,16 @@ def owner_alert(env: Envelope) -> str:
     )
 
 
+def aviso_pedido(quien: str, pedido: str) -> str:
+    """Aviso corto al dueño por el canal de alertas N3. Solo informa: AXEL no cobra."""
+    text = f"Pedido nuevo: {quien} · {pedido}. AXEL no cobra."
+    print("\n===== AVISO AL DUENO =====\n" + text + "\n==========================\n")
+    destino = (os.getenv("WA_OWNER_PHONE") or "").strip()
+    if destino:
+        print("WA DUENO:", send_text(destino, text))
+    return text
+
+
 def notify_owner(env: Envelope, memory: Memory) -> str:
     if memory.has_pending(env.customer_id or "", env.intent or ""):
         env.owner_notified = True

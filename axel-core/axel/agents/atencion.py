@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 from axel.envelope import Envelope
 from axel import knowledge_base as kb
+from axel import notify
 from axel.agents import reservas
 
 _CALI = timezone(timedelta(hours=-5))
@@ -132,6 +133,7 @@ def handle(env: Envelope, memory=None) -> Envelope:
         env.intent = "pedido"
         if memory is not None and env.customer_id:
             memory.add_pedido(env.customer_id, str(servicio["nombre"]), int(servicio.get("precio") or 0))
+            env.payload["aviso_pedido"] = notify.aviso_pedido(env.name or env.phone or "sin nombre", pedido)
         return env
     if "domingo" in bajo:
         _, msg = estado_cali()

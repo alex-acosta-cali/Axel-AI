@@ -67,7 +67,10 @@ def main() -> int:
         assert kb.agenda() is False
 
         # "me lo llevo" guarda fila de pedido.
-        assert (dice("me lo llevo el cafe").reply_text or "").startswith("Pedido anotado: cafe $4.000")
+        anotado = dice("me lo llevo el cafe")
+        assert (anotado.reply_text or "").startswith("Pedido anotado: cafe $4.000")
+        # Aviso al dueño: quién, qué, $. No cobra.
+        assert anotado.payload.get("aviso_pedido") == "Pedido nuevo: sin nombre · cafe $4.000. AXEL no cobra.", anotado.payload
         filas = [(p["servicio"], p["precio"]) for p in memory.list_pedidos()]
         assert filas == [("cafe", 4000)], filas
 
