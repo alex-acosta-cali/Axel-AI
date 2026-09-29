@@ -282,6 +282,17 @@ def main() -> int:
         assert dice("stock pizza 3", DUENO).reply_text == "No tengo el servicio pizza."
         kb_tmp.write_bytes(real.read_bytes())
 
+        # El dueño cambia el tono; el cliente no. "ayuda" y "catalogo" lo muestran.
+        assert dice("tono formal", rita).reply_text == "Eso solo lo cambia el dueño."
+        assert kb.tono() == "cercano"
+        assert dice("tono formal", DUENO).reply_text == "Listo, tono: formal (usted)."
+        assert kb.load_kb()["tono"] == "formal"
+        assert "Tono: formal" in (dice("catalogo", DUENO).reply_text or "")
+        assert "tono formal/cercano" in (dice("ayuda", DUENO).reply_text or "")
+        assert dice("tono cercano", DUENO).reply_text == "Listo, tono: cercano (tú)."
+        assert kb.load_kb()["tono"] == "cercano" and "Tono: cercano" in (dice("catalogo", DUENO).reply_text or "")
+        kb_tmp.write_bytes(real.read_bytes())
+
         # Nombre: un comando o acción de agenda no se guarda como nombre; se responde la intención.
         for n, texto in enumerate(("cancelar la mesa", "precios", "horario", "ficha", "ayuda")):
             nuevo = f"57300000010{n}"

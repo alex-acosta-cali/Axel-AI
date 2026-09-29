@@ -98,6 +98,7 @@ OWNER_KB = [
     ("agenda", re.compile(_ADMIN + r"agenda\s+(si|sí|no)\s*\.?$", re.I)),
     ("agrega", re.compile(_ADMIN + r"agrega(?:r)?\s+(?:el\s+)?servicio\s+(.+?)\s+a\s+" + _PRECIO, re.I)),
     ("precio", re.compile(_ADMIN + r"cambi(?:a|ar|o)\s+el\s+precio\s+(?:del\s+|de\s+la\s+|de\s+)?(.+?)\s+a\s+" + _PRECIO, re.I)),
+    ("tono", re.compile(_ADMIN + r"tono\s+(formal|cercano)\s*\.?$", re.I)),
     ("stock", re.compile(_ADMIN + r"stock\s+(?:de\s+|del\s+)?(.+?)\s+(\d+)\s*\.?$", re.I)),
     ("quita", re.compile(_ADMIN + r"quita(?:r)?\s+(?:el\s+)?servicio\s+(.+?)\s*\.?$", re.I)),
     ("ubicacion", re.compile(_ADMIN + r"la\s+ubicaci[oó]n\s+es\s+(.+?)\s*$", re.I)),
@@ -188,6 +189,9 @@ def _editar_kb(cual: str, m: re.Match) -> str:
         if precio <= 0:
             return "No entendí el precio."
         return f"Listo, {s['nombre']} a {kb_mod.set_price(str(s['nombre']), str(precio))}."
+    if cual == "tono":
+        tono = kb_mod.set_tono(m.group(1))
+        return f"Listo, tono: {tono} ({'usted' if tono == 'formal' else 'tú'})."
     if cual == "stock":
         s = kb_mod.buscar_servicio(m.group(1))
         if not s:
@@ -278,6 +282,7 @@ def _catalogo() -> str:
             f"Rubro: {datos.get('rubro') or '—'}",
             f"Agenda: {'sí' if kb_mod.agenda() else 'no'}",
             f"Palabras de agenda: {', '.join(kb_mod.agenda_palabras()) or 'ninguna'}",
+            f"Tono: {kb_mod.tono()}",
             f"Horario: {reservas._hhmm(abre)} a {reservas._hhmm(cierra)}",
             f"Franjas: {franjas_txt}",
             "Servicios:" if lineas else "Servicios: ninguno",
@@ -514,7 +519,7 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
             "aceptar/aprobar, rechazo/rechazar, ayuda, "
             "configurar, cancelar configurar, el negocio se llama NOMBRE, abrimos de H1 a H2, "
             "el rubro es X, agenda si/no, agrega servicio X a N, "
-            "cambia el precio de X a N, stock X N, quita servicio X,franjas 8 12 16, "
+            "cambia el precio de X a N, stock X N, tono formal/cercano, quita servicio X, franjas 8 12 16,"
             "agrega pregunta X respuesta Y, quita pregunta X, la ubicacion es X, "
             "politica cancelacion X, politica garantia X, agenda palabras cita reserva mesa turno."
         )

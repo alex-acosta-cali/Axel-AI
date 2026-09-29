@@ -53,6 +53,14 @@ def tono() -> str:
     return "formal" if _plano(str(load_kb().get("tono") or "")).strip() == "formal" else "cercano"
 
 
+def set_tono(valor: str) -> str:
+    """Guarda kb["tono"] ('cercano' o 'formal'). Devuelve el que quedó."""
+    kb = load_kb()
+    kb["tono"] = "formal" if _plano(valor).strip() == "formal" else "cercano"
+    _guardar(kb)
+    return kb["tono"]
+
+
 def agenda_palabras() -> list[str]:
     """kb["agenda_palabras"]: palabras del negocio que piden reserva ('mesa', 'turno')."""
     return [str(p).strip() for p in load_kb().get("agenda_palabras") or [] if str(p).strip()]
