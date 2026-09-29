@@ -405,6 +405,11 @@ def _reporte(memory: Memory) -> str:
         f"Citas hoy: {len(citas)}",
         *[f"- {h}:{m:02d} · {quien}" for h, m, quien in sorted(citas)[:8]],
         f"Pedidos hoy: {len(pedidos)} · total {kb_mod.precio_txt(sum(int(p['precio']) for p in pedidos))}",
+        *[
+            f"- {estado}s: {len(grupo)} · {kb_mod.precio_txt(sum(int(p['precio']) for p in grupo))}"
+            for estado in ("anotado", "entregado")
+            for grupo in [[p for p in pedidos if (p.get("estado") or "anotado") == estado]]
+        ],
         f"Pendientes N3: {len(memory.list_pending())}",
     ]
     return "\n".join(lineas)
