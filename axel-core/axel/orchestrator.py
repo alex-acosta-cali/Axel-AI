@@ -81,6 +81,7 @@ OWNER_KB = [
     ("quita_faq", re.compile(_ADMIN + r"quita(?:r)?\s+(?:la\s+)?pregunta\s+(.+?)\s*\.?$", re.I)),
     ("franjas", re.compile(_ADMIN + r"franjas\s+([\d:\s,y]+?)\s*\.?$", re.I)),
     ("politica", re.compile(_ADMIN + r"pol[ií]tica\s+(?:de\s+)?(cancelaci[oó]n|garant[ií]a)\s*:?\s*(.*?)\s*$", re.I)),
+    ("agenda_palabras", re.compile(_ADMIN + r"agenda\s+palabras\s*:?\s*(.*?)\s*$", re.I)),
 ]
 PREGUNTA_NOMBRE = "¿Cómo quieres que te llame?"
 PREGUNTA_NOMBRE_VIEJA = "¿Cómo te llamas?"
@@ -178,6 +179,11 @@ def _editar_kb(cual: str, m: re.Match) -> str:
             ejemplo = "Puedes cancelar hasta 1 hora antes" if clave == "cancelacion" else "7 días si el servicio no quedó bien"
             return f"Falta el texto. Ejemplo: politica {clave} {ejemplo}"
         return f"Listo, política de {clave}: {texto}"
+    if cual == "agenda_palabras":
+        palabras = kb_mod.set_agenda_palabras(m.group(1))
+        if not palabras:
+            return "Faltan las palabras. Ejemplo: agenda palabras cita reserva mesa turno"
+        return f"Listo, palabras de agenda: {', '.join(palabras)}."
     guardado = _guardar_franjas(m.group(1))
     return f"Listo, {guardado}" if guardado else "No entendí las franjas. Ejemplo: franjas 8 12 16"
 
@@ -227,6 +233,7 @@ def _catalogo() -> str:
             "Catálogo:",
             f"Rubro: {datos.get('rubro') or '—'}",
             f"Agenda: {'sí' if kb_mod.agenda() else 'no'}",
+            f"Palabras de agenda: {', '.join(kb_mod.agenda_palabras()) or 'ninguna'}",
             f"Horario: {reservas._hhmm(abre)} a {reservas._hhmm(cierra)}",
             f"Franjas: {franjas_txt}",
             "Servicios:" if lineas else "Servicios: ninguno",
@@ -412,7 +419,7 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
             "el rubro es X, agenda si/no, agrega servicio X a N, "
             "cambia el precio de X a N, quita servicio X, franjas 8 12 16, "
             "agrega pregunta X respuesta Y, quita pregunta X, la ubicacion es X, "
-            "politica cancelacion X, politica garantia X."
+            "politica cancelacion X, politica garantia X, agenda palabras cita reserva mesa turno."
         )
         env.result = "ok"
         env.approval_status = "na"

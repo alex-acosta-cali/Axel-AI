@@ -53,6 +53,20 @@ def agenda_palabras() -> list[str]:
     return [str(p).strip() for p in load_kb().get("agenda_palabras") or [] if str(p).strip()]
 
 
+def set_agenda_palabras(texto: str) -> list[str]:
+    """Reemplaza kb["agenda_palabras"] con las palabras del dueño. [] si no trae ninguna."""
+    palabras = []
+    for p in re.findall(r"[a-záéíóúüñ]{2,20}", (texto or "").lower()):
+        if p not in palabras:
+            palabras.append(p)
+    palabras = palabras[:15]
+    if palabras:
+        kb = load_kb()
+        kb["agenda_palabras"] = palabras
+        _guardar(kb)
+    return palabras
+
+
 def servicios() -> list[dict]:
     return [s for s in load_kb().get("servicios") or [] if str(s.get("nombre") or "").strip()]
 

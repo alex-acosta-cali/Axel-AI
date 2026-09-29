@@ -110,6 +110,16 @@ def main() -> int:
         # Un cliente no arranca el asistente.
         assert ONB_PREGUNTA["onb_nombre"] not in dice("configurar", canal="whatsapp")
 
+        # Palabras de agenda: el dueño reemplaza la lista; el cliente no.
+        kb_tmp.write_text(json.dumps({**KB_VIEJA, "agenda_palabras": ["cita", "mesa"]}), encoding="utf-8")
+        assert dice("agenda palabras cita, reserva turno cita") == "Listo, palabras de agenda: cita, reserva, turno."
+        assert kb.agenda_palabras() == ["cita", "reserva", "turno"]
+        assert dice("agenda palabras").startswith("Faltan las palabras")
+        assert "Palabras de agenda: cita, reserva, turno" in dice("catalogo")
+        assert "agenda palabras" in dice("ayuda")
+        assert dice("agenda palabras mesa", canal="whatsapp") == "Eso solo lo cambia el dueño."
+        assert kb.agenda_palabras() == ["cita", "reserva", "turno"]
+
         # Cliente: sinónimos, precios gana, ubicación y políticas vacías.
         kb_tmp.write_text(json.dumps({**KB_VIEJA, "ubicacion": "Cra 9 Cali"}), encoding="utf-8")
         # AXEL acaba de preguntar el nombre: una pregunta no se guarda como nombre.
