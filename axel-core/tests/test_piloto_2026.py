@@ -139,6 +139,16 @@ def main() -> int:
             r = dice(texto, nuevo)
             assert not r.name and "Quedó tu nombre" not in (r.reply_text or ""), r.reply_text
             assert not memory.find_by_identity("whatsapp", nuevo).get("name"), texto
+        frases = ("mi ficha", "Mis citas", "mi cita", "mi reserva", "mi turno", "mi pedido")
+        for n, texto in enumerate(frases):
+            nuevo = f"57300000020{n}"
+            dice("hola", nuevo)
+            r = dice(texto, nuevo)
+            assert not r.name and not memory.find_by_identity("whatsapp", nuevo).get("name"), (texto, r.reply_text)
+        for n, texto in enumerate(("Mi Leidy", "Mi Leidy Perez")):
+            nuevo = f"57300000030{n}"
+            dice("hola", nuevo)
+            assert dice(texto, nuevo).reply_text == f"Quedó tu nombre: {texto}."
 
         # limpiar: borra fantasmas de verdad, no clientes con pedido, cita viva o N3 pendiente.
         assert memory.find_by_identity("whatsapp", AJENO), "el ajeno existe antes de limpiar"

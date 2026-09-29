@@ -116,6 +116,8 @@ NO_EMPIEZA_NOMBRE = {
     "reserva", "turno", "mesa", "horario", "ayuda", "aprobar", "aceptar", "rechazar", "limpiar",
     "configurar", "clientes", "ficha",
 }
+# "mi" suelto sí puede ser nombre ("Mi Leidy"); estas frases no.
+NO_EMPIEZA_NOMBRE_FRASES = {"mi ficha", "mis citas", "mi cita", "mi reserva", "mi turno", "mi pedido"}
 
 
 def _nombre_usable(nombre: str | None) -> bool:
@@ -680,6 +682,7 @@ def process(env: Envelope, memory: Memory) -> Envelope:
             and env.intent == "pregunta"
             and _norm(candidato) not in NO_ES_NOMBRE
             and _norm(candidato).split()[0] not in NO_EMPIEZA_NOMBRE
+            and " ".join(_norm(candidato).split()[:2]) not in NO_EMPIEZA_NOMBRE_FRASES
         ):
             nombre = " ".join(candidato.split()).title()[:40]
             memory.set_customer_name(env.customer_id, nombre)
