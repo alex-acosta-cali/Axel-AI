@@ -293,6 +293,11 @@ def main() -> int:
         assert kb.load_kb()["tono"] == "cercano" and "Tono: cercano" in (dice("catalogo", DUENO).reply_text or "")
         kb_tmp.write_bytes(real.read_bytes())
 
+        # wamid: Meta reintenta el mismo mensaje; solo cuenta la primera vez.
+        assert memory.marcar_wamid("wamid.PILOTO1") is True
+        assert memory.marcar_wamid("wamid.PILOTO1") is False
+        assert memory.marcar_wamid("wamid.PILOTO2") is True
+
         # Nombre: un comando o acción de agenda no se guarda como nombre; se responde la intención.
         for n, texto in enumerate(("cancelar la mesa", "precios", "horario", "ficha", "ayuda")):
             nuevo = f"57300000010{n}"

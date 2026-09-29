@@ -369,8 +369,15 @@ th{{background:#222}} .ok{{color:#8f8}} .tomada{{color:#f99}} .paso{{color:#888}
                 return
             msgs = whatsapp.parse_incoming(body)
             print("WA IN: mensajes=", len(msgs), "token=", bool(os.getenv("WA_ACCESS_TOKEN")))
-            enviados = []
-            for msg in msgs:
+            # Meta reintenta el mismo wamid: solo se procesa la primera vez.
+            nuevos = [m for m in msgs if memory.marcar_wamid(str(m.get("raw_ref") or ""))]
+            for m in msgs:
+                if m not in nuevos:
+                    print("WA IN repetido, se ignora:", m.get("raw_ref"))
+            # 200 a Meta primero; después se procesa y se responde al cliente.
+            self._json(200, {"ok": True, "parsed": len(msgs), "nuevos": len(nuevos)})
+            self.wfile.flush()
+            for msg in nuevos:
                 print("WA TXT:", msg.get("text"), "de", msg.get("channel_user_id"))
                 if msg.get("raw_ref"):
                     whatsapp.mark_read(str(msg.get("raw_ref")))
@@ -379,8 +386,6 @@ th{{background:#222}} .ok{{color:#8f8}} .tomada{{color:#f99}} .paso{{color:#888}
                 if reply:
                     res = whatsapp.send_text(msg.get("phone") or msg.get("channel_user_id") or "", reply)
                     print("WA OUT:", res)
-                    enviados.append(res)
-            self._json(200, {"ok": True, "parsed": len(msgs), "sent": enviados})
             return
         if self.path != "/webhooks/test":
             self._json(404, {"error": "not_found"})

@@ -95,6 +95,10 @@ CREATE TABLE IF NOT EXISTS avisos_cita (
     created_at TEXT,
     PRIMARY KEY (event_id, plazo)
 );
+CREATE TABLE IF NOT EXISTS wamid_visto (
+    wamid TEXT PRIMARY KEY,
+    created_at TEXT
+);
 """
 # Nota vieja "Pedido piloto corte $25.000 (sin cobro)" -> fila en pedidos.
 _NOTA_PEDIDO = re.compile(r"^Pedido piloto (.+) \$([\d.]+) \(sin cobro\)$")
@@ -457,6 +461,17 @@ class Memory:
             cur = conn.execute(
                 "INSERT OR IGNORE INTO avisos_cita(event_id, plazo, created_at) VALUES (?,?,datetime('now'))",
                 (event_id, plazo),
+            )
+            return cur.rowcount == 1
+
+    def marcar_wamid(self, wamid: str) -> bool:
+        """True la primera vez que llega ese mensaje de WhatsApp; False si Meta lo reintenta."""
+        if not wamid:
+            return True
+        with self._conn() as conn:
+            cur = conn.execute(
+                "INSERT OR IGNORE INTO wamid_visto(wamid, created_at) VALUES (?, datetime('now'))",
+                (wamid,),
             )
             return cur.rowcount == 1
 
