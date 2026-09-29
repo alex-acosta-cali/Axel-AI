@@ -93,6 +93,19 @@ def handle(env: Envelope, memory=None) -> Envelope:
             env.reply_text += f" Último pedido: {pedido['servicio']} {kb.precio_txt(pedido['precio'])}, {hora}."
         env.result = "ok"
         return env
+    if re.search(r"\bmis? pedidos?\b", bajo):
+        # Solo los del cliente; el dueño ve todos con "pedidos".
+        suyos = []
+        if memory is not None and env.customer_id:
+            suyos = [p for p in memory.list_pedidos(500) if p.get("customer_id") == env.customer_id]
+        lineas = [
+            f"- {p['servicio']} {kb.precio_txt(p['precio'])} · {p.get('estado') or 'anotado'} · "
+            f"{reservas._creada_cali(str(p.get('created_at') or '')).strftime('%d/%m %H:%M')}"
+            for p in suyos[:15]
+        ]
+        env.reply_text = "Tus pedidos:\n" + "\n".join(lineas) if lineas else "No tienes pedidos."
+        env.result = "ok"
+        return env
     # Pitch y cuaderno son internos (plan, IDs de Meta): solo para el dueño.
     if env.payload.get("es_dueno"):
         pitch = kb.answer_pitch(text)

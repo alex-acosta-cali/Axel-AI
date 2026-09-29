@@ -117,7 +117,7 @@ NO_EMPIEZA_NOMBRE = {
     "configurar", "clientes", "ficha",
 }
 # "mi" suelto sí puede ser nombre ("Mi Leidy"); estas frases no.
-NO_EMPIEZA_NOMBRE_FRASES = {"mi ficha", "mis citas", "mi cita", "mi reserva", "mi turno", "mi pedido"}
+NO_EMPIEZA_NOMBRE_FRASES = {"mi ficha", "mis citas", "mi cita", "mi reserva", "mi turno", "mi pedido", "mis pedidos"}
 
 
 def _nombre_usable(nombre: str | None) -> bool:

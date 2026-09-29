@@ -149,6 +149,15 @@ def main() -> int:
         assert "Tu turno es viernes" in hola_fer and "pedido" not in hola_fer, hola_fer
         assert "pedido anotado" not in (dice("hola", DUENO).reply_text or "")
 
+        # "mi pedido" / "mis pedidos": el cliente ve solo los suyos. El dueño sigue viendo todos.
+        de_gil = dice("mis pedidos", gil).reply_text or ""
+        assert de_gil.startswith("Tus pedidos:\n- corte $") and "· anotado · " in de_gil, de_gil
+        assert de_gil.count("\n- ") == 1, de_gil
+        assert (dice("mi pedido", fer).reply_text or "").count("\n- ") == 1
+        assert (dice("mi pedido", "573000000009").reply_text or "").startswith("No tienes pedidos.")
+        todos = dice("pedidos", DUENO).reply_text or ""
+        assert todos.startswith("Pedidos:") and todos.count("\n- ") >= 3, todos
+
         # Nombre: un comando o acción de agenda no se guarda como nombre; se responde la intención.
         for n, texto in enumerate(("cancelar la mesa", "precios", "horario", "ficha", "ayuda")):
             nuevo = f"57300000010{n}"
