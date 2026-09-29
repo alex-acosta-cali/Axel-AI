@@ -195,27 +195,30 @@ def handle(env: Envelope, memory=None) -> Envelope:
         hola = f"Hola {env.name}" if env.name else "Hola"
         # Segunda línea con cita o pedido: negocio + abierto/cerrado.
         linea2 = f"{negocio}. {estado}" if negocio else estado
+        formal = kb.tono() == "formal"
         if viva:
             palabra = "turno" if "turno" in {p.lower() for p in kb.agenda_palabras()} else "cita"
-            env.reply_text = f"{hola}, soy AXEL. Tu {palabra} es {viva}.\n{linea2}"
+            env.reply_text = f"{hola}, soy AXEL. {'Su' if formal else 'Tu'} {palabra} es {viva}.\n{linea2}"
         elif anotado:
             env.reply_text = (
-                f"{hola}, soy AXEL. Tienes un pedido anotado: "
+                f"{hola}, soy AXEL. {'Tiene' if formal else 'Tienes'} un pedido anotado: "
                 f"{anotado['servicio']} {kb.precio_txt(anotado['precio'])}.\n{linea2}"
             )
         elif abierto:
-            env.reply_text = f"{base} ¿En qué te ayudo?"
+            env.reply_text = f"{base} {'¿En qué le puedo ayudar?' if formal else '¿En qué te ayudo?'}"
         else:
-            oferta = "Puedo agendarte para mañana o responder horarios y precios." if kb.agenda() else (
+            agendar = "agendarle" if formal else "agendarte"
+            oferta = f"Puedo {agendar} para mañana o responder horarios y precios." if kb.agenda() else (
                 "Puedo responder horarios y precios."
             )
             env.reply_text = f"{base} {estado} {oferta}"
         env.result = "ok"
         return env
     temas = "horarios, precios, ubicación o una cita" if kb.agenda() else "horarios, precios o ubicación"
+    ayudar = "ayudarle" if kb.tono() == "formal" else "ayudarte"
     env.reply_text = (
         "No tengo esa información en la base del negocio. "
-        f"Puedo ayudarte con {temas}. "
+        f"Puedo {ayudar} con {temas}. "
         "Si es otra cosa, el dueño lo revisa."
     )
     env.result = "ok"

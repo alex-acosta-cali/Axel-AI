@@ -48,6 +48,11 @@ def agenda() -> bool:
     return bool(load_kb().get("agenda", True))
 
 
+def tono() -> str:
+    """kb["tono"]: 'cercano' (tú) o 'formal' (usted). Si falta o no se entiende, cercano."""
+    return "formal" if _plano(str(load_kb().get("tono") or "")).strip() == "formal" else "cercano"
+
+
 def agenda_palabras() -> list[str]:
     """kb["agenda_palabras"]: palabras del negocio que piden reserva ('mesa', 'turno')."""
     return [str(p).strip() for p in load_kb().get("agenda_palabras") or [] if str(p).strip()]

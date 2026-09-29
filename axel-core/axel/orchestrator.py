@@ -795,7 +795,7 @@ def process(env: Envelope, memory: Memory) -> Envelope:
     else:
         env = atencion.handle(env, memory)
         low = (env.reply_text or "").lower()
-        ofertas = ("reserve un cupo", "te reserve", "agendarte para mañana", "reservamos mesa", "te anoto un turno")
+        ofertas = ("reserve un cupo", "te reserve", "agendarte para mañana", "agendarle para mañana","reservamos mesa", "te anoto un turno")
         if any(o in low for o in ofertas):
             memory.set_open_task(env.customer_id, "oferta_cita")
 

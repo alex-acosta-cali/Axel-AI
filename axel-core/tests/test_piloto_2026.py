@@ -231,6 +231,18 @@ def main() -> int:
         assert sorted(de_hab()) == ["anotado", "entregado"], de_hab()
         assert enviados == [("3004445566", "Tu pedido de corte quedó listo. El dueño confirma el pago. AXEL no cobra.")], enviados
 
+        # Tono de la KB: cercano (tú) en el piloto; formal (usted) cambia saludo y "no tengo esa información".
+        assert kb.tono() == "cercano"
+        assert "Puedo ayudarte con" in (dice("venden naves espaciales", "573000000015").reply_text or "")
+        kb_tmp.write_text(json.dumps({**kb.load_kb(), "tono": "formal"}, ensure_ascii=False), encoding="utf-8")
+        assert kb.tono() == "formal"
+        no_hay = dice("venden naves espaciales", "573000000016").reply_text or ""
+        assert "Puedo ayudarle con" in no_hay and "ayudarte" not in no_hay, no_hay
+        usted = dice("hola", "573000000016").reply_text or ""
+        assert ("le puedo ayudar" in usted or "agendarle" in usted) and "te ayudo" not in usted and "agendarte" not in usted, usted
+        assert "Su turno es sábado 11:00." in (dice("hola", hab).reply_text or "")
+        kb_tmp.write_bytes(real.read_bytes())
+
         # Nombre: un comando o acción de agenda no se guarda como nombre; se responde la intención.
         for n, texto in enumerate(("cancelar la mesa", "precios", "horario", "ficha", "ayuda")):
             nuevo = f"57300000010{n}"
