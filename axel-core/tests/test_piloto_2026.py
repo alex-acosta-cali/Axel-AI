@@ -139,6 +139,16 @@ def main() -> int:
         assert "Tu turno" not in sin and "soy AXEL" in sin, sin
         assert "Tu turno" not in (dice("hola", DUENO).reply_text or "")
 
+        # Sin cita viva pero con pedido anotado: el saludo lo recuerda. Con cita, gana la cita.
+        gil = "573000000010"
+        dice("me lo llevo el corte", gil)
+        hola_gil = dice("hola", gil).reply_text or ""
+        assert hola_gil.startswith("Hola, soy AXEL. Tienes un pedido anotado: corte $"), hola_gil
+        dice("me lo llevo el corte", fer)
+        hola_fer = dice("hola", fer).reply_text or ""
+        assert "Tu turno es viernes" in hola_fer and "pedido" not in hola_fer, hola_fer
+        assert "pedido anotado" not in (dice("hola", DUENO).reply_text or "")
+
         # Nombre: un comando o acción de agenda no se guarda como nombre; se responde la intención.
         for n, texto in enumerate(("cancelar la mesa", "precios", "horario", "ficha", "ayuda")):
             nuevo = f"57300000010{n}"

@@ -169,10 +169,23 @@ def handle(env: Envelope, memory=None) -> Envelope:
         viva = ""
         if memory is not None and env.customer_id and not env.payload.get("es_dueno"):
             viva = reservas.proxima_viva(memory, env.customer_id)
+        # Sin cita viva: el pedido anotado más nuevo del cliente.
+        anotado = None
+        if not viva and memory is not None and env.customer_id and not env.payload.get("es_dueno"):
+            anotado = next(
+                (p for p in memory.list_pedidos(500)
+                 if p.get("customer_id") == env.customer_id and p.get("estado") == "anotado"),
+                None,
+            )
+        hola = f"Hola {env.name}" if env.name else "Hola"
         if viva:
             palabra = "turno" if "turno" in {p.lower() for p in kb.agenda_palabras()} else "cita"
-            hola = f"Hola {env.name}" if env.name else "Hola"
             env.reply_text = f"{hola}, soy AXEL. Tu {palabra} es {viva}."
+        elif anotado:
+            env.reply_text = (
+                f"{hola}, soy AXEL. Tienes un pedido anotado: "
+                f"{anotado['servicio']} {kb.precio_txt(anotado['precio'])}."
+            )
         elif abierto:
             env.reply_text = f"{base} ¿En qué te ayudo?"
         else:
