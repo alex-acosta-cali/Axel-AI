@@ -20,25 +20,53 @@ def owner_alert(env: Envelope) -> str:
     )
 
 
-def aviso_pedido(quien: str, pedido: str) -> str:
+def _digitos(phone: str) -> str:
+    return "".join(ch for ch in (phone or "") if ch.isdigit())
+
+
+def enviar(memory: Memory | None, tipo: str, destino: str, text: str) -> str:
+    """Envía por WhatsApp y deja una fila en envios. Un solo intento: si Meta falla, queda 'fallo'."""
+    destino = _digitos(destino)
+    if not destino:
+        estado = "sin_celular"
+    else:
+        try:
+            res = send_text(destino, text)
+            print(f"WA {tipo}:", res)
+            ok = not res.get("skipped") and 200 <= int(res.get("status", 200)) < 300
+        except Exception as exc:
+            print(f"WA {tipo} error:", exc)
+            ok = False
+        estado = "enviado" if ok else "fallo"
+    if memory is not None:
+        memory.add_envio(destino, tipo, text, estado)
+    return estado
+
+
+def aviso_pedido(quien: str, pedido: str, memory: Memory | None = None) -> str:
     """Aviso corto al dueño por el canal de alertas N3. Solo informa: AXEL no cobra."""
     text = f"Pedido nuevo: {quien} · {pedido}. AXEL no cobra."
     print("\n===== AVISO AL DUENO =====\n" + text + "\n==========================\n")
-    destino = (os.getenv("WA_OWNER_PHONE") or "").strip()
-    if destino:
-        print("WA DUENO:", send_text(destino, text))
+    enviar(memory, "pedido_nuevo", os.getenv("WA_OWNER_PHONE") or "", text)
     return text
 
 
-def aviso_cliente_listo(phone: str, servicio: str) -> str:
+def aviso_cliente(memory: Memory | None, tipo: str, phone: str, text: str) -> str:
+    """Aviso a un cliente. Si su celular es el del dueño, no se envía: fila 'omitido_dueno'."""
+    destino = _digitos(phone)
+    if destino and destino == _digitos(os.getenv("WA_OWNER_PHONE") or ""):
+        if memory is not None:
+            memory.add_envio(destino, tipo, text, "omitido_dueno")
+        return "omitido_dueno"
+    return enviar(memory, tipo, destino, text)
+
+
+def aviso_cliente_listo(phone: str, servicio: str, memory: Memory | None = None) -> str:
     """Avisa a ESE cliente que su pedido quedó entregado. Sin celular no se envía: solo queda en el log."""
     text = f"Tu pedido de {servicio} quedó listo. El dueño confirma el pago. AXEL no cobra."
-    destino = "".join(ch for ch in (phone or "") if ch.isdigit())
-    owner = "".join(ch for ch in (os.getenv("WA_OWNER_PHONE") or "") if ch.isdigit())
-    if not destino or destino == owner:
-        print(f"AVISO PEDIDO LISTO sin envío (cliente sin celular): {text}")
+    if aviso_cliente(memory, "pedido_listo", phone, text) != "enviado":
+        print(f"AVISO PEDIDO LISTO sin envío: {text}")
         return ""
-    print("WA CLIENTE:", send_text(destino, text))
     return text
 
 
@@ -67,8 +95,5 @@ def notify_owner(env: Envelope, memory: Memory) -> str:
     env.owner_notified = True
     env.payload["owner_alert"] = text
     print("\n===== ALERTA AL DUENO =====\n" + text + "\n===========================\n")
-    destino = (os.getenv("WA_OWNER_PHONE") or "").strip()
-    if destino:
-        res = send_text(destino, text)
-        print("WA DUENO:", res)
+    enviar(memory, "n3_dueno", os.getenv("WA_OWNER_PHONE") or "", text)
     return text

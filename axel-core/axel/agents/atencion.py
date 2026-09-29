@@ -137,7 +137,7 @@ def handle(env: Envelope, memory=None) -> Envelope:
         env.intent = "pedido"
         if memory is not None and env.customer_id:
             memory.add_pedido(env.customer_id, str(servicio["nombre"]), int(servicio.get("precio") or 0))
-            env.payload["aviso_pedido"] = notify.aviso_pedido(env.name or env.phone or "sin nombre", pedido)
+            env.payload["aviso_pedido"] = notify.aviso_pedido(env.name or env.phone or "sin nombre", pedido, memory)
         return env
     if "domingo" in bajo:
         _, msg = estado_cali()

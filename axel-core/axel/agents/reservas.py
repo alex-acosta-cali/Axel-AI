@@ -149,7 +149,7 @@ def avisos_cita(memory, ahora: datetime | None = None) -> list[tuple[dict, str]]
         plazo = "2h" if falta <= timedelta(hours=2) else "24h"
         if memory.marcar_aviso(str(fila.get("event_id") or ""), plazo):
             dia = "hoy" if c[0] == ahora.date() else f"el {_NOMBRE_DIA[c[0].weekday()]} {c[0].strftime('%d/%m')}"
-            salida.append((fila, f"Recordatorio: tu cita es {dia} a las {c[1]}:{c[2]:02d}."))
+            salida.append(({**fila, "plazo": plazo}, f"Recordatorio: tu cita es {dia} a las {c[1]}:{c[2]:02d}."))
     return salida
 
 

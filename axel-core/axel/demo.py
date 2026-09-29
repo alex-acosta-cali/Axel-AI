@@ -12,6 +12,7 @@ from urllib.parse import parse_qs, urlparse
 from datetime import timedelta
 
 from axel import knowledge_base as kb
+from axel import notify
 from axel.agents.reservas import (
     _NOMBRE_DIA,
     _ahora_cali,
@@ -414,10 +415,8 @@ def _recordatorio_loop() -> None:
             # Aviso al cliente 24 h y 2 h antes. Si el demo está apagado a esa hora, se pierde.
             for fila, texto in avisos_cita(memory):
                 cli = memory.get_customer(str(fila.get("customer_id") or "")) or {}
-                destino = "".join(ch for ch in str(cli.get("phone") or "") if ch.isdigit())
-                if destino:
-                    send_text(destino, texto)
-                    print("AVISO CITA", fila.get("event_id"), texto)
+                estado = notify.enviar(memory, f"aviso_{fila['plazo']}", str(cli.get("phone") or ""), texto)
+                print("AVISO CITA", fila.get("event_id"), estado, texto)
         except Exception as exc:
             print("AVISO CITA error:", exc)
         try:

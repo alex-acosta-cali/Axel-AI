@@ -298,6 +298,28 @@ def main() -> int:
         assert memory.marcar_wamid("wamid.PILOTO1") is False
         assert memory.marcar_wamid("wamid.PILOTO2") is True
 
+        # envios: cada aviso deja fila. Sin token = fallo; sin celular; al dueño como cliente se omite.
+        tipos = {(e["tipo"], e["estado"]) for e in memory.list_envios(500)}
+        for fila in (("pedido_nuevo", "fallo"), ("pedido_listo", "enviado"), ("pedido_listo", "sin_celular"), ("n3_dueno", "fallo")):
+            assert fila in tipos, (fila, tipos)
+        assert notify.aviso_cliente(memory, "pedido_listo", DUENO, "x") == "omitido_dueno"
+        # Meta falla: un solo intento, fila fallo.
+        intentos = []
+        notify.send_text = lambda to, text: intentos.append(to) or {"status": 500, "body": {}}
+        try:
+            assert notify.enviar(memory, "aviso_24h", CLIENTE, "Recordatorio: tu cita es hoy a las 11:00.") == "fallo"
+            dice("aprobar", DUENO)
+        finally:
+            notify.send_text = envio_real
+        assert intentos == [CLIENTE], intentos
+        ultimos = memory.list_envios(3)
+        assert [e["tipo"] for e in ultimos][:2] == ["n3_cliente", "aviso_24h"], ultimos
+        assert ultimos[1]["estado"] == "fallo"
+        env_dueno = dice("envios", DUENO).reply_text or ""
+        assert env_dueno.startswith("Envíos:\n- ") and env_dueno.count("\n- ") == 10, env_dueno
+        assert " · dueño · " in env_dueno and " · aviso_24h · " in env_dueno and " · fallo" in env_dueno, env_dueno
+        assert "Envíos:" not in (dice("envios", CLIENTE).reply_text or ""), "el cliente no ve envios"
+
         # Nombre: un comando o acción de agenda no se guarda como nombre; se responde la intención.
         for n, texto in enumerate(("cancelar la mesa", "precios", "horario", "ficha", "ayuda")):
             nuevo = f"57300000010{n}"

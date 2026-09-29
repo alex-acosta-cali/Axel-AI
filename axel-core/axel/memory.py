@@ -99,6 +99,14 @@ CREATE TABLE IF NOT EXISTS wamid_visto (
     wamid TEXT PRIMARY KEY,
     created_at TEXT
 );
+CREATE TABLE IF NOT EXISTS envios (
+    envio_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    destino TEXT,
+    tipo TEXT NOT NULL,
+    texto TEXT,
+    estado TEXT NOT NULL,
+    created_at TEXT
+);
 """
 # Nota vieja "Pedido piloto corte $25.000 (sin cobro)" -> fila en pedidos.
 _NOTA_PEDIDO = re.compile(r"^Pedido piloto (.+) \$([\d.]+) \(sin cobro\)$")
@@ -474,6 +482,23 @@ class Memory:
                 (wamid,),
             )
             return cur.rowcount == 1
+
+    def add_envio(self, destino: str, tipo: str, texto: str, estado: str) -> None:
+        """Una fila por aviso saliente: a quién, qué (corto), para qué y cómo terminó."""
+        with self._conn() as conn:
+            conn.execute(
+                "INSERT INTO envios(destino, tipo, texto, estado, created_at) VALUES (?,?,?,?,datetime('now'))",
+                (destino or "", tipo, (texto or "")[:80], estado),
+            )
+
+    def list_envios(self, limit: int = 10) -> list[dict[str, Any]]:
+        """Últimos envíos, los más nuevos primero. Solo para el dueño."""
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT destino, tipo, texto, estado, created_at FROM envios ORDER BY envio_id DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [dict(r) for r in rows]
 
     def last_pedido(self, customer_id: str) -> dict[str, Any] | None:
         if not customer_id:

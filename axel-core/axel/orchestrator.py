@@ -6,7 +6,6 @@ import re
 from axel import knowledge_base as kb_mod
 from axel import notify
 from axel.agents import atencion, escalamiento, reservas
-from axel.connectors.whatsapp import send_text
 from axel.envelope import Envelope, now_iso
 from axel.knowledge_base import load_kb, set_business_name, set_hours
 from axel.memory import Memory
@@ -119,7 +118,7 @@ NO_EMPIEZA_NOMBRE = {
     "donde", "cual", "que", "cuanto", "cuando", "quiero", "hola", "precios",
     "cancelar", "reprogramar", "anular", "pedido", "pedidos", "reporte", "catalogo", "citas", "cita",
     "reserva", "turno", "mesa", "horario", "ayuda", "aprobar", "aceptar", "rechazar", "limpiar",
-    "configurar", "clientes", "ficha",
+    "configurar", "clientes", "ficha", "envios",
 }
 # "mi" suelto sí puede ser nombre ("Mi Leidy"); estas frases no.
 NO_EMPIEZA_NOMBRE_FRASES = {"mi ficha", "mis citas", "mi cita", "mi reserva", "mi turno", "mi pedido", "mis pedidos"}
@@ -447,7 +446,7 @@ def _pedido_listo(memory: Memory, quien: str) -> str:
     p = cands[0]
     if not memory.entregar_pedido(int(p["pedido_id"])):
         return "No hay pedidos anotados."
-    notify.aviso_cliente_listo(str(p.get("phone") or ""), str(p["servicio"]))
+    notify.aviso_cliente_listo(str(p.get("phone") or ""), str(p["servicio"]), memory)
     return (
         f"Entregado: {p['servicio']} {kb_mod.precio_txt(p['precio'])} · "
         f"{p.get('name') or p.get('phone') or 'sin nombre'}. AXEL no cobra."
@@ -490,10 +489,21 @@ def _reporte(memory: Memory) -> str:
     return "\n".join(lineas)
 
 
+def envios_filas(memory: Memory, limit: int = 10) -> list[tuple[str, str, str, str, str]]:
+    """(hora Cali, a quién, tipo, texto corto, estado) de los últimos envíos. Solo para el dueño."""
+    owner = _digits(os.getenv("WA_OWNER_PHONE") or "")
+    filas = []
+    for e in memory.list_envios(limit):
+        destino = str(e.get("destino") or "")
+        quien = "dueño" if destino and destino == owner else (f"cel …{destino[-4:]}" if destino else "—")
+        hora = reservas._creada_cali(str(e.get("created_at") or "")).strftime("%d/%m %H:%M")
+        filas.append((hora, quien, str(e["tipo"]), str(e.get("texto") or "")[:40], str(e["estado"])))
+    return filas
+
+
 def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
     if not _es_dueno(env):
         return False
-    owner = _digits(os.getenv("WA_OWNER_PHONE") or "")
     t = _norm(env.text)
     if t in {"estado", "axeladmin estado"}:
         env.intent = "admin"
@@ -515,7 +525,7 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         env.agent = "escalamiento"
         env.supervision_level = 1
         env.reply_text = (
-            "Comandos dueño: estado, reporte, limpiar, pendientes, citas, clientes, pedidos, pedido listo, catalogo, "
+            "Comandos dueño: estado, reporte, limpiar, pendientes, citas, clientes, pedidos, pedido listo, envios, catalogo, "
             "aceptar/aprobar, rechazo/rechazar, ayuda, "
             "configurar, cancelar configurar, el negocio se llama NOMBRE, abrimos de H1 a H2, "
             "el rubro es X, agenda si/no, agrega servicio X a N, "
@@ -599,6 +609,15 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         env.result = "ok"
         env.approval_status = "na"
         return True
+    if t == "envios":
+        env.intent = "admin"
+        env.agent = "escalamiento"
+        env.supervision_level = 1
+        lineas = [f"- {' · '.join(f)}" for f in envios_filas(memory)]
+        env.reply_text = "Envíos:\n" + "\n".join(lineas) if lineas else "No hay envíos."
+        env.result = "ok"
+        env.approval_status = "na"
+        return True
     if t == "clientes":
         env.intent = "admin"
         env.agent = "escalamiento"
@@ -635,12 +654,14 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         f"({row.get('intent')})."
     )
     cli = memory.get_customer(str(row.get("customer_id") or "")) or {}
-    destino = _digits(str(cli.get("phone") or ""))
-    if destino and destino != owner:
-        if si:
-            send_text(destino, "El dueño ya revisó tu caso y lo aprobó. Te escribimos si falta algo.")
-        else:
-            send_text(destino, "El dueño revisó tu caso y por ahora no se puede. Si quieres, lo vemos de otra forma.")
+    notify.aviso_cliente(
+        memory,
+        "n3_cliente",
+        str(cli.get("phone") or ""),
+        "El dueño ya revisó tu caso y lo aprobó. Te escribimos si falta algo."
+        if si
+        else "El dueño revisó tu caso y por ahora no se puede. Si quieres, lo vemos de otra forma.",
+    )
     env.approval_status = decision
     env.result = "ok"
     return True
