@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 from axel.envelope import Envelope
 from axel import knowledge_base as kb
+from axel.agents import reservas
 
 _CALI = timezone(timedelta(hours=-5))
 _OFERTA_CITA = re.compile(r"\s*¿[^?]*\b(reserv|agend|cupo|cita)[^?]*\?", re.I)
@@ -85,9 +86,11 @@ def handle(env: Envelope, memory=None) -> Envelope:
             f"Tu ficha AXEL: {env.name or 'sin nombre'}, "
             f"cel {env.phone or '—'}, correo {env.email or '—'}. "
             f"Notas: {(' | '.join(notas) if notas else 'ninguna')}. "
-            f"Cita: {(cita or {}).get('summary') if cita else 'ninguna'}. "
-            f"Último pedido: {pedido['servicio'] + ' ' + kb.precio_txt(pedido['precio']) if pedido else 'ninguno'}."
+            f"Cita: {(cita or {}).get('summary') if cita else 'ninguna'}."
         )
+        if pedido:
+            hora = reservas._creada_cali(str(pedido.get("created_at") or "")).strftime("%d/%m %H:%M")
+            env.reply_text += f" Último pedido: {pedido['servicio']} {kb.precio_txt(pedido['precio'])}, {hora}."
         env.result = "ok"
         return env
     # Pitch y cuaderno son internos (plan, IDs de Meta): solo para el dueño.

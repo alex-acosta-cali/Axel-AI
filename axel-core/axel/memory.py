@@ -446,7 +446,7 @@ class Memory:
             return None
         with self._conn() as conn:
             row = conn.execute(
-                "SELECT servicio, precio FROM pedidos WHERE customer_id = ? ORDER BY created_at DESC, pedido_id DESC LIMIT 1",
+                "SELECT servicio, precio, created_at FROM pedidos WHERE customer_id = ? ORDER BY created_at DESC, pedido_id DESC LIMIT 1",
                 (customer_id,),
             ).fetchone()
         return dict(row) if row else None
