@@ -28,7 +28,7 @@ from axel.agents.reservas import (
 from axel.connectors import whatsapp
 from axel.envelope import Envelope
 from axel.memory import Memory
-from axel.orchestrator import pedidos_filas, process
+from axel.orchestrator import _reporte, pedidos_filas, process
 
 memory = Memory("./axel.db")
 
@@ -237,6 +237,8 @@ th{{background:#222}} .ok{{color:#8f8}} .tomada{{color:#f99}} .paso{{color:#888}
 <div class="kpi"><b>{n_pend}</b>pendientes</div>
 </div>
 <p><b>Ficha panel:</b> {ficha_html}</p>
+<h2>Reporte de hoy</h2>
+<pre>{html.escape(_reporte(memory))}</pre>
 <h2>Clientes WhatsApp</h2>
 <table><tr><th>Nombre</th><th>Celular</th><th>Última cita</th><th>Última vez que escribió</th></tr>{tabla_wa}</table>
 <form method="post" action="/panel" style="margin:16px 0">
