@@ -92,7 +92,14 @@ Muros 14-17 hechos (29 sep): 14 tono en la KB, 15 stock 0 no se vende, 16 dueño
 ### Siguiente, huecos 4-8 (según Grok)
 - 4. Ventana 24 h / plantillas: papel hecho (`docs/WHATSAPP_24H.md`). No pedir plantillas a Meta todavía.
 - 5. Tabla de envíos: hecha (muro 19). Falta el estado «fuera de 24 h».
-- 6. Cita con fecha y hora exactas (no solo texto): antes o con el VPS.
+- 6. Cita con hora exacta: hecha (29 sep). Ver abajo.
+
+### Cita con hora exacta (hecho 29 sep)
+- Cita nueva o reprogramada guarda `cita_at` ('AAAA-MM-DD HH:MM', hora Cali UTC-5) en `conversation_summaries`. El texto de la cita se queda.
+- Las viejas no se reescriben solas: siguen con `cita_at` vacío y se leen del texto como siempre.
+- Leen `cita_at` si existe: aviso 24h/2h, `reporte` y «mis citas».
+- Solo leen el texto (pendiente): cupos, saludo «Tu turno es…», `citas` del dueño y panel.
+- Prueba en `test_aviso_cita.py`. `reporte` con hora exacta sin prueba propia.
 - 7. Respaldo diario de `axel.db` y `kb.json`: con el VPS (Hetzner).
 - 8. Ley 1581 (habeas data): antes de Meta producción, no ahora.
 
