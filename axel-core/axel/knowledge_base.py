@@ -90,11 +90,25 @@ def precio_txt(valor) -> str:
     return f"${int(valor):,}".replace(",", ".")
 
 
+def agotado(s: dict) -> bool:
+    """Solo stock 0 bloquea. Sin 'stock' (o no entero) se trata como hay. No es inventario: no se resta al vender."""
+    try:
+        return "stock" in s and int(s["stock"]) == 0
+    except (TypeError, ValueError):
+        return False
+
+
+def no_hay_ahora(s: dict) -> str:
+    return f"No hay {s['nombre']} ahora."
+
+
 def lista_servicios() -> str:
     items = servicios()
     if not items:
         return NO_HAY
-    return "Lista: " + ", ".join(f"{s['nombre']} {precio_txt(s.get('precio') or 0)}" for s in items) + ". ¿Cuál te interesa?"
+    return "Lista: " + ", ".join(
+        f"{s['nombre']} agotado" if agotado(s) else f"{s['nombre']} {precio_txt(s.get('precio') or 0)}" for s in items
+    ) + ". ¿Cuál te interesa?"
 
 
 def servicio_en(text: str) -> Optional[dict]:
@@ -122,6 +136,8 @@ def answer_servicio(text: str) -> Optional[str]:
     s = servicio_en(text)
     if s and _PIDE_LISTA.search(_plano(text)):
         return lista_servicios()
+    if s and agotado(s):
+        return no_hay_ahora(s)
     if s:
         cupo = f" {oferta_agenda()}" if agenda() else ""
         nombre = str(s["nombre"])

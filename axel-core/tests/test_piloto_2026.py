@@ -247,6 +247,28 @@ def main() -> int:
         assert "Su turno es sábado 11:00." in (dice("hola", hab).reply_text or "")
         kb_tmp.write_bytes(real.read_bytes())
 
+        # Stock: 0 no se vende ni se ofrece cita; 2 o sin "stock" sí. No se resta al vender.
+        con_stock = kb.load_kb()
+        con_stock["servicios"] = [
+            {"nombre": "corte", "precio": 25000, "stock": 2},
+            {"nombre": "barba", "precio": 15000, "stock": 0},
+            {"nombre": "corte + barba", "precio": 35000},
+        ]
+        kb_tmp.write_text(json.dumps(con_stock, ensure_ascii=False), encoding="utf-8")
+        rita = "573000000018"
+        dice("me llamo Rita", rita)
+        assert dice("cuanto vale la barba", rita).reply_text == "No hay barba ahora."
+        sin_barba = dice("me lo llevo la barba", rita)
+        assert sin_barba.reply_text == "No hay barba ahora." and "aviso_pedido" not in sin_barba.payload
+        assert (dice("me lo llevo el corte", rita).reply_text or "").startswith("Pedido anotado: corte $25.000")
+        assert (dice("me lo llevo el corte + barba", rita).reply_text or "").startswith("Pedido anotado: corte + barba $35.000")
+        rita_id = memory.find_by_identity("whatsapp", rita)["customer_id"]
+        assert sorted(p["servicio"] for p in memory.list_pedidos(100) if p["customer_id"] == rita_id) == ["corte", "corte + barba"]
+        lista = dice("precios", rita).reply_text or ""
+        assert "barba agotado" in lista and "corte $25.000" in lista and "corte + barba $35.000" in lista, lista
+        assert [s.get("stock") for s in kb.servicios()] == [2, 0, None], "no se resta stock al vender"
+        kb_tmp.write_bytes(real.read_bytes())
+
         # Nombre: un comando o acción de agenda no se guarda como nombre; se responde la intención.
         for n, texto in enumerate(("cancelar la mesa", "precios", "horario", "ficha", "ayuda")):
             nuevo = f"57300000010{n}"

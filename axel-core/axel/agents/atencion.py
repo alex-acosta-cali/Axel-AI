@@ -128,6 +128,9 @@ def handle(env: Envelope, memory=None) -> Envelope:
             if pedido and kb.servicios():
                 env.reply_text = f"No tengo {pedido}. {env.reply_text}"
             return env
+        if kb.agotado(servicio):
+            env.reply_text = kb.no_hay_ahora(servicio)
+            return env
         pedido = f"{servicio['nombre']} {kb.precio_txt(servicio.get('precio') or 0)}"
         env.reply_text = f"Pedido anotado: {pedido}. El dueño confirma el pago."
         env.intent = "pedido"
