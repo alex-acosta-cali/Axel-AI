@@ -122,6 +122,23 @@ def _tabla_catalogo() -> str:
     )
 
 
+def _tabla_envios() -> str:
+    """Últimos 8 envíos: hora Cali, para qué, estado, a quién. Sin texto: puede traer el celular. Solo lectura."""
+    digitos = lambda s: "".join(ch for ch in str(s or "") if ch.isdigit())[-10:]
+    owner = digitos(os.getenv("WA_OWNER_PHONE"))
+    nombres = {digitos(c.get("phone")): c.get("name") for c in memory.list_customers(500) if c.get("phone") and c.get("name")}
+    filas = []
+    for e in memory.list_envios(8):
+        d = digitos(e.get("destino"))
+        quien = "dueño" if d and d == owner else (nombres.get(d) or f"…{d[-4:]}" if d else "—")
+        hora = _creada_cali(str(e.get("created_at") or "")).strftime("%d/%m %H:%M")
+        filas.append(
+            "<tr>" + "".join(f"<td>{html.escape(str(c))}</td>" for c in (hora, e["tipo"], e["estado"], quien)) + "</tr>"
+        )
+    cuerpo = "".join(filas) or "<tr><td colspan='4'>Sin envíos.</td></tr>"
+    return f"<table><tr><th>Hora Cali</th><th>Para qué</th><th>Estado</th><th>A quién</th></tr>{cuerpo}</table>"
+
+
 def _tabla_pedidos() -> str:
     """Últimos 15 pedidos, igual que el comando pedidos. Solo lectura."""
     filas = "".join(
@@ -249,6 +266,8 @@ th{{background:#222}} .ok{{color:#8f8}} .tomada{{color:#f99}} .paso{{color:#888}
 <p><b>Ficha panel:</b> {ficha_html}</p>
 <h2>Reporte de hoy</h2>
 <pre>{html.escape(_reporte(memory))}</pre>
+<h2>Envíos</h2>
+{_tabla_envios()}
 <h2>Clientes WhatsApp</h2>
 <table><tr><th>Nombre</th><th>Celular</th><th>Última cita</th><th>Última vez que escribió</th></tr>{tabla_wa}</table>
 <form method="post" action="/panel" style="margin:16px 0">
