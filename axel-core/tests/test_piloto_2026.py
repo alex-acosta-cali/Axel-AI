@@ -199,6 +199,38 @@ def main() -> int:
         notify.send_text = envio_real
         assert dice("pedido listo", DUENO).reply_text == "No hay pedidos anotados."
 
+        # Pack habitación: clientes nuevos, de punta a punta.
+        negocio = kb.load_kb()["negocio"]
+        hab = "573000000011"
+        dice("quiero turno", hab)
+        assert (dice("sabado a las 11", hab).reply_text or "").startswith("Quedó tu cita")
+        con = dice("hola", hab).reply_text or ""
+        assert "Tu turno es sábado 11:00." in con and negocio in con, con
+        sin_res = dice("hola", "573000000012").reply_text or ""
+        assert "turno" not in sin_res.lower() and "cita" not in sin_res.lower(), sin_res
+
+        p1, p2 = "573000000013", "573000000014"
+        dice("me lo llevo el corte", p1)
+        dice("me lo llevo el corte", p2)
+        ids = {memory.find_by_identity("whatsapp", q)["customer_id"] for q in (p1, p2)}
+
+        def de_hab():
+            return [p["estado"] for p in memory.list_pedidos(50) if p["customer_id"] in ids]
+
+        assert de_hab() == ["anotado", "anotado"]
+        assert (dice("pedido listo", DUENO).reply_text or "").startswith("Pedidos anotados:\n")
+        assert de_hab() == ["anotado", "anotado"], "pedido listo solo no cierra los dos"
+
+        dice("mi celular 3004445566", p1)
+        enviados = []
+        notify.send_text = lambda to, text: enviados.append((to, text)) or {"fake": True}
+        try:
+            assert (dice("pedido listo 5566", DUENO).reply_text or "").startswith("Entregado: corte $")
+        finally:
+            notify.send_text = envio_real
+        assert sorted(de_hab()) == ["anotado", "entregado"], de_hab()
+        assert enviados == [("3004445566", "Tu pedido de corte quedó listo. El dueño confirma el pago. AXEL no cobra.")], enviados
+
         # Nombre: un comando o acción de agenda no se guarda como nombre; se responde la intención.
         for n, texto in enumerate(("cancelar la mesa", "precios", "horario", "ficha", "ayuda")):
             nuevo = f"57300000010{n}"
