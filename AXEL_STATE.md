@@ -64,11 +64,17 @@ AXEL es comercio, no barbería. Todo sale de la KB.
 - Lo usan el saludo (con cita, pedido, abierto o cerrado), «No tengo esa información…» y la pregunta de nombre («¿Cómo quiere que le llame?» en formal).
 - No cambia precios ni permisos.
 
-## 0.9 Alcance
+## 0.9 Stock (hecho 29 sep)
+- `servicios[].stock` es opcional. Sin el campo, se vende como siempre.
+- Stock 0 = no se vende: «No hay NOMBRE ahora.», sin pedido ni oferta de cita. En `precios` sale «agotado».
+- El dueño lo cambia: `stock corte 0`, `stock corte 5`. El cliente no. `catalogo` muestra el stock si existe.
+- No es inventario: vender no resta.
+
+## 0.10 Alcance
 - Hoy: 1 negocio, 1 WhatsApp, dueño por número (`WA_OWNER_PHONE`), panel de ese negocio.
 - 2028: varios negocios. No se construye ahora.
 
-## 0.10 Siguiente capítulo: VPS
+## 0.11 Siguiente capítulo: VPS
 - Código local 2026: nada más. Solo VPS cuando haya tarjeta.
 - Llevar AXEL a un VPS 24/7 (nginx con HTTPS hacia `127.0.0.1:8090`).
 - No Meta producción.
