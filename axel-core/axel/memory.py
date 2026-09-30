@@ -128,6 +128,8 @@ class Memory:
                 ("pedidos", "estado", "TEXT NOT NULL DEFAULT 'anotado'"),
                 # Cita confirmada: 'AAAA-MM-DD HH:MM' hora Cali. Las viejas quedan NULL y se leen del texto.
                 ("conversation_summaries", "cita_at", "TEXT"),
+                # 1 = el dueño aprobó "borrar mis datos". "mi ficha" dice "datos borrados".
+                ("customers", "datos_borrados", "INTEGER NOT NULL DEFAULT 0"),
             ):
                 try:
                     conn.execute(f"ALTER TABLE {tabla} ADD COLUMN {col} {typ}")
@@ -680,10 +682,23 @@ class Memory:
         if status not in {"approved", "rejected"}:
             return
         with self._conn() as conn:
+            fila = conn.execute(
+                "SELECT customer_id, intent, status FROM pending_approvals WHERE event_id = ?",
+                (event_id,),
+            ).fetchone()
             conn.execute(
                 "UPDATE pending_approvals SET status = ? WHERE event_id = ?",
                 (status, event_id),
             )
+            # Borrado aprobado: fuera nombre, correo y notas. El celular sigue en la identidad para no duplicar
+            # al cliente. Pedidos, citas y auditoría se quedan.
+            if fila and fila["intent"] == "borrar_datos" and fila["status"] == "pending" and status == "approved":
+                cid = fila["customer_id"]
+                conn.execute(
+                    "UPDATE customers SET name = NULL, email = NULL, datos_borrados = 1, updated_at = datetime('now') WHERE customer_id = ?",
+                    (cid,),
+                )
+                conn.execute("DELETE FROM customer_notes WHERE customer_id = ?", (cid,))
             conn.execute(
                 "UPDATE audit_events SET approval_status = ? WHERE event_id = ?",
                 (status, event_id),

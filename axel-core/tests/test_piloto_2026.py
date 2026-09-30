@@ -360,20 +360,55 @@ def main() -> int:
         dice("hola", vieja)
         assert memory.escribio_24h(vieja_id)
 
-        # Aviso de datos en el primer saludo, una vez, antes de la pregunta de nombre. Al dueño no.
+        # Aviso de datos en el primer mensaje (saludo o no), una vez, antes de la pregunta de nombre. Al dueño no.
         from axel.orchestrator import AVISO_DATOS
         nuevo = "573000000400"
         primero = dice("hola", nuevo).reply_text or ""
         assert AVISO_DATOS in primero and primero.endswith("¿Cómo quieres que te llame?"), primero
         assert AVISO_DATOS not in (dice("hola", nuevo).reply_text or ""), "solo una vez"
         assert AVISO_DATOS not in (dice("hola", DUENO).reply_text or "")
-        # "borrar mis datos" es N3: pendiente del dueño, no se borra nada.
+        otro = dice("precios", "573000000401").reply_text or ""
+        assert otro.startswith("Lista: ") and AVISO_DATOS in otro, otro
+        assert AVISO_DATOS not in (dice("precios", "573000000401").reply_text or "")
+
+        # "borrar mis datos" es N3. Rechazado: nada cambia.
+        dice("me llamo Nora", nuevo)
+        dice("mi celular 3000000400", nuevo)
+        dice("mi correo nora@correo.com", nuevo)
+        dice("anota que prefiere la mañana", nuevo)
+        dice("me lo llevo el corte", nuevo)
+        dice("quiero turno", nuevo)
+        assert (dice("viernes a las 11", nuevo).reply_text or "").startswith("Quedó tu cita")
+        cid = memory.find_by_identity("whatsapp", nuevo)["customer_id"]
         borrar = dice("borrar mis datos", nuevo)
         assert borrar.supervision_level == 3 and borrar.approval_status == "pending_owner", borrar
         assert "No se borra nada solo" in (borrar.reply_text or "")
         assert [p["intent"] for p in memory.list_pending()] == ["borrar_datos"], memory.list_pending()
-        assert "Quedó approved" in (dice("aprobar", DUENO).reply_text or "")
-        assert memory.find_by_identity("whatsapp", nuevo), "aprobar no ejecuta el borrado"
+        assert "Quedó rejected" in (dice("rechazar", DUENO).reply_text or "")
+        ficha = memory.get_customer(cid)
+        assert ficha["name"] == "Nora" and ficha["email"] == "nora@correo.com" and memory.list_notes(cid), ficha
+        assert (dice("mi ficha", nuevo).reply_text or "").startswith("Tu ficha AXEL: Nora, cel 3000000400")
+        # Aprobado: fuera nombre, correo y notas. El celular y la identidad se quedan. Pedidos, citas y auditoría también.
+        dice("borrar mis datos", nuevo)
+        enviados = []
+        notify.send_text = lambda to, text: enviados.append((to, text)) or {"fake": True}
+        try:
+            r = dice("aprobar", DUENO).reply_text or ""
+        finally:
+            notify.send_text = envio_real
+        assert "Quedó approved" in r and "Datos borrados: nombre, correo y notas" in r, r
+        assert enviados == [("3000000400", "El dueño aprobó borrar tus datos. Tu nombre, correo y notas ya no quedan en la ficha.")], enviados
+        ficha = memory.get_customer(cid)
+        assert not ficha["name"] and not ficha["email"] and ficha["phone"] == "3000000400" and ficha["datos_borrados"] == 1, ficha
+        assert memory.list_notes(cid) == []
+        assert any(p["customer_id"] == cid for p in memory.list_pedidos(500)), "el pedido se queda"
+        assert memory.last_reserva(cid), "la cita se queda"
+        assert any(a["customer_id"] == cid for a in memory.list_audit(500)), "la auditoría se queda"
+        # Escribe de nuevo: mismo cliente, no se duplica. "mi ficha" dice "datos borrados".
+        mia = dice("mi ficha", nuevo)
+        assert mia.customer_id == cid, "la identidad se queda: no se duplica"
+        assert (mia.reply_text or "").startswith("Tu ficha AXEL: datos borrados. Cita: "), mia.reply_text
+        assert "Nora" not in (mia.reply_text or "") and "3000000400" not in (mia.reply_text or "")
 
         # Nombre: un comando o acción de agenda no se guarda como nombre; se responde la intención.
         for n, texto in enumerate(("cancelar la mesa", "precios", "horario", "ficha", "ayuda")):

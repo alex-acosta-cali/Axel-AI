@@ -15,7 +15,7 @@ sys.path.insert(0, str(ROOT))
 from axel import knowledge_base as kb
 from axel.envelope import Envelope
 from axel.memory import Memory
-from axel.orchestrator import process
+from axel.orchestrator import AVISO_DATOS, process
 
 KB_CAFETERIA = {
     "negocio": "Cafetería de prueba",
@@ -86,7 +86,8 @@ def main() -> int:
             )
             quien = "wa_cafe_" + ("_".join(palabras) or "sin")
             r = pregunta("cuánto vale el cafe", quien)
-            assert r == f"Cafe: $4.000. {oferta}", r
+            # Primer mensaje de ese cliente: la oferta y luego el aviso de datos.
+            assert r == f"Cafe: $4.000. {oferta} {AVISO_DATOS}", r
             assert "Dime día y hora" in pregunta("sí", quien), "la oferta queda abierta"
     finally:
         kb._kb_path = original

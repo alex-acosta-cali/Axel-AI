@@ -651,20 +651,23 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         return True
     row = pend[0]
     decision = "approved" if si else "rejected"
+    borrar = si and row.get("intent") == "borrar_datos"
+    # Aviso al cliente antes de resolver el caso.
+    cli = memory.get_customer(str(row.get("customer_id") or "")) or {}
+    if borrar:
+        texto_cliente = "El dueño aprobó borrar tus datos. Tu nombre, correo y notas ya no quedan en la ficha."
+    elif si:
+        texto_cliente = "El dueño ya revisó tu caso y lo aprobó. Te escribimos si falta algo."
+    else:
+        texto_cliente = "El dueño revisó tu caso y por ahora no se puede. Si quieres, lo vemos de otra forma."
+    notify.aviso_cliente(
+        memory, "n3_cliente", str(cli.get("phone") or ""), texto_cliente, str(row.get("customer_id") or "")
+    )
     memory.resolve_pending(str(row.get("event_id") or ""), decision)
     env.reply_text = (
         f"Quedó {decision} el caso {row.get('event_id')} "
         f"({row.get('intent')})."
-    )
-    cli = memory.get_customer(str(row.get("customer_id") or "")) or {}
-    notify.aviso_cliente(
-        memory,
-        "n3_cliente",
-        str(cli.get("phone") or ""),
-        "El dueño ya revisó tu caso y lo aprobó. Te escribimos si falta algo."
-        if si
-        else "El dueño revisó tu caso y por ahora no se puede. Si quieres, lo vemos de otra forma.",
-        str(row.get("customer_id") or ""),
+        + (" Datos borrados: nombre, correo y notas. Pedidos, citas y auditoría se quedan." if borrar else "")
     )
     env.approval_status = decision
     env.result = "ok"
@@ -846,11 +849,10 @@ def process(env: Envelope, memory: Memory) -> Envelope:
     if env.result is None:
         env.result = "ok"
 
-    # Primer saludo de un cliente WhatsApp: aviso de datos una sola vez, antes de la pregunta de nombre.
+    # Primer mensaje de un cliente WhatsApp (sea cual sea): aviso de datos una vez, antes de la pregunta de nombre.
     if (
         env.channel == "whatsapp"
         and not env.payload["es_dueno"]
-        and env.intent == "saludo"
         and not memory.replied_with(env.customer_id, "borrar mis datos")
     ):
         aviso = AVISO_DATOS_FORMAL if kb_mod.tono() == "formal" else AVISO_DATOS

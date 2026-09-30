@@ -84,12 +84,14 @@ def handle(env: Envelope, memory=None) -> Envelope:
             notas = [str(n.get("note") or "") for n in memory.list_notes(env.customer_id, 3)]
             cita = memory.last_reserva(env.customer_id)
             pedido = memory.last_pedido(env.customer_id)
-        env.reply_text = (
-            f"Tu ficha AXEL: {env.name or 'sin nombre'}, "
-            f"cel {env.phone or '—'}, correo {env.email or '—'}. "
+        borrados = memory is not None and (memory.get_customer(env.customer_id or "") or {}).get("datos_borrados")
+        quien = (
+            "datos borrados. "
+            if borrados
+            else f"{env.name or 'sin nombre'}, cel {env.phone or '—'}, correo {env.email or '—'}. "
             f"Notas: {(' | '.join(notas) if notas else 'ninguna')}. "
-            f"Cita: {(cita or {}).get('summary') if cita else 'ninguna'}."
         )
+        env.reply_text = f"Tu ficha AXEL: {quien}Cita: {(cita or {}).get('summary') if cita else 'ninguna'}."
         if pedido:
             hora = reservas._creada_cali(str(pedido.get("created_at") or "")).strftime("%d/%m %H:%M")
             env.reply_text += f" Último pedido: {pedido['servicio']} {kb.precio_txt(pedido['precio'])}, {hora}."
