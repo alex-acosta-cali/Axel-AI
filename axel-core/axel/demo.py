@@ -434,7 +434,9 @@ def _recordatorio_loop() -> None:
             # Aviso al cliente 24 h y 2 h antes. Si el demo está apagado a esa hora, se pierde.
             for fila, texto in avisos_cita(memory):
                 cli = memory.get_customer(str(fila.get("customer_id") or "")) or {}
-                estado = notify.enviar(memory, f"aviso_{fila['plazo']}", str(cli.get("phone") or ""), texto)
+                estado = notify.enviar(
+                    memory, f"aviso_{fila['plazo']}", str(cli.get("phone") or ""), texto, str(fila.get("customer_id") or "")
+                )
                 print("AVISO CITA", fila.get("event_id"), estado, texto)
         except Exception as exc:
             print("AVISO CITA error:", exc)

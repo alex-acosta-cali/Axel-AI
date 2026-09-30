@@ -335,6 +335,31 @@ def main() -> int:
         assert "<td>aviso_2h</td><td>fallo</td><td>…6677</td>" in envios_html, envios_html
         assert not re.search(r"\d{10}", envios_html), envios_html
 
+        # Ventana 24 h: si el último mensaje entrante del cliente tiene más de 24 h, no hay texto libre.
+        vieja = "573000000500"
+        dice("me lo llevo el corte", vieja)
+        dice("mi celular 3000000500", vieja)
+        vieja_id = memory.find_by_identity("whatsapp", vieja)["customer_id"]
+        with memory._conn() as conn:
+            conn.execute("UPDATE messages SET created_at = datetime('now', '-25 hours') WHERE customer_id = ?", (vieja_id,))
+        enviados = []
+        notify.send_text = lambda to, text: enviados.append((to, text)) or {"fake": True}
+        try:
+            r = dice("pedido listo 0500", DUENO).reply_text or ""
+            assert r.startswith("Entregado: corte $"), r
+            assert notify.enviar(memory, "aviso_24h", "3000000500", "Recordatorio", vieja_id) == "fuera_24h"
+            # Al dueño no se le mira: su ventana es la suya.
+            assert notify.enviar(memory, "n3_dueno", DUENO, "x") == "enviado"
+        finally:
+            notify.send_text = envio_real
+        assert enviados == [(DUENO, "x")], enviados
+        assert [(e["tipo"], e["estado"]) for e in memory.list_envios(3)] == [
+            ("n3_dueno", "enviado"), ("aviso_24h", "fuera_24h"), ("pedido_listo", "fuera_24h")
+        ], memory.list_envios(3)
+        # Vuelve a escribir: la ventana se abre otra vez.
+        dice("hola", vieja)
+        assert memory.escribio_24h(vieja_id)
+
         # Aviso de datos en el primer saludo, una vez, antes de la pregunta de nombre. Al dueño no.
         from axel.orchestrator import AVISO_DATOS
         nuevo = "573000000400"

@@ -24,11 +24,16 @@ def _digitos(phone: str) -> str:
     return "".join(ch for ch in (phone or "") if ch.isdigit())
 
 
-def enviar(memory: Memory | None, tipo: str, destino: str, text: str) -> str:
-    """Envía por WhatsApp y deja una fila en envios. Un solo intento: si Meta falla, queda 'fallo'."""
+def enviar(memory: Memory | None, tipo: str, destino: str, text: str, cliente: str | None = None) -> str:
+    """Envía por WhatsApp y deja una fila en envios. Un solo intento: si Meta falla, queda 'fallo'.
+    Con 'cliente' (su customer_id): si su último mensaje entrante tiene más de 24 h, no se manda texto
+    libre y queda 'fuera_24h'. Sin 'cliente' (avisos al dueño) no se mira: su ventana es la suya."""
     destino = _digitos(destino)
     if not destino:
         estado = "sin_celular"
+    elif cliente is not None and memory is not None and not memory.escribio_24h(cliente):
+        estado = "fuera_24h"
+        print(f"WA {tipo}: fuera de 24 h, no se envía texto libre")
     else:
         try:
             res = send_text(destino, text)
@@ -51,20 +56,21 @@ def aviso_pedido(quien: str, pedido: str, memory: Memory | None = None) -> str:
     return text
 
 
-def aviso_cliente(memory: Memory | None, tipo: str, phone: str, text: str) -> str:
-    """Aviso a un cliente. Si su celular es el del dueño, no se envía: fila 'omitido_dueno'."""
+def aviso_cliente(memory: Memory | None, tipo: str, phone: str, text: str, customer_id: str = "") -> str:
+    """Aviso a un cliente. Si su celular es el del dueño, no se envía: fila 'omitido_dueno'.
+    Fuera de su ventana de 24 h tampoco: fila 'fuera_24h'."""
     destino = _digitos(phone)
     if destino and destino == _digitos(os.getenv("WA_OWNER_PHONE") or ""):
         if memory is not None:
             memory.add_envio(destino, tipo, text, "omitido_dueno")
         return "omitido_dueno"
-    return enviar(memory, tipo, destino, text)
+    return enviar(memory, tipo, destino, text, customer_id or "")
 
 
-def aviso_cliente_listo(phone: str, servicio: str, memory: Memory | None = None) -> str:
+def aviso_cliente_listo(phone: str, servicio: str, memory: Memory | None = None, customer_id: str = "") -> str:
     """Avisa a ESE cliente que su pedido quedó entregado. Sin celular no se envía: solo queda en el log."""
     text = f"Tu pedido de {servicio} quedó listo. El dueño confirma el pago. AXEL no cobra."
-    if aviso_cliente(memory, "pedido_listo", phone, text) != "enviado":
+    if aviso_cliente(memory, "pedido_listo", phone, text, customer_id) != "enviado":
         print(f"AVISO PEDIDO LISTO sin envío: {text}")
         return ""
     return text

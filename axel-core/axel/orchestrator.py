@@ -449,7 +449,7 @@ def _pedido_listo(memory: Memory, quien: str) -> str:
     p = cands[0]
     if not memory.entregar_pedido(int(p["pedido_id"])):
         return "No hay pedidos anotados."
-    notify.aviso_cliente_listo(str(p.get("phone") or ""), str(p["servicio"]), memory)
+    notify.aviso_cliente_listo(str(p.get("phone") or ""), str(p["servicio"]), memory, str(p["customer_id"]))
     return (
         f"Entregado: {p['servicio']} {kb_mod.precio_txt(p['precio'])} · "
         f"{p.get('name') or p.get('phone') or 'sin nombre'}. AXEL no cobra."
@@ -664,6 +664,7 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         "El dueño ya revisó tu caso y lo aprobó. Te escribimos si falta algo."
         if si
         else "El dueño revisó tu caso y por ahora no se puede. Si quieres, lo vemos de otra forma.",
+        str(row.get("customer_id") or ""),
     )
     env.approval_status = decision
     env.result = "ok"

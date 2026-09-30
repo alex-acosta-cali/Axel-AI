@@ -494,6 +494,22 @@ class Memory:
                 (destino or "", tipo, (texto or "")[:80], estado),
             )
 
+    def escribio_24h(self, customer_id: str) -> bool:
+        """True si el último mensaje entrante de WhatsApp de ese cliente tiene menos de 24 h."""
+        if not customer_id:
+            return False
+        with self._conn() as conn:
+            row = conn.execute(
+                """
+                SELECT 1 FROM messages
+                WHERE customer_id = ? AND channel = 'whatsapp' AND direction = 'in'
+                  AND created_at >= datetime('now', '-24 hours')
+                LIMIT 1
+                """,
+                (customer_id,),
+            ).fetchone()
+        return bool(row)
+
     def list_envios(self, limit: int = 10) -> list[dict[str, Any]]:
         """Últimos envíos, los más nuevos primero. Solo para el dueño."""
         with self._conn() as conn:
