@@ -1,3 +1,9 @@
+"""NO ARRANCAR. Servidor FastAPI viejo, solo de referencia.
+
+No tiene firma de Meta, ni control de wamid repetido, ni panel cerrado a Host público.
+El servicio de AXEL es: python -m axel.demo
+"""
+
 from __future__ import annotations
 
 import os
