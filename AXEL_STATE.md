@@ -8,7 +8,7 @@ GitHub: https://github.com/alex-acosta-cali/Axel-AI (privado)
 - WhatsApp real: +57 314 5801851. Phone ID y tokens solo en `.env`.
 - Demo en http://127.0.0.1:8090 expuesto con ngrok para el webhook.
 - Claude Code trabaja en el repo (ejecutor; Grok revisa, Alex aprueba).
-- Pruebas OK: `test_memory_cross_channel`, `test_level3_approval`, `test_message`, `test_kb_cafeteria`, `test_kb_ferreteria`, `test_configurar`, `test_aviso_cita` y `test_piloto_2026`.
+- Pruebas OK: `test_memory_cross_channel`, `test_level3_approval`, `test_message`, `test_kb_cafeteria`, `test_kb_ferreteria`, `test_configurar`, `test_aviso_cita`, `test_panel_envios` y `test_piloto_2026`.
 - App de Meta sigue **En desarrollo** (no publicada).
 - 28 sep: un cupo confirmado por franja (probado). Cancelar y reprogramar sueltan el cupo viejo.
 - 28 sep: reembolso N3, el dueño aprueba y el cliente recibe el aviso. Probado con un segundo celular.
@@ -82,39 +82,46 @@ Muros 14-17 hechos (29 sep): 14 tono en la KB, 15 stock 0 no se vende, 16 dueño
 ### Muro 19 — envíos (hecho 29 sep)
 - Tabla `envios`: una fila por aviso saliente. A quién, texto corto (80), para qué, estado, hora (se muestra en Cali).
 - Para qué: `aviso_24h`, `aviso_2h`, `pedido_listo`, `n3_cliente`, `n3_dueno`, `pedido_nuevo`.
-- Estado: `enviado`, `fallo`, `sin_celular`, `omitido_dueno` (el celular del cliente es el del dueño).
+- Estado: `enviado`, `fallo`, `sin_celular`, `omitido_dueno` (el celular del cliente es el del dueño), `fuera_24h` (muro 23).
 - Un solo intento. No reintenta solo. Si Meta falla (o falta token), queda `fallo` en la fila.
 - Comando `envios` del dueño: últimas 10 filas (hora Cali · dueño o cel …1234 · para qué · texto corto · estado). El cliente no las ve.
 - Panel local, debajo del reporte: últimas 8 filas (hora Cali, para qué, estado, a quién: dueño, nombre o …1234). Sin texto. Solo lectura.
-- Prueba en `test_piloto_2026.py`. El panel no tiene prueba automática.
+- Prueba en `test_piloto_2026.py`. Panel con prueba desde el muro 23.
 - Pendiente: la tabla crece sin límite.
 
 ### Cita con hora exacta (hecho 29 sep)
 - Cita nueva o reprogramada guarda `cita_at` ('AAAA-MM-DD HH:MM', hora Cali UTC-5) en `conversation_summaries`. El texto de la cita se queda.
 - Las viejas no se reescriben solas: siguen con `cita_at` vacío y se leen del texto como siempre.
-- Leen `cita_at` si existe: aviso 24h/2h, `reporte` y «mis citas».
-- Solo leen el texto (pendiente): cupos, saludo «Tu turno es…», `citas` del dueño y panel.
+- Leen `cita_at` si existe: aviso 24h/2h, `reporte` y «mis citas». Desde el muro 23 también cupos, saludo, `citas` y panel.
 - Prueba en `test_aviso_cita.py`. `reporte` con hora exacta sin prueba propia.
 
 ### Siguiente, huecos 4-8 (según Grok)
 - 4. Ventana 24 h / plantillas: papel hecho (`docs/WHATSAPP_24H.md`). No pedir plantillas a Meta todavía.
-- 5. Tabla de envíos: hecha (muro 19). Falta el estado «fuera de 24 h».
+- 5. Tabla de envíos: hecha (muro 19). `fuera_24h` hecho (muro 23).
 - 6. Cita con hora exacta: hecha (29 sep). Ver arriba.
 - 7. Respaldo diario de `axel.db` y `kb.json`: con el VPS (Hetzner). Hoy solo copia manual (ver abajo).
-- 8. Ley 1581 (habeas data): aviso de datos y borrado N3 hechos (ver abajo). Lo demás, antes de Meta producción.
+- 8. Ley 1581 (habeas data): aviso de datos y borrado N3 hechos (muro 23). Lo demás, antes de Meta producción.
 
 ### Copia local (hecho 29 sep)
 - Manual: `powershell -ExecutionPolicy Bypass -File C:\Proyectos\Axel-AI\axel-core\scripts\copia.ps1`.
 - Copia `axel.db` (con backup de sqlite3, sirve con el demo prendido) y `kb.json` a `C:\Proyectos\Axel-AI\copias\`, con fecha y hora en el nombre. No copia `.env`. `copias/` está en `.gitignore`.
 - No es el backup del VPS: mismo disco, no corre solo, no borra copias viejas.
 
-### Aviso de datos y borrado (hecho 29 sep)
+### Aviso de datos y borrado (hecho 29 sep; el muro 23 lo cambia)
 - Primer saludo de un cliente WhatsApp (una vez, antes de pedir nombre): «Tus datos (nombre y celular) quedan en la ficha de este negocio. Escribe borrar mis datos y el dueño lo revisa.» En tono formal, usted. Al dueño no.
 - Si el primer mensaje no es saludo, el aviso sale en el primer saludo después.
 - «borrar mis datos» es N3: pendiente del dueño. AXEL no borra nada solo.
 - El dueño aprueba o rechaza como un reembolso. Aprobar no borra: el borrado lo hace el dueño. No hay comando de borrado.
 - Prueba en `test_piloto_2026.py`.
 - No es Meta producción.
+
+### Muro 23 (hecho 29 sep)
+- Panel envíos con prueba: `test_panel_envios.py` y el piloto. 8 filas, estado visible, sin texto ni celular de 10 dígitos.
+- `fuera_24h`: pedido listo, aviso 24h/2h y N3 al cliente no mandan texto libre si el último mensaje entrante de WhatsApp de ese cliente tiene más de 24 h. Queda fila `fuera_24h`. Al dueño no se le mira (su ventana es la suya). No se piden plantillas a Meta.
+- `cita_at` en cupos, saludo «Tu turno es…», `citas` (y `clientes`) del dueño y panel. Sin `cita_at`, el texto de siempre. Las citas viejas no se reescriben.
+- Aviso de datos en el primer mensaje del cliente (hola o un precio), una vez, antes de pedir el nombre. Al dueño no.
+- Aprobar «borrar mis datos» anonimiza la ficha: quita nombre, correo y notas; marca `datos_borrados`. Celular e identidad se quedan para no duplicar al cliente. «mi ficha» dice «datos borrados». No borra pedidos, citas, mensajes ni auditoría. Rechazar no toca la ficha.
+- Huecos: si el cliente vuelve a dar su nombre, «mi ficha» sigue diciendo «datos borrados»; mensajes y auditoría guardan el texto tal cual.
 
 ### Siguiente
 - Código de producto: ninguno por ahora.
