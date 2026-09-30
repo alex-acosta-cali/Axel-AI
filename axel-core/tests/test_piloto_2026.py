@@ -415,6 +415,13 @@ def main() -> int:
         est = dice("estado axel", DUENO).reply_text or ""
         assert est.startswith("# AXEL_STATE.md\n") and 1 < est.count("\n") + 1 <= 25 and len(est) <= 3500, est
         assert not orchestrator._SECRETO.search(est), est
+        assert "HOSTING_24_7" not in est and "solo nota" not in est, est
+        # "como vas" y "como va el proyecto" leen lo mismo. "estado" a secas sigue siendo el conteo.
+        for frase in ("como vas", "¿Cómo vas?", "como va el proyecto"):
+            assert dice(frase, DUENO).reply_text == est, frase
+            otro = dice(frase, CLIENTE).reply_text or ""
+            assert "AXEL_STATE" not in otro and "Actualizado:" not in otro, otro
+        assert (dice("estado", DUENO).reply_text or "").startswith("Estado piloto:")
         cli_est = dice("estado axel", CLIENTE).reply_text or ""
         assert "AXEL_STATE" not in cli_est and "Actualizado:" not in cli_est, cli_est
         ruta_real = orchestrator._state_path
@@ -424,14 +431,14 @@ def main() -> int:
         finally:
             orchestrator._state_path = ruta_real
         falso = tmp / "axel_state_piloto.md"
-        falso.write_text("# Estado\nWA_ACCESS_TOKEN=EAAabcdefghijk123\n" + "".join(f"- línea {n}\n" for n in range(40)), encoding="utf-8")
+        falso.write_text("# Estado\nWA_ACCESS_TOKEN=EAAabcdefghijk123\n| Hosting 24/7 | solo nota (`docs/HOSTING_24_7.md`) |\n" + "".join(f"- línea {n}\n" for n in range(40)), encoding="utf-8")
         orchestrator._state_path = lambda: falso
         try:
             corto = dice("estado axel", DUENO).reply_text or ""
         finally:
             orchestrator._state_path = ruta_real
             falso.unlink()
-        assert "TOKEN" not in corto and "EAA" not in corto and corto.count("\n") + 1 == 25, corto
+        assert "TOKEN" not in corto and "EAA" not in corto and "24/7" not in corto and corto.count("\n") + 1 == 25, corto
 
         # Nombre: un comando o acción de agenda no se guarda como nombre; se responde la intención.
         for n, texto in enumerate(("cancelar la mesa", "precios", "horario", "ficha", "ayuda")):

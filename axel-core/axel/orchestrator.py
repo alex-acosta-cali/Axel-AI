@@ -506,6 +506,9 @@ def envios_filas(memory: Memory, limit: int = 10) -> list[tuple[str, str, str, s
 
 
 _SECRETO = re.compile(r"(token|secret|password|clave|api[_-]?key)\s*[:=]|EAA[A-Za-z0-9]{10,}|sk-[A-Za-z0-9]{10,}", re.I)
+# Párrafo viejo: dice que falta el servidor 24/7 (ya está en el VPS). No se muestra.
+_VIEJO_24_7 = re.compile(r"24/7.*(solo nota|falta|pendiente)|HOSTING_24_7\.md", re.I)
+_PIDE_ESTADO = {"estado axel", "como vas", "como va el proyecto"}
 
 
 def _state_path() -> Path:
@@ -522,7 +525,7 @@ def _estado_axel() -> str:
     salida, largo = [], 0
     for linea in lineas:
         linea = linea.strip()
-        if not linea or _SECRETO.search(linea):
+        if not linea or _SECRETO.search(linea) or _VIEJO_24_7.search(linea):
             continue
         if len(salida) == 25 or largo + len(linea) + 1 > 3500:
             break
@@ -535,7 +538,7 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
     if not _es_dueno(env):
         return False
     t = _norm(env.text)
-    if t == "estado axel":
+    if t.strip("¿?¡!. ") in _PIDE_ESTADO:
         env.intent = "admin"
         env.agent = "escalamiento"
         env.supervision_level = 1
