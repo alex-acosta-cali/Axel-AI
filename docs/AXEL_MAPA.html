@@ -95,7 +95,7 @@
 <body>
 <header>
   <h1>AXEL AI OS — mapa del organismo</h1>
-  <p>Un solo sistema. 2026 Mercado local → 2028 Maestro → 2030 Quantum. Estado real al 29 sep 2026. Un negocio, un WhatsApp, panel local. Siguiente: VPS. No Meta producción.</p>
+  <p>Un solo sistema. 2026 Mercado local → 2028 Maestro → 2030 Quantum. Estado real al 30 sep 2026. Un negocio, un WhatsApp, VPS vivo, panel solo local. No Meta producción.</p>
 </header>
 <div class="legend">
   <span><i class="dot ok"></i>Hecho en el piloto</span>
@@ -119,10 +119,10 @@
 <section class="stage">
   <h2>Canales — cómo entra el mundo</h2>
   <div class="row">
-    <div class="node ok"><b>WhatsApp Cloud</b><span>314 vivo · ngrok</span>
-      <div class="tip">HECHO. Webhook, typing, dueño por número. Falta: URL fija (VPS + HTTPS). Meta sigue En desarrollo: solo testers.</div></div>
+    <div class="node ok"><b>WhatsApp Cloud</b><span>314 vivo · VPS</span>
+      <div class="tip">HECHO. Webhook por el dominio del VPS con HTTPS. Ngrok apagado: ya no es el canal. Typing, dueño por número. Meta sigue En desarrollo: solo testers.</div></div>
     <div class="node mid"><b>Panel web</b><span>127.0.0.1:8090</span>
-      <div class="tip">HECHO en local. Tablas: cupos, citas, clientes, catálogo, pedidos, reporte, envíos (8 filas, sin texto ni celular). Con prueba (test_panel_envios). Oculto en ngrok. Falta: no es panel multi-negocio. En VPS irá detrás de nginx.</div></div>
+      <div class="tip">HECHO en local. Tablas: cupos, citas, clientes, catálogo, pedidos, reporte, envíos (8 filas, sin texto ni celular). Con prueba (test_panel_envios). Solo en 127.0.0.1: no se abre desde fuera. Falta: no es panel multi-negocio.</div></div>
     <div class="node"><b>Instagram / Messenger</b><span>2026 canal 2</span>
       <div class="tip">NO. Graph API congelada. El orquestador ya entiende canal=instagram en pruebas de memoria. No se conecta hasta VPS + Meta estable.</div></div>
     <div class="node"><b>Web chat / email</b><span>2026–28</span>
@@ -175,10 +175,10 @@
 <section class="stage">
   <h2>Infra — dónde vive</h2>
   <div class="row">
-    <div class="node ok"><b>PC + demo 8090</b><span>hoy</span>
-      <div class="tip">HECHO. Accesos demo / ngrok / Claude. Se apaga con el PC.</div></div>
-    <div class="node risk"><b>VPS 24/7</b><span>siguiente · tarjeta lista</span>
-      <div class="tip">SIGUIENTE. Tarjeta lista, servidor aún no. Hetzner CPX12, Ubuntu, systemd, nginx→127.0.0.1:8090. Mientras no exista, AXEL se apaga con el PC.</div></div>
+    <div class="node mid"><b>PC + demo 8090</b><span>desarrollo</span>
+      <div class="tip">Para desarrollar y probar con Claude. Ya no es donde vive AXEL. Ngrok apagado.</div></div>
+    <div class="node ok"><b>VPS 24/7</b><span>vivo 30 sep</span>
+      <div class="tip">HECHO. Hetzner, Ubuntu, systemd, nginx con HTTPS → 127.0.0.1:8090. El 314 responde por el dominio. Falta: respaldo con cron.</div></div>
     <div class="node"><b>Meta producción</b><span>después del VPS</span>
       <div class="tip">NO PULSAR. Solo testers. docs/META_PRODUCCION.md.</div></div>
     <div class="node mid"><b>GitHub</b><span>alex-acosta-cali/Axel-AI</span>
@@ -189,7 +189,7 @@
 <section class="stage">
   <h2>Seguridad y confianza — muro 18</h2>
   <div class="row">
-    <div class="node ok"><b>Panel solo local</b><span>ngrok solo ve el webhook</span>
+    <div class="node ok"><b>Panel solo local</b><span>fuera solo se ve el webhook</span>
       <div class="tip">HECHO. Desde fuera (Host ngrok o X-Forwarded-*) solo /webhooks/whatsapp y GET /health. Panel, /audit, /panel y /decidir: 403 solo_local.</div></div>
     <div class="node ok"><b>Firma webhook</b><span>X-Hub-Signature-256</span>
       <div class="tip">HECHO. HMAC-SHA256 del body con WA_APP_SECRET (.env). Sin secreto o sin firma válida: 403. Falta la prueba real en el 314 con el demo reiniciado.</div></div>
@@ -198,7 +198,7 @@
     <div class="node mid"><b>Plantillas 24 h</b><span>papel</span>
       <div class="tip">PAPEL. docs/WHATSAPP_24H.md. Sin plantilla se caen: aviso 24h/2h, pedido listo, N3 al cliente, a veces avisos al dueño. No se piden a Meta todavía.</div></div>
     <div class="node mid"><b>Respaldo</b><span>copia local · mismo disco</span>
-      <div class="tip">PARCIAL. scripts/copia.ps1 copia axel.db y kb.json a copias/ con fecha. Manual y en el mismo disco: si el PC se daña, se pierde. Copia diaria de verdad con el VPS.</div></div>
+      <div class="tip">PARCIAL hasta el cron. scripts/copia.ps1 copia axel.db y kb.json del PC a copias/ con fecha: manual y en el mismo disco. Falta la copia diaria con cron en el VPS.</div></div>
     <div class="node ok"><b>Habeas data</b><span>aviso + anonimizar</span>
       <div class="tip">HECHO lo mínimo. Aviso de datos en el primer mensaje. «borrar mis datos» es N3: al aprobar se quitan nombre, correo y notas; celular e identidad se quedan; pedidos, citas y auditoría también. Falta: el log guarda texto viejo. Resto de la Ley 1581 antes de Meta producción.</div></div>
   </div>
@@ -220,7 +220,7 @@
   </div>
 </section>
 
-<p class="links">Conexión real de hoy: WhatsApp o panel → orquestador → memoria + KB + permisos → atención / reservas / pedido → notify dueño o cliente → auditoría. Si cortas memoria o KB, se cae todo. Si cortas VPS, solo se cae el 24/7.</p>
+<p class="links">Conexión real de hoy: WhatsApp o panel → orquestador → memoria + KB + permisos → atención / reservas / pedido → notify dueño o cliente → auditoría. Si cortas memoria o KB, se cae todo. Si cortas el VPS, se cae el WhatsApp 24/7.</p>
 <footer>Pasa el mouse por cada casilla. Verde no significa “AXEL terminado”. Significa “el piloto 2026 ya lo hace en el 314”.</footer>
 </body>
 </html>
