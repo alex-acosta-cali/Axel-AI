@@ -4,6 +4,7 @@ Dueño: Alex. Repo: C:\Proyectos\Axel-AI
 GitHub: https://github.com/alex-acosta-cali/Axel-AI (privado)
 
 ## 0. Estado hoy
+- Mapa al 29 sep. Siguiente: VPS. No Meta producción.
 - Piloto 2026, lado dueño.
 - WhatsApp real: +57 314 5801851. Phone ID y tokens solo en `.env`.
 - Demo en http://127.0.0.1:8090 expuesto con ngrok para el webhook.
