@@ -514,7 +514,7 @@ def _state_path() -> Path:
 
 def _estado_axel() -> str:
     """Primeras 25 líneas con texto de AXEL_STATE.md, sin líneas con pinta de secreto.
-    Corta en línea entera antes de 900 letras (el webhook no manda más)."""
+    Corta en línea entera antes de 3500 letras (el webhook no manda más)."""
     try:
         lineas = _state_path().read_text(encoding="utf-8").splitlines()
     except OSError:
@@ -524,7 +524,7 @@ def _estado_axel() -> str:
         linea = linea.strip()
         if not linea or _SECRETO.search(linea):
             continue
-        if len(salida) == 25 or largo + len(linea) + 1 > 900:
+        if len(salida) == 25 or largo + len(linea) + 1 > 3500:
             break
         salida.append(linea)
         largo += len(linea) + 1

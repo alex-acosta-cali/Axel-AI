@@ -409,7 +409,7 @@ def main() -> int:
         # "estado axel": el dueño lee AXEL_STATE.md (máx. 25 líneas, sin secretos). El cliente no.
         from axel import orchestrator
         est = dice("estado axel", DUENO).reply_text or ""
-        assert est.startswith("# AXEL_STATE.md\n") and 1 < est.count("\n") + 1 <= 25 and len(est) <= 900, est
+        assert est.startswith("# AXEL_STATE.md\n") and 1 < est.count("\n") + 1 <= 25 and len(est) <= 3500, est
         assert not orchestrator._SECRETO.search(est), est
         cli_est = dice("estado axel", CLIENTE).reply_text or ""
         assert "AXEL_STATE" not in cli_est and "Actualizado:" not in cli_est, cli_est

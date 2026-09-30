@@ -416,7 +416,7 @@ th{{background:#222}} .ok{{color:#8f8}} .tomada{{color:#f99}} .paso{{color:#888}
                 if msg.get("raw_ref"):
                     whatsapp.mark_read(str(msg.get("raw_ref")))
                 out = self._run(msg)
-                reply = (out.get("reply_text") or "")[:900]
+                reply = (out.get("reply_text") or "")[:3500]
                 if reply:
                     res = whatsapp.send_text(msg.get("phone") or msg.get("channel_user_id") or "", reply)
                     print("WA OUT:", res)
