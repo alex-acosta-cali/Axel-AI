@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hmac
 import html
 import json
 import os
@@ -300,9 +301,11 @@ th{{background:#222}} .ok{{color:#8f8}} .tomada{{color:#f99}} .paso{{color:#888}
 </body></html>"""
 
     def _es_local(self) -> bool:
-        """Local = Host 127.0.0.1/localhost y sin cabeceras de proxy. ngrok llega como 127.0.0.1: no se mira la IP."""
+        """Local = Host 127.0.0.1/localhost y sin cabeceras de proxy. Cualquier otro Host es público.
+        nginx y ngrok llegan desde 127.0.0.1: no se mira la IP."""
         host = (self.headers.get("Host") or "").lower()
-        if "ngrok" in host or self.headers.get("X-Forwarded-For") or self.headers.get("X-Forwarded-Host"):
+        proxy = ("X-Forwarded-For", "X-Forwarded-Host", "X-Real-IP", "Forwarded")
+        if "ngrok" in host or any(self.headers.get(h) for h in proxy):
             return False
         return host.rsplit(":", 1)[0] in {"127.0.0.1", "localhost"}
 
@@ -331,8 +334,9 @@ th{{background:#222}} .ok{{color:#8f8}} .tomada{{color:#f99}} .paso{{color:#888}
             mode = (q.get("hub.mode") or [""])[0]
             token = (q.get("hub.verify_token") or [""])[0]
             challenge = (q.get("hub.challenge") or [""])[0]
-            expected = os.getenv("WA_VERIFY_TOKEN", "axel-verify")
-            if mode == "subscribe" and token == expected:
+            # WA_VERIFY_TOKEN obligatorio en .env: sin valor, el verify no pasa.
+            expected = os.getenv("WA_VERIFY_TOKEN") or ""
+            if mode == "subscribe" and expected and hmac.compare_digest(token, expected):
                 raw = challenge.encode()
                 self.send_response(200)
                 self.send_header("Content-Type", "text/plain")
