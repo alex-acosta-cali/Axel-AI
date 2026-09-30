@@ -405,6 +405,10 @@ def main() -> int:
         assert mia.customer_id == cid, "la identidad se queda: no se duplica"
         assert (mia.reply_text or "").startswith("Tu ficha AXEL: datos borrados. Cita: "), mia.reply_text
         assert "Nora" not in (mia.reply_text or "") and "3000000400" not in (mia.reply_text or "")
+        # Da un nombre nuevo: "mi ficha" lo muestra. El texto viejo de mensajes y auditoría no se toca.
+        dice("me llamo Noemi", nuevo)
+        assert (dice("mi ficha", nuevo).reply_text or "").startswith("Tu ficha AXEL: Noemi, cel 3000000400")
+        assert memory.get_customer(cid)["datos_borrados"] == 0
 
         # "estado axel": el dueño lee AXEL_STATE.md (máx. 25 líneas, sin secretos). El cliente no.
         from axel import orchestrator

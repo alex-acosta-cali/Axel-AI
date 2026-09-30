@@ -570,8 +570,9 @@ class Memory:
         if not name:
             return
         with self._conn() as conn:
+            # Nombre nuevo después de "borrar mis datos": la ficha vuelve a mostrarlo.
             conn.execute(
-                "UPDATE customers SET name = ?, updated_at = datetime('now') WHERE customer_id = ?",
+                "UPDATE customers SET name = ?, datos_borrados = 0, updated_at = datetime('now') WHERE customer_id = ?",
                 (name, customer_id),
             )
 
