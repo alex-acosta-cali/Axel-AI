@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import re
+from pathlib import Path
 
 from axel import knowledge_base as kb_mod
 from axel import notify
@@ -504,10 +505,44 @@ def envios_filas(memory: Memory, limit: int = 10) -> list[tuple[str, str, str, s
     return filas
 
 
+_SECRETO = re.compile(r"(token|secret|password|clave|api[_-]?key)\s*[:=]|EAA[A-Za-z0-9]{10,}|sk-[A-Za-z0-9]{10,}", re.I)
+
+
+def _state_path() -> Path:
+    return Path(__file__).resolve().parents[2] / "AXEL_STATE.md"
+
+
+def _estado_axel() -> str:
+    """Primeras 25 líneas con texto de AXEL_STATE.md, sin líneas con pinta de secreto.
+    Corta en línea entera antes de 900 letras (el webhook no manda más)."""
+    try:
+        lineas = _state_path().read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return "No encuentro el estado."
+    salida, largo = [], 0
+    for linea in lineas:
+        linea = linea.strip()
+        if not linea or _SECRETO.search(linea):
+            continue
+        if len(salida) == 25 or largo + len(linea) + 1 > 900:
+            break
+        salida.append(linea)
+        largo += len(linea) + 1
+    return "\n".join(salida) or "No encuentro el estado."
+
+
 def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
     if not _es_dueno(env):
         return False
     t = _norm(env.text)
+    if t == "estado axel":
+        env.intent = "admin"
+        env.agent = "escalamiento"
+        env.supervision_level = 1
+        env.reply_text = _estado_axel()
+        env.result = "ok"
+        env.approval_status = "na"
+        return True
     if t in {"estado", "axeladmin estado"}:
         env.intent = "admin"
         env.agent = "escalamiento"
@@ -528,7 +563,7 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         env.agent = "escalamiento"
         env.supervision_level = 1
         env.reply_text = (
-            "Comandos dueño: estado, reporte, limpiar, pendientes, citas, clientes, pedidos, pedido listo, envios, catalogo, "
+            "Comandos dueño: estado, estado axel, reporte, limpiar, pendientes, citas, clientes, pedidos, pedido listo, envios, catalogo, "
             "aceptar/aprobar, rechazo/rechazar, ayuda, "
             "configurar, cancelar configurar, el negocio se llama NOMBRE, abrimos de H1 a H2, "
             "el rubro es X, agenda si/no, agrega servicio X a N, "

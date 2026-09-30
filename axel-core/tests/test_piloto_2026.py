@@ -410,6 +410,29 @@ def main() -> int:
         assert (mia.reply_text or "").startswith("Tu ficha AXEL: datos borrados. Cita: "), mia.reply_text
         assert "Nora" not in (mia.reply_text or "") and "3000000400" not in (mia.reply_text or "")
 
+        # "estado axel": el dueño lee AXEL_STATE.md (máx. 25 líneas, sin secretos). El cliente no.
+        from axel import orchestrator
+        est = dice("estado axel", DUENO).reply_text or ""
+        assert est.startswith("# AXEL_STATE.md\n") and 1 < est.count("\n") + 1 <= 25 and len(est) <= 900, est
+        assert not orchestrator._SECRETO.search(est), est
+        cli_est = dice("estado axel", CLIENTE).reply_text or ""
+        assert "AXEL_STATE" not in cli_est and "Actualizado:" not in cli_est, cli_est
+        ruta_real = orchestrator._state_path
+        orchestrator._state_path = lambda: tmp / "no_existe_AXEL_STATE.md"
+        try:
+            assert dice("estado axel", DUENO).reply_text == "No encuentro el estado."
+        finally:
+            orchestrator._state_path = ruta_real
+        falso = tmp / "axel_state_piloto.md"
+        falso.write_text("# Estado\nWA_ACCESS_TOKEN=EAAabcdefghijk123\n" + "".join(f"- línea {n}\n" for n in range(40)), encoding="utf-8")
+        orchestrator._state_path = lambda: falso
+        try:
+            corto = dice("estado axel", DUENO).reply_text or ""
+        finally:
+            orchestrator._state_path = ruta_real
+            falso.unlink()
+        assert "TOKEN" not in corto and "EAA" not in corto and corto.count("\n") + 1 == 25, corto
+
         # Nombre: un comando o acción de agenda no se guarda como nombre; se responde la intención.
         for n, texto in enumerate(("cancelar la mesa", "precios", "horario", "ficha", "ayuda")):
             nuevo = f"57300000010{n}"
