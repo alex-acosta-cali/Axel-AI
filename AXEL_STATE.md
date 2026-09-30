@@ -1,21 +1,21 @@
 # AXEL_STATE.md
-Actualizado: 2026-09-29 (Cali)
-Dueño: Alex. Repo: C:\Proyectos\Axel-AI
+Actualizado: 2026-09-30 (Cali)
+Dueño: Alex. Repo: C:\Proyectos\Axel-AI (PC) · /opt/Axel-AI (VPS)
 GitHub: https://github.com/alex-acosta-cali/Axel-AI (privado)
 
 ## 0. Estado hoy
-- Mapa al 29 sep. Siguiente: VPS. No Meta producción.
+- Mapa al 30 sep. VPS vivo. No Meta producción.
 - 30 sep: VPS vivo. Ngrok apagado. El 314 responde por el dominio del VPS (HTTPS). El panel sigue solo en 127.0.0.1. No Meta producción.
 - Piloto 2026, lado dueño.
 - WhatsApp real: +57 314 5801851. Phone ID y tokens solo en `.env`.
 - Desde el 30 sep el webhook entra por el VPS (nginx con HTTPS hacia `127.0.0.1:8090`). Ngrok apagado.
 - Claude Code trabaja en el repo (ejecutor; Grok revisa, Alex aprueba).
-- Pruebas OK: `test_memory_cross_channel`, `test_level3_approval`, `test_message`, `test_kb_cafeteria`, `test_kb_ferreteria`, `test_configurar`, `test_aviso_cita`, `test_panel_envios` y `test_piloto_2026`.
+- Pruebas OK: `test_memory_cross_channel`, `test_level3_approval`, `test_message`, `test_kb_cafeteria`, `test_kb_ferreteria`, `test_configurar`, `test_aviso_cita`, `test_panel_envios`, `test_webhook` y `test_piloto_2026`.
 - App de Meta sigue **En desarrollo** (no publicada).
 - 28 sep: un cupo confirmado por franja (probado). Cancelar y reprogramar sueltan el cupo viejo.
 - 28 sep: reembolso N3, el dueño aprueba y el cliente recibe el aviso. Probado con un segundo celular.
 - 28 sep: aprobar/rechazar y comandos del dueño solo desde WA_OWNER_PHONE o el panel.
-- Hosting 24/7, Instagram y modelo de lenguaje: solo notas en `docs/`. No construidos.
+- Hosting 24/7: VPS vivo (30 sep). Instagram y modelo de lenguaje: solo notas en `docs/`. No construidos.
 
 ## 0.1 Muro de comercio (hecho 28 sep)
 AXEL es comercio, no barbería. Todo sale de la KB.
@@ -125,10 +125,28 @@ Muros 14-17 hechos (29 sep): 14 tono en la KB, 15 stock 0 no se vende, 16 dueño
 - Aprobar «borrar mis datos» anonimiza la ficha: quita nombre, correo y notas; marca `datos_borrados`. Celular e identidad se quedan para no duplicar al cliente. «mi ficha» dice «datos borrados». No borra pedidos, citas, mensajes ni auditoría. Rechazar no toca la ficha.
 - Huecos: si el cliente vuelve a dar su nombre, «mi ficha» sigue diciendo «datos borrados»; mensajes y auditoría guardan el texto tal cual.
 
+### Decisiones Grok 30 sep (hechas en código)
+- Panel: cualquier Host que no sea 127.0.0.1 ni localhost es público. También `X-Forwarded-For`, `X-Forwarded-Host`, `X-Real-IP` o `Forwarded`: 403 `solo_local`. Prueba: `test_webhook.py`.
+- nginx: debe mandar `proxy_set_header Host $host;` (o `X-Forwarded-For`). Si manda Host 127.0.0.1 sin cabeceras, el código no lo ve como público. Falta la prueba real: abrir el dominio desde el celular sin wifi → 403.
+- `WA_VERIFY_TOKEN` obligatorio en `.env`: sin valor, el verify de Meta no pasa. Sin valor por defecto.
+- `axel/main.py` marcado NO ARRANCAR (FastAPI viejo, sin firma ni wamid). El servicio es `python -m axel.demo`. `AXEL_M05_WhatsApp.md` todavía muestra `uvicorn axel.main:app`: no usar.
+- Firma Meta y wamid con prueba sin Meta real (`test_webhook.py`).
+- Recordatorio diario al dueño: hora Cali, desde que abre el negocio (KB), solo citas de hoy, una vez por día aunque AXEL se reinicie, fila `recordatorio_dia` en `envios`.
+- Base fija: `/opt/Axel-AI/axel-core/axel.db` si esa carpeta existe; si no, junto al código. `AXEL_DB` solo para pruebas.
+- Respuesta a WhatsApp hasta 3500 letras (antes 900). «estado axel» ya muestra 25 líneas.
+- Ventana 24 h: por cliente. Celular distinto: en papel (`docs/WHATSAPP_24H.md`).
+- Borrado: no se borra texto de mensajes ni auditoría. Si el cliente da un nombre nuevo, «mi ficha» lo muestra.
+- Tablas `envios` y `messages`: no se vacían. Tope de limpieza, después.
+
+### Respaldo en el VPS
+- Script: `axel-core/scripts/copia_vps.sh` (14 copias de cada archivo en `/opt/Axel-AI/copias/`).
+- Cron (falta ponerlo en el VPS), 3:00 Cali: `0 3 * * * /opt/Axel-AI/axel-core/scripts/copia_vps.sh >> /opt/Axel-AI/copias/copia.log 2>&1` (si el VPS está en UTC: `0 8 * * *`).
+- Copia fuera del VPS: una vez por semana Alex la baja al PC con `scp`. No se contrata otro sitio.
+
 ### Siguiente
-- Código de producto: ninguno por ahora.
-- VPS: vivo desde el 30 sep. Falta respaldo con cron.
+- Probar en el VPS: 403 del panel desde fuera, `WA_VERIFY_TOKEN` en `.env`, cron de copia.
 - Plantillas 24 h: solo papel (`docs/WHATSAPP_24H.md`).
+- Diseño (después): verde #0B3D2E, acento #C4A35A, fondo casi negro. Logo después.
 
 ## 0.10 Alcance
 - Hoy: 1 negocio, 1 WhatsApp, dueño por número (`WA_OWNER_PHONE`), panel de ese negocio.
@@ -136,7 +154,7 @@ Muros 14-17 hechos (29 sep): 14 tono en la KB, 15 stock 0 no se vende, 16 dueño
 
 ## 0.11 Capítulo VPS (vivo 30 sep)
 - AXEL corre 24/7 en el VPS (nginx con HTTPS hacia `127.0.0.1:8090`). Ngrok apagado.
-- Falta: respaldo diario con cron.
+- Falta: cron de `copia_vps.sh` y prueba real del 403 del panel desde fuera.
 - No Meta producción.
 - No segundo panel.
 - No cobro.
@@ -183,6 +201,7 @@ $env:PYTHONPATH = "."
 python -m axel.demo
 ```
 Chrome: http://127.0.0.1:8090/
+En el VPS el servicio es el mismo: `python -m axel.demo` (no `axel.main`).
 
 ## 5. Pendientes / bugs conocidos
 - Meta WABA no creado en cuenta propia.

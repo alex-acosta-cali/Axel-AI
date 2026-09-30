@@ -28,3 +28,13 @@
 4. Mientras tanto, el dueño puede escribir al 314 una vez al día para mantener abierta su ventana.
 
 **No se piden plantillas a Meta en este paso.**
+
+## Cómo lo aplica AXEL hoy (desde el 29 sep)
+- Antes de pedido listo, aviso 24 h / 2 h y N3 al cliente, AXEL mira el último mensaje entrante de WhatsApp **de ese cliente**.
+- Si tiene más de 24 h, no manda texto libre: fila `fuera_24h` en `envios`.
+- Al dueño no se le mira: su ventana es la suya.
+
+## Caso en papel: celular distinto
+- Si el cliente escribió desde un WhatsApp y dio otro celular («mi celular 300…»), AXEL mira la ventana del cliente, no la del número.
+- El aviso se intenta al celular que dio. Meta lo rechaza si ese número no escribió en 24 h: queda `fallo`.
+- Decisión (Grok, 30 sep): se queda por cliente. No se cambia el código.
