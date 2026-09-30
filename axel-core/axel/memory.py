@@ -477,6 +477,12 @@ class Memory:
             )
             return cur.rowcount == 1
 
+    def aviso_hecho(self, event_id: str, plazo: str) -> bool:
+        """True si esa cita y ese plazo ya quedaron marcados. No marca."""
+        with self._conn() as conn:
+            fila = conn.execute("SELECT 1 FROM avisos_cita WHERE event_id = ? AND plazo = ?", (event_id, plazo)).fetchone()
+            return fila is not None
+
     def marcar_wamid(self, wamid: str) -> bool:
         """True la primera vez que llega ese mensaje de WhatsApp; False si Meta lo reintenta."""
         if not wamid:

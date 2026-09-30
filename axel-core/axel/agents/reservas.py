@@ -177,13 +177,14 @@ def avisos_cita(memory, ahora: datetime | None = None) -> list[tuple[dict, str]]
 
 def recordatorio_dia(memory, ahora: datetime | None = None) -> str:
     """Recordatorio del día al dueño, hora Cali: solo citas confirmadas de hoy, desde la hora de abrir de la KB.
-    Una vez por día aunque AXEL se reinicie (queda marcado en avisos_cita). '' si no toca o no hay citas hoy."""
+    No marca el día: eso lo hace cerrar_recordatorio después de intentar el envío.
+    Día sin citas no se cierra: si más tarde agendan una de hoy, sale. '' si no toca o no hay citas hoy."""
     ahora = ahora or _ahora_cali()
     abre, _ = kb.get_hours()
     if (ahora.hour, ahora.minute) < abre:
         return ""
     hoy = ahora.date()
-    if not memory.marcar_aviso(f"recordatorio_{hoy.isoformat()}", "dia"):
+    if memory.aviso_hecho(f"recordatorio_{hoy.isoformat()}", "dia"):
         return ""
     citas = []
     for fila in memory.list_confirmed_reservas(500):
@@ -195,6 +196,11 @@ def recordatorio_dia(memory, ahora: datetime | None = None) -> str:
         return ""
     lineas = [f"- {h}:{m:02d} · {nombre} · {cel}" for h, m, nombre, cel in sorted(citas)]
     return "Recordatorio AXEL (hoy):\n" + "\n".join(lineas)
+
+
+def cerrar_recordatorio(memory, ahora: datetime) -> None:
+    """Marca el día del recordatorio (en avisos_cita): una vez por fecha aunque AXEL se reinicie."""
+    memory.marcar_aviso(f"recordatorio_{ahora.date().isoformat()}", "dia")
 
 
 def proxima_viva(memory, customer_id: str, ahora: datetime | None = None) -> str:

@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from axel import knowledge_base as kb
-from axel.agents.reservas import _CALI, _NOMBRE_DIA, _ahora_cali, _cuando, avisos_cita, cupos_de, proxima_viva, recordatorio_dia
+from axel.agents.reservas import _CALI, _NOMBRE_DIA, _ahora_cali, _cuando, avisos_cita, cerrar_recordatorio, cupos_de, proxima_viva, recordatorio_dia
 from axel.envelope import Envelope
 from axel.memory import Memory
 from axel.orchestrator import process
@@ -86,15 +86,29 @@ def main() -> int:
         assert cupos_de(memory, date(2026, 10, 1)) == {}
 
         # Recordatorio del día al dueño: hora Cali, desde que abre (8:00), solo citas de hoy, una vez por día.
+        # El día se cierra después de intentar el envío (como en demo.py), no antes.
         def recordatorio(dia: int, hora: int) -> str:
-            return recordatorio_dia(memory, datetime(2026, 10, dia, hora, 0, tzinfo=_CALI))
+            ahora = datetime(2026, 10, dia, hora, 0, tzinfo=_CALI)
+            texto = recordatorio_dia(memory, ahora)
+            if texto:
+                cerrar_recordatorio(memory, ahora)
+            return texto
 
         assert recordatorio(1, 7) == "", "antes de abrir no sale"
+        assert recordatorio_dia(memory, datetime(2026, 10, 1, 8, 0, tzinfo=_CALI)), "sin enviar no cierra el día"
         hoy1 = recordatorio(1, 8)
         assert hoy1 == "Recordatorio AXEL (hoy):\n- 7:30 · sin nombre · sin teléfono\n- 9:30 · sin nombre · sin teléfono", hoy1
         assert recordatorio(1, 12) == "", "una vez por día, aunque AXEL se reinicie"
         assert recordatorio(3, 9) == "Recordatorio AXEL (hoy):\n- 11:00 · sin nombre · sin teléfono", "cita_at, no el texto"
         assert recordatorio(5, 9) == "", "sin citas hoy no sale"
+        # Día vacío no se cierra: si a las 10 agendan una de hoy, a las 10 sale el recordatorio.
+        with memory._conn() as conn:
+            conn.execute(
+                "INSERT INTO conversation_summaries(customer_id, event_id, channel, intent, summary, result, created_at, cita_at)"
+                " VALUES ('cus_tarde','evt_tarde','whatsapp','reserva','hoy 15:00','ok','2026-10-05 15:00:00','2026-10-05 15:00')"
+            )
+        assert recordatorio(5, 10) == "Recordatorio AXEL (hoy):\n- 15:00 · sin nombre · sin teléfono"
+        assert recordatorio(5, 11) == "", "ya salió ese día"
 
         def dice(texto: str, quien: str) -> str:
             out = process(Envelope(text=texto, channel="test", channel_user_id=quien), memory)

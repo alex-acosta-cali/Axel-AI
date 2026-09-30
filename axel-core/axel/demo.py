@@ -26,6 +26,7 @@ from axel.agents.reservas import (
     cupos_de,
     franjas_validas,
     paso,
+    cerrar_recordatorio,
     recordatorio_dia,
 )
 from axel.connectors import whatsapp
@@ -452,10 +453,15 @@ def _recordatorio_loop() -> None:
             print("AVISO CITA error:", exc)
         try:
             # Recordatorio del día al dueño: hora Cali, solo citas de hoy, una vez aunque AXEL se reinicie.
-            texto = recordatorio_dia(memory)
+            # El día se marca después de intentar el envío. Si Meta falla, la fila queda 'fallo' y no se reintenta.
+            ahora = _ahora_cali()
+            texto = recordatorio_dia(memory, ahora)
             if texto:
-                estado = notify.enviar(memory, "recordatorio_dia", os.getenv("WA_OWNER_PHONE") or "", texto)
-                print("RECORDATORIO", estado)
+                try:
+                    estado = notify.enviar(memory, "recordatorio_dia", os.getenv("WA_OWNER_PHONE") or "", texto)
+                    print("RECORDATORIO", estado)
+                finally:
+                    cerrar_recordatorio(memory, ahora)
         except Exception as exc:
             print("RECORDATORIO error:", exc)
 
