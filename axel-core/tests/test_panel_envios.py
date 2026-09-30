@@ -15,10 +15,10 @@ os.environ["WA_ACCESS_TOKEN"] = ""
 os.environ["WA_PHONE_NUMBER_ID"] = ""
 os.environ["WA_OWNER_PHONE"] = "573000000001"
 
-# demo.py abre ./axel.db al importar: se importa desde una carpeta temporal para no tocar la base real.
+# demo.py abre la base al importar: AXEL_DB la manda a una temporal para no tocar la real.
 TMP = Path(tempfile.gettempdir()) / "axel_panel_envios"
 TMP.mkdir(exist_ok=True)
-os.chdir(TMP)
+os.environ["AXEL_DB"] = str(TMP / "import.db")
 
 from axel import demo  # noqa: E402
 from axel.memory import Memory  # noqa: E402

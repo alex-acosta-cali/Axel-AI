@@ -322,12 +322,8 @@ def main() -> int:
         assert "Envíos:" not in (dice("envios", CLIENTE).reply_text or ""), "el cliente no ve envios"
 
         # Panel: la tabla de envíos muestra el estado y ningún celular de 10 dígitos.
-        cwd = os.getcwd()
-        os.chdir(tmp)  # demo.py abre ./axel.db al importar: así no toca la base real.
-        try:
-            from axel import demo
-        finally:
-            os.chdir(cwd)
+        os.environ["AXEL_DB"] = str(tmp / "axel_piloto_import.db")  # demo.py abre la base al importar: no la real.
+        from axel import demo
         demo.memory = memory
         memory.add_envio("573005556677", "aviso_2h", "Recordatorio 3005556677", "fallo")
         panel = demo.Handler.__new__(demo.Handler)._panel()

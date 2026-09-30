@@ -31,7 +31,16 @@ from axel.envelope import Envelope
 from axel.memory import Memory
 from axel.orchestrator import _reporte, pedidos_filas, process
 
-memory = Memory("./axel.db")
+def _db_path() -> str:
+    """Base fija: /opt/Axel-AI/axel-core/axel.db en el VPS; si esa carpeta no existe, junto al código.
+    AXEL_DB solo para pruebas (base temporal)."""
+    if os.getenv("AXEL_DB"):
+        return os.environ["AXEL_DB"]
+    vps = Path("/opt/Axel-AI/axel-core")
+    return str((vps if vps.is_dir() else Path(__file__).resolve().parents[1]) / "axel.db")
+
+
+memory = Memory(_db_path())
 
 DIAS_ES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
 
