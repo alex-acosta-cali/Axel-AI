@@ -572,7 +572,7 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
             lineas = []
             for c in citas:
                 cli = memory.get_customer(str(c.get("customer_id") or "")) or {}
-                franja = reservas.franja_de(str(c.get("summary") or ""), str(c.get("created_at") or ""))
+                franja = reservas.franja_fila(c)
                 lineas.append(f"- {franja} · {c.get('name') or 'sin nombre'} · {cli.get('phone') or 'sin teléfono'}")
             env.reply_text = "Citas confirmadas:\n" + "\n".join(lineas)
         env.result = "ok"
@@ -628,7 +628,7 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         lineas = []
         for u in memory.list_whatsapp_customers(15):
             ult = memory.last_reserva(str(u.get("customer_id") or ""))
-            cita = reservas.franja_de(str(ult.get("summary") or ""), str(ult.get("created_at") or "")) if ult else "—"
+            cita = reservas.franja_fila(ult) if ult else "—"
             lineas.append(f"- {u.get('name') or '—'} · {u.get('phone') or '—'} · {cita}")
         env.reply_text = "Clientes WhatsApp:\n" + "\n".join(lineas) if lineas else "No hay clientes de WhatsApp."
         env.result = "ok"

@@ -141,6 +141,11 @@ def _cita_at(c: tuple[date, int, int]) -> str:
     return f"{c[0].isoformat()} {c[1]:02d}:{c[2]:02d}"
 
 
+def franja_fila(fila: dict) -> str:
+    """Como franja_de, pero con cita_at si la fila lo trae."""
+    return _franja_txt(cuando_fila(fila), str(fila.get("summary") or ""))
+
+
 def cuando_fila(fila: dict) -> tuple[date, int, int] | None:
     """Fecha y hora de una cita guardada: cita_at si existe; si no, el cálculo de siempre desde el texto."""
     try:
@@ -177,7 +182,7 @@ def proxima_viva(memory, customer_id: str, ahora: datetime | None = None) -> str
     for fila in memory.list_confirmed_reservas(500):
         if not customer_id or fila.get("customer_id") != customer_id:
             continue
-        c = _cuando(str(fila.get("summary") or ""), _creada_cali(str(fila.get("created_at") or "")))
+        c = cuando_fila(fila)
         if c and datetime(c[0].year, c[0].month, c[0].day, c[1], c[2], tzinfo=_CALI) > ahora:
             proxima = min(proxima, c) if proxima else c
     return _texto_cuando(proxima) if proxima else ""
@@ -190,7 +195,7 @@ def cupos_de(memory, fecha: date, excepto: str = "") -> dict[tuple[int, int], di
     for fila in memory.list_confirmed_reservas(500):
         if excepto and fila.get("customer_id") == excepto:
             continue
-        otra = _cuando(str(fila.get("summary") or ""), _creada_cali(str(fila.get("created_at") or "")))
+        otra = cuando_fila(fila)
         if otra and otra[0] == fecha and otra[1:] in validas:
             tomadas.setdefault(otra[1:], fila)
     return tomadas

@@ -18,11 +18,11 @@ from axel.agents.reservas import (
     _ahora_cali,
     _creada_cali,
     avisos_cita,
-    _cuando,
+    cuando_fila,
+    franja_fila,
     _franjas_kb,
     _hhmm,
     cupos_de,
-    franja_de,
     franjas_validas,
     paso,
 )
@@ -57,7 +57,7 @@ def _fuera_de_franja() -> list[str]:
     lineas = []
     for c in memory.list_confirmed_reservas(500):
         summary = str(c.get("summary") or "")
-        cuando = _cuando(summary, _creada_cali(str(c.get("created_at") or "")))
+        cuando = cuando_fila(c)
         if cuando and cuando[1:] in validas and cuando[0].weekday() != 6:
             continue
         if cuando and cuando[0] < hoy:
@@ -199,7 +199,7 @@ class Handler(BaseHTTPRequestHandler):
         notas = memory.list_notes(str(ficha.get("customer_id") or ""), 3)
         notas_txt = " | ".join(str(n.get("note") or "") for n in notas) or "—"
         cita = memory.last_reserva(str(ficha.get("customer_id") or ""))
-        cita_txt = franja_de(str(cita.get("summary") or ""), str(cita.get("created_at") or "")) if cita else "—"
+        cita_txt = franja_fila(cita) if cita else "—"
         ficha_html = (
             f"Nombre: {html.escape(str(ficha.get('name') or '—'))} · "
             f"Celular: {html.escape(str(ficha.get('phone') or '—'))} · "
@@ -231,7 +231,7 @@ class Handler(BaseHTTPRequestHandler):
         wa = []
         for u in memory.list_whatsapp_customers(20):
             ult = memory.last_reserva(str(u.get("customer_id") or ""))
-            ult_txt = franja_de(str(ult.get("summary") or ""), str(ult.get("created_at") or "")) if ult else "—"
+            ult_txt = franja_fila(ult) if ult else "—"
             escribio = _creada_cali(str(u["last_in"])).strftime("%d/%m %H:%M") if u.get("last_in") else "—"
             wa.append(
                 "<tr>"
@@ -454,7 +454,7 @@ def _recordatorio_loop() -> None:
             lineas = []
             for c in citas:
                 cli = memory.get_customer(str(c.get("customer_id") or "")) or {}
-                franja = franja_de(str(c.get("summary") or ""), str(c.get("created_at") or ""))
+                franja = franja_fila(c)
                 lineas.append(f"- {franja} · {c.get('name') or 'sin nombre'} · {cli.get('phone') or 'sin teléfono'}")
             send_text(owner, "Recordatorio AXEL (hoy):\n" + "\n".join(lineas))
             print("RECORDATORIO enviado", hoy)

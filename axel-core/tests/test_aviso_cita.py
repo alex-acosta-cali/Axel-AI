@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from axel import knowledge_base as kb
-from axel.agents.reservas import _CALI, _NOMBRE_DIA, _ahora_cali, _cuando, avisos_cita
+from axel.agents.reservas import _CALI, _NOMBRE_DIA, _ahora_cali, _cuando, avisos_cita, cupos_de, proxima_viva
 from axel.envelope import Envelope
 from axel.memory import Memory
 from axel.orchestrator import process
@@ -64,6 +64,11 @@ def main() -> int:
     assert avisos(2, 7, 30) == [] and avisos(2, 10) == [], "sin repetir y nada después de la cita"
     assert avisos(2, 11) == [("evt_exacta", "Recordatorio: tu cita es el sábado 03/10 a las 11:00.")]
     assert avisos(3, 9, 30) == [("evt_exacta", "Recordatorio: tu cita es hoy a las 11:00.")]
+    # El saludo («Tu turno es…») también lee cita_at.
+    assert proxima_viva(memory, "cus_exacta", datetime(2026, 10, 1, 8, 0, tzinfo=_CALI)) == "sábado 11:00"
+    # «citas» del dueño: cita_at si existe; si no, el texto de siempre.
+    citas = process(Envelope(text="citas", channel="panel", channel_user_id="alex_pc"), memory).reply_text or ""
+    assert "- sábado 03/10 11:00 · " in citas and "- viernes 02/10 9:00 · " in citas, citas
 
     # "mañana" con ñ o sin tilde es el día siguiente.
     base = datetime(2026, 10, 1, 8, 0, tzinfo=_CALI)
@@ -76,6 +81,10 @@ def main() -> int:
     original = kb._kb_path
     kb._kb_path = lambda: kb_tmp
     try:
+        # Cupos: la cita con cita_at ocupa el sábado 03/10 a las 11, no el jueves a las 9:30.
+        assert list(cupos_de(memory, date(2026, 10, 3))) == [(11, 0)]
+        assert cupos_de(memory, date(2026, 10, 1)) == {}
+
         def dice(texto: str, quien: str) -> str:
             out = process(Envelope(text=texto, channel="test", channel_user_id=quien), memory)
             print(quien, repr(texto), "->", out.reply_text)
