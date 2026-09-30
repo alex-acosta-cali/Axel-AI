@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from axel import knowledge_base as kb
-from axel.agents.reservas import _CALI, _NOMBRE_DIA, _ahora_cali, _cuando, avisos_cita, cupos_de, proxima_viva
+from axel.agents.reservas import _CALI, _NOMBRE_DIA, _ahora_cali, _cuando, avisos_cita, cupos_de, proxima_viva, recordatorio_dia
 from axel.envelope import Envelope
 from axel.memory import Memory
 from axel.orchestrator import process
@@ -84,6 +84,17 @@ def main() -> int:
         # Cupos: la cita con cita_at ocupa el sábado 03/10 a las 11, no el jueves a las 9:30.
         assert list(cupos_de(memory, date(2026, 10, 3))) == [(11, 0)]
         assert cupos_de(memory, date(2026, 10, 1)) == {}
+
+        # Recordatorio del día al dueño: hora Cali, desde que abre (8:00), solo citas de hoy, una vez por día.
+        def recordatorio(dia: int, hora: int) -> str:
+            return recordatorio_dia(memory, datetime(2026, 10, dia, hora, 0, tzinfo=_CALI))
+
+        assert recordatorio(1, 7) == "", "antes de abrir no sale"
+        hoy1 = recordatorio(1, 8)
+        assert hoy1 == "Recordatorio AXEL (hoy):\n- 7:30 · sin nombre · sin teléfono\n- 9:30 · sin nombre · sin teléfono", hoy1
+        assert recordatorio(1, 12) == "", "una vez por día, aunque AXEL se reinicie"
+        assert recordatorio(3, 9) == "Recordatorio AXEL (hoy):\n- 11:00 · sin nombre · sin teléfono", "cita_at, no el texto"
+        assert recordatorio(5, 9) == "", "sin citas hoy no sale"
 
         def dice(texto: str, quien: str) -> str:
             out = process(Envelope(text=texto, channel="test", channel_user_id=quien), memory)

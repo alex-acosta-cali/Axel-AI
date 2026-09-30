@@ -26,6 +26,7 @@ from axel.agents.reservas import (
     cupos_de,
     franjas_validas,
     paso,
+    recordatorio_dia,
 )
 from axel.connectors import whatsapp
 from axel.envelope import Envelope
@@ -436,11 +437,7 @@ th{{background:#222}} .ok{{color:#8f8}} .tomada{{color:#f99}} .paso{{color:#888}
 
 def _recordatorio_loop() -> None:
     import time
-    from datetime import date
 
-    from axel.connectors.whatsapp import send_text
-
-    ultimo = ""
     while True:
         time.sleep(60)
         try:
@@ -454,24 +451,11 @@ def _recordatorio_loop() -> None:
         except Exception as exc:
             print("AVISO CITA error:", exc)
         try:
-            hoy = date.today().isoformat()
-            if ultimo == hoy:
-                continue
-            owner = (os.getenv("WA_OWNER_PHONE") or "").strip()
-            if not owner:
-                continue
-            citas = memory.list_confirmed_reservas(8)
-            if not citas:
-                ultimo = hoy
-                continue
-            lineas = []
-            for c in citas:
-                cli = memory.get_customer(str(c.get("customer_id") or "")) or {}
-                franja = franja_fila(c)
-                lineas.append(f"- {franja} · {c.get('name') or 'sin nombre'} · {cli.get('phone') or 'sin teléfono'}")
-            send_text(owner, "Recordatorio AXEL (hoy):\n" + "\n".join(lineas))
-            print("RECORDATORIO enviado", hoy)
-            ultimo = hoy
+            # Recordatorio del día al dueño: hora Cali, solo citas de hoy, una vez aunque AXEL se reinicie.
+            texto = recordatorio_dia(memory)
+            if texto:
+                estado = notify.enviar(memory, "recordatorio_dia", os.getenv("WA_OWNER_PHONE") or "", texto)
+                print("RECORDATORIO", estado)
         except Exception as exc:
             print("RECORDATORIO error:", exc)
 
