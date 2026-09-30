@@ -178,7 +178,7 @@ Hoy el piloto corre en el VPS; WhatsApp real entra por su dominio. El panel solo
 | Panel: cupos de la semana LIBRE/TOMADA | construido |
 | KB del comercio | construido: negocio, rubro, agenda, horario, franjas, servicios, políticas, FAQ, ubicación. El dueño la edita por chat. Primer catálogo de prueba: barbería |
 | Instagram | solo nota (`docs/CANAL_INSTAGRAM.md`) |
-| Hosting 24/7 | vivo en el VPS desde 30 sep (nginx con HTTPS hacia `127.0.0.1:8090`) |
+| Hosting 24/7 | vivo en el VPS desde 30 sep. Ngrok apagado. Panel solo en 127.0.0.1 |
 | Modelo de lenguaje | solo nota (`docs/MODELO_LENGUAJE.md`); router no llama APIs |
 | Llamadas / factura / marketing | pendiente |
 
