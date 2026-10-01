@@ -11,8 +11,8 @@ Sin Docker. Sin Kubernetes. `.env` nunca va por git.
 
 ## 2. Instalar Axel
 ```bash
-git clone <URL_DEL_REPO> axel
-cd axel/axel-core
+git clone <URL_DEL_REPO> /opt/Axel-AI
+cd /opt/Axel-AI/axel-core
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ```
@@ -29,9 +29,9 @@ Description=Axel demo
 After=network-online.target
 
 [Service]
-WorkingDirectory=/home/<usuario>/axel/axel-core
+WorkingDirectory=/opt/Axel-AI/axel-core
 Environment=PYTHONPATH=.
-ExecStart=/home/<usuario>/axel/axel-core/.venv/bin/python -m axel.demo
+ExecStart=/opt/Axel-AI/axel-core/.venv/bin/python -m axel.demo
 Restart=always
 User=<usuario>
 
@@ -52,7 +52,7 @@ journalctl -u axel -f
 
 ## 5. Webhook en Meta
 - Nueva URL: `https://DOMINIO/webhooks/whatsapp`.
-- Token de verificación: el `WA_VERIFY_TOKEN` del `.env`.
+- Token de verificación: verify en `.env`.
 - Cuando el VPS conteste, se apaga ngrok.
 
 ## 6. Recordatorios

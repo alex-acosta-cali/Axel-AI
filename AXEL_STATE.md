@@ -8,7 +8,7 @@ GitHub: https://github.com/alex-acosta-cali/Axel-AI (privado)
 - 30 sep: VPS vivo. Ngrok apagado. El WhatsApp del negocio responde por el dominio del VPS (HTTPS). El panel sigue solo en 127.0.0.1. No Meta producción.
 - Panel 2026 = local + túnel SSH (`docs/PANEL.md`). No es panel por negocio.
 - Piloto 2026, lado dueño.
-- WhatsApp real: número en la sección 0.10 (Alcance). Phone ID y tokens solo en `.env`.
+- WhatsApp del negocio (número en .env).
 - Desde el 30 sep el webhook entra por el VPS (nginx con HTTPS hacia `127.0.0.1:8090`). Ngrok apagado.
 - Claude Code trabaja en el repo (ejecutor; Grok revisa, Alex aprueba).
 - Pruebas OK: `test_memory_cross_channel`, `test_level3_approval`, `test_message`, `test_kb_cafeteria`, `test_kb_ferreteria`, `test_configurar`, `test_aviso_cita`, `test_panel_envios`, `test_webhook` y `test_piloto_2026`.
