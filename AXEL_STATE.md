@@ -4,7 +4,8 @@ Dueño: Alex. Repo: C:\Proyectos\Axel-AI (PC) · /opt/Axel-AI (VPS)
 GitHub: https://github.com/alex-acosta-cali/Axel-AI (privado)
 
 ## 0. Estado hoy
-- Piloto 2026 cerrado (30 sep). Checklist marcado: docs/CHECKLIST_2026.md.
+- Piloto 2026 cerrado (30 sep). Checklist marcado. VPS vivo. Ngrok apagado.
+- Siguiente de producto: nada. Meta producción, cobro e IG: no. Diseño del panel: otro hilo.
 - 30 sep: VPS vivo. Ngrok apagado. El WhatsApp del negocio responde por el dominio del VPS (HTTPS). El panel sigue solo en 127.0.0.1. No Meta producción.
 - Panel 2026 = local + túnel SSH (`docs/PANEL.md`). No es panel por negocio.
 - Piloto 2026, lado dueño.
