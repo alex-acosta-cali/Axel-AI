@@ -52,16 +52,16 @@ journalctl -u axel -f
 
 ## 5. Webhook en Meta
 - Nueva URL: `https://DOMINIO/webhooks/whatsapp`.
-- Token de verificación: `axel-verify` (o el `WA_VERIFY_TOKEN` del `.env`).
+- Token de verificación: el `WA_VERIFY_TOKEN` del `.env`.
 - Cuando el VPS conteste, se apaga ngrok.
 
 ## 6. Recordatorios
 - El recordatorio diario al dueño es un hilo dentro de `axel.demo`. Solo corre si el proceso está vivo. En el VPS queda vivo.
-- Los avisos al cliente 24 h y 2 h antes **todavía no existen en el código**. No se programan ahora.
+- Los avisos al cliente 24 h y 2 h antes ya existen: mismo hilo, hora Cali, uno por cita y plazo. Si el proceso está apagado a esa hora, se pierden.
 
 ## 7. Rollback
 ```bash
-cd ~/axel && git log --oneline -5
+cd /opt/Axel-AI && git log --oneline -5
 git checkout <commit_anterior>
 sudo systemctl restart axel
 ```
