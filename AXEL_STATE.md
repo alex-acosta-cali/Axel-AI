@@ -81,7 +81,7 @@ Muros 14-17 hechos (29 sep): 14 tono en la KB, 15 stock 0 no se vende, 16 dueño
 - 18.1 Panel solo local: desde ngrok (Host ngrok o `X-Forwarded-*`) solo pasan `/webhooks/whatsapp` y `GET /health`. Panel, `/audit`, `/panel`, `/decidir`: 403 `solo_local`.
 - 18.2 Firma Meta: `X-Hub-Signature-256` con `WA_APP_SECRET` (solo en `.env`). Sin secreto o sin firma válida: 403.
 - 18.3 wamid: el mismo mensaje reintentado por Meta se ignora. 200 a Meta antes de responder al cliente.
-- Falta: prueba real en el WhatsApp del negocio con el demo reiniciado.
+- Probado en el VPS (checklist 30 sep).
 
 ### Muro 19 — envíos (hecho 29 sep)
 - Tabla `envios`: una fila por aviso saliente. A quién, texto corto (80), para qué, estado, hora (se muestra en Cali).
@@ -129,7 +129,7 @@ Muros 14-17 hechos (29 sep): 14 tono en la KB, 15 stock 0 no se vende, 16 dueño
 
 ### Decisiones Grok 30 sep (hechas en código)
 - Panel: cualquier Host que no sea 127.0.0.1 ni localhost es público. También `X-Forwarded-For`, `X-Forwarded-Host`, `X-Real-IP` o `Forwarded`: 403 `solo_local`. Prueba: `test_webhook.py`.
-- nginx: debe mandar `proxy_set_header Host $host;` (o `X-Forwarded-For`). Si manda Host 127.0.0.1 sin cabeceras, el código no lo ve como público. Falta la prueba real: abrir el dominio desde el celular sin wifi → 403.
+- nginx: debe mandar `proxy_set_header Host $host;` (o `X-Forwarded-For`). Si manda Host 127.0.0.1 sin cabeceras, el código no lo ve como público. Prueba real hecha (checklist 30 sep): el dominio desde el celular sin wifi da 403.
 - `WA_VERIFY_TOKEN` obligatorio en `.env`: sin valor, el verify de Meta no pasa. Sin valor por defecto.
 - `axel/main.py` marcado NO ARRANCAR (FastAPI viejo, sin firma ni wamid). El servicio es `python -m axel.demo`. `AXEL_M05_WhatsApp.md` todavía muestra `uvicorn axel.main:app`: no usar.
 - Firma Meta y wamid con prueba sin Meta real (`test_webhook.py`).
@@ -142,12 +142,12 @@ Muros 14-17 hechos (29 sep): 14 tono en la KB, 15 stock 0 no se vende, 16 dueño
 
 ### Respaldo en el VPS
 - Script: `axel-core/scripts/copia_vps.sh` (14 copias de cada archivo en `/opt/Axel-AI/copias/`).
-- Cron (falta ponerlo en el VPS), 3:00 Cali: `0 3 * * * /opt/Axel-AI/axel-core/scripts/copia_vps.sh >> /opt/Axel-AI/copias/copia.log 2>&1` (si el VPS está en UTC: `0 8 * * *`).
+- Cron (puesto en el VPS, checklist 30 sep), 3:00 Cali: `0 3 * * * /opt/Axel-AI/axel-core/scripts/copia_vps.sh >> /opt/Axel-AI/copias/copia.log 2>&1` (si el VPS está en UTC: `0 8 * * *`).
 - Copia fuera del VPS: una vez por semana Alex la baja al PC con `scp`. No se contrata otro sitio.
 
 ### Siguiente
 - Producto: nada. Meta producción, cobro e IG: no.
-- Probar en el VPS: 403 del panel desde fuera, `WA_VERIFY_TOKEN` en `.env`, cron de copia.
+- Verify (`WA_VERIFY_TOKEN` en `.env`): cambiarlo lo hace Alex, no Claude.
 - Plantillas 24 h: solo papel (`docs/WHATSAPP_24H.md`).
 - Diseño del panel: otro hilo (verde #0B3D2E, acento #C4A35A, fondo casi negro; logo después).
 
@@ -157,7 +157,7 @@ Muros 14-17 hechos (29 sep): 14 tono en la KB, 15 stock 0 no se vende, 16 dueño
 
 ## 0.11 Capítulo VPS (vivo 30 sep)
 - AXEL corre 24/7 en el VPS (nginx con HTTPS hacia `127.0.0.1:8090`). Ngrok apagado.
-- Falta: cron de `copia_vps.sh` y prueba real del 403 del panel desde fuera.
+- Hecho (checklist 30 sep): cron de `copia_vps.sh` y 403 del panel desde fuera.
 - No Meta producción.
 - No segundo panel.
 - No cobro.
