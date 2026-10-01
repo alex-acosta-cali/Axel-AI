@@ -292,7 +292,7 @@ th{{background:#222}} .ok{{color:#8f8}} .tomada{{color:#f99}} .paso{{color:#888}
 <table><tr><th>Nombre</th><th>Celular</th><th>Correo</th><th>ID</th></tr>{tabla_cli}</table>
 <h2>Pedidos</h2>
 {_tabla_pedidos()}
-<h2>Catalogo</h2>
+<h2>Catálogo</h2>
 {_tabla_catalogo()}
 <h2>Cupos de la semana</h2>
 {_tabla_cupos()}

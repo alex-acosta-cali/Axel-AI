@@ -61,6 +61,9 @@ def main() -> int:
         )
     panel = demo.Handler.__new__(demo.Handler)._panel()
     assert panel.index("<h2>Reporte de hoy</h2>") < panel.index("<h2>Envíos</h2>") < panel.index("<h2>Clientes WhatsApp</h2>")
+    # Los 7 bloques del dueño siguen en el panel.
+    for titulo in ("Reporte de hoy", "Cupos de la semana", "Citas", "Clientes WhatsApp", "Catálogo", "Pedidos", "Envíos"):
+        assert f"<h2>{titulo}</h2>" in panel, titulo
     assert "sábado 03/10 11:00" in panel, "Clientes WhatsApp lee cita_at"
     assert "3001112233" in panel.split("<h2>Clientes WhatsApp</h2>")[1], "el celular sigue en la tabla de clientes"
     assert "3001112233" not in panel.split("<h2>Envíos</h2>")[1].split("<h2>")[0]
