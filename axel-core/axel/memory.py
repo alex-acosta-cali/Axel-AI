@@ -130,6 +130,9 @@ class Memory:
                 ("conversation_summaries", "cita_at", "TEXT"),
                 # 1 = el dueño aprobó "borrar mis datos". "mi ficha" dice "datos borrados".
                 ("customers", "datos_borrados", "INTEGER NOT NULL DEFAULT 0"),
+                # Muro 34: citas y pedidos llevan negocio. Las filas viejas se leen como biz_default.
+                ("conversation_summaries", "business_id", "TEXT NOT NULL DEFAULT 'biz_default'"),
+                ("pedidos", "business_id", "TEXT NOT NULL DEFAULT 'biz_default'"),
             ):
                 try:
                     conn.execute(f"ALTER TABLE {tabla} ADD COLUMN {col} {typ}")
@@ -238,7 +241,7 @@ class Memory:
             ).fetchall()
         return [dict(r) for r in rows]
 
-    def list_confirmed_reservas(self, limit: int = 10) -> list[dict[str, Any]]:
+    def list_confirmed_reservas(self, limit: int = 10, business_id: str = "biz_default") -> list[dict[str, Any]]:
         with self._conn() as conn:
             rows = conn.execute(
                 """
@@ -246,10 +249,11 @@ class Memory:
                 FROM conversation_summaries s
                 LEFT JOIN customers c ON c.customer_id = s.customer_id
                 WHERE s.intent = 'reserva' AND s.result = 'ok'
+                  AND COALESCE(s.business_id, 'biz_default') = ?
                 ORDER BY summary_id DESC
                 LIMIT ?
                 """,
-                (limit,),
+                (business_id, limit),
             ).fetchall()
         return [dict(r) for r in rows]
 
@@ -294,14 +298,15 @@ class Memory:
         reply: str,
         result: str,
         cita_at: Optional[str] = None,
+        business_id: str = "biz_default",
     ) -> None:
         with self._conn() as conn:
             conn.execute(
                 """
-                INSERT INTO conversation_summaries(customer_id, event_id, channel, intent, summary, result, created_at, cita_at)
-                VALUES (?,?,?,?,?,?,datetime('now'),?)
+                INSERT INTO conversation_summaries(customer_id, event_id, channel, intent, summary, result, created_at, cita_at, business_id)
+                VALUES (?,?,?,?,?,?,datetime('now'),?,?)
                 """,
-                (customer_id, event_id, channel, intent, text[:240], result, cita_at),
+                (customer_id, event_id, channel, intent, text[:240], result, cita_at, business_id),
             )
             conn.execute(
                 """
@@ -459,13 +464,13 @@ class Memory:
             ).fetchall()
         return [dict(r) for r in rows]
 
-    def add_pedido(self, customer_id: str, servicio: str, precio: int) -> None:
+    def add_pedido(self, customer_id: str, servicio: str, precio: int, business_id: str = "biz_default") -> None:
         if not customer_id or not servicio:
             return
         with self._conn() as conn:
             conn.execute(
-                "INSERT INTO pedidos(customer_id, servicio, precio, created_at) VALUES (?,?,?,datetime('now'))",
-                (customer_id, servicio, int(precio)),
+                "INSERT INTO pedidos(customer_id, servicio, precio, created_at, business_id) VALUES (?,?,?,datetime('now'),?)",
+                (customer_id, servicio, int(precio), business_id),
             )
 
     def marcar_aviso(self, event_id: str, plazo: str) -> bool:
@@ -537,27 +542,29 @@ class Memory:
             ).fetchone()
         return dict(row) if row else None
 
-    def list_pedidos(self, limit: int = 15) -> list[dict[str, Any]]:
-        """Filas de pedidos de todos los clientes, las más nuevas primero. Solo para el dueño."""
+    def list_pedidos(self, limit: int = 15, business_id: str = "biz_default") -> list[dict[str, Any]]:
+        """Filas de pedidos de todos los clientes del negocio, las más nuevas primero. Solo para el dueño."""
         with self._conn() as conn:
             rows = conn.execute(
                 """
                 SELECT p.pedido_id, p.servicio, p.precio, p.estado, p.created_at, p.customer_id, c.name, c.phone
                 FROM pedidos p
                 LEFT JOIN customers c ON c.customer_id = p.customer_id
+                WHERE COALESCE(p.business_id, 'biz_default') = ?
                 ORDER BY p.created_at DESC, p.pedido_id DESC
                 LIMIT ?
                 """,
-                (limit,),
+                (business_id, limit),
             ).fetchall()
         return [dict(r) for r in rows]
 
-    def entregar_pedido(self, pedido_id: int) -> bool:
+    def entregar_pedido(self, pedido_id: int, business_id: str = "biz_default") -> bool:
         """Ese pedido 'anotado' pasa a 'entregado'. Entregado no es pagado: AXEL no cobra."""
         with self._conn() as conn:
             cur = conn.execute(
-                "UPDATE pedidos SET estado = 'entregado' WHERE pedido_id = ? AND estado = 'anotado'",
-                (pedido_id,),
+                "UPDATE pedidos SET estado = 'entregado' WHERE pedido_id = ? AND estado = 'anotado'"
+                " AND COALESCE(business_id, 'biz_default') = ?",
+                (pedido_id, business_id),
             )
             return cur.rowcount == 1
 
