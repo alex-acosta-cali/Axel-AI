@@ -12,7 +12,10 @@ DEFAULT_KB = {
 }
 
 
-def load_kb() -> dict:
+def load_kb(business_id: str = "biz_default") -> dict:
+    """Muro 34-35: hoy solo existe biz_default (kb.json). Otro id no ve la KB del piloto."""
+    if business_id != "biz_default":
+        return dict(DEFAULT_KB, faqs=[])
     path = _kb_path()
     if path.exists():
         return json.loads(path.read_text(encoding="utf-8"))
@@ -90,8 +93,8 @@ def set_agenda_palabras(texto: str) -> list[str]:
     return palabras
 
 
-def servicios() -> list[dict]:
-    return [s for s in load_kb().get("servicios") or [] if str(s.get("nombre") or "").strip()]
+def servicios(business_id: str = "biz_default") -> list[dict]:
+    return [s for s in load_kb(business_id).get("servicios") or [] if str(s.get("nombre") or "").strip()]
 
 
 def precio_txt(valor) -> str:
