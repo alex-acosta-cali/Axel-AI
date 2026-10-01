@@ -4,7 +4,7 @@ Dueño: Alex. Repo: C:\Proyectos\Axel-AI (PC) · /opt/Axel-AI (VPS)
 GitHub: https://github.com/alex-acosta-cali/Axel-AI (privado)
 
 ## 0. Estado hoy
-- Piloto 2026 local + VPS: cerrado (30 sep). Siguiente de producto: nada. Meta producción, cobro e IG: no. Diseño del panel: otro hilo.
+- Piloto 2026 cerrado en código (30 sep). Falta marcar docs/CHECKLIST_2026.md.
 - 30 sep: VPS vivo. Ngrok apagado. El WhatsApp del negocio responde por el dominio del VPS (HTTPS). El panel sigue solo en 127.0.0.1. No Meta producción.
 - Panel 2026 = local + túnel SSH (`docs/PANEL.md`). No es panel por negocio.
 - Piloto 2026, lado dueño.
@@ -80,7 +80,7 @@ Muros 14-17 hechos (29 sep): 14 tono en la KB, 15 stock 0 no se vende, 16 dueño
 - 18.1 Panel solo local: desde ngrok (Host ngrok o `X-Forwarded-*`) solo pasan `/webhooks/whatsapp` y `GET /health`. Panel, `/audit`, `/panel`, `/decidir`: 403 `solo_local`.
 - 18.2 Firma Meta: `X-Hub-Signature-256` con `WA_APP_SECRET` (solo en `.env`). Sin secreto o sin firma válida: 403.
 - 18.3 wamid: el mismo mensaje reintentado por Meta se ignora. 200 a Meta antes de responder al cliente.
-- Falta: prueba real en el 314 con el demo reiniciado.
+- Falta: prueba real en el WhatsApp del negocio con el demo reiniciado.
 
 ### Muro 19 — envíos (hecho 29 sep)
 - Tabla `envios`: una fila por aviso saliente. A quién, texto corto (80), para qué, estado, hora (se muestra en Cali).
@@ -151,7 +151,7 @@ Muros 14-17 hechos (29 sep): 14 tono en la KB, 15 stock 0 no se vende, 16 dueño
 - Diseño del panel: otro hilo (verde #0B3D2E, acento #C4A35A, fondo casi negro; logo después).
 
 ## 0.10 Alcance
-- Hoy: 1 negocio, 1 WhatsApp (+57 314 5801851), dueño por número (`WA_OWNER_PHONE`), un panel local + túnel SSH. No es panel por negocio.
+- Hoy: 1 negocio, 1 WhatsApp (número en .env), dueño por número (`WA_OWNER_PHONE`), un panel local + túnel SSH. No es panel por negocio.
 - 2028: varios negocios. No se construye ahora.
 
 ## 0.11 Capítulo VPS (vivo 30 sep)
