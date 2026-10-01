@@ -4,7 +4,7 @@ Dueño: Alex. Repo: C:\Proyectos\Axel-AI (PC) · /opt/Axel-AI (VPS)
 GitHub: https://github.com/alex-acosta-cali/Axel-AI (privado)
 
 ## 0. Estado hoy
-- Mapa al 30 sep. VPS vivo. No Meta producción.
+- Piloto 2026 local + VPS: cerrado (30 sep). Siguiente de producto: nada. Meta producción, cobro e IG: no. Diseño del panel: otro hilo.
 - 30 sep: VPS vivo. Ngrok apagado. El WhatsApp del negocio responde por el dominio del VPS (HTTPS). El panel sigue solo en 127.0.0.1. No Meta producción.
 - Panel 2026 = local + túnel SSH (`docs/PANEL.md`). No es panel por negocio.
 - Piloto 2026, lado dueño.
@@ -145,9 +145,10 @@ Muros 14-17 hechos (29 sep): 14 tono en la KB, 15 stock 0 no se vende, 16 dueño
 - Copia fuera del VPS: una vez por semana Alex la baja al PC con `scp`. No se contrata otro sitio.
 
 ### Siguiente
+- Producto: nada. Meta producción, cobro e IG: no.
 - Probar en el VPS: 403 del panel desde fuera, `WA_VERIFY_TOKEN` en `.env`, cron de copia.
 - Plantillas 24 h: solo papel (`docs/WHATSAPP_24H.md`).
-- Diseño (después): verde #0B3D2E, acento #C4A35A, fondo casi negro. Logo después.
+- Diseño del panel: otro hilo (verde #0B3D2E, acento #C4A35A, fondo casi negro; logo después).
 
 ## 0.10 Alcance
 - Hoy: 1 negocio, 1 WhatsApp (+57 314 5801851), dueño por número (`WA_OWNER_PHONE`), un panel local + túnel SSH. No es panel por negocio.
