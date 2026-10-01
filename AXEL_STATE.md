@@ -6,6 +6,7 @@ GitHub: https://github.com/alex-acosta-cali/Axel-AI (privado)
 ## 0. Estado hoy
 - Mapa al 30 sep. VPS vivo. No Meta producción.
 - 30 sep: VPS vivo. Ngrok apagado. El 314 responde por el dominio del VPS (HTTPS). El panel sigue solo en 127.0.0.1. No Meta producción.
+- Panel 2026 = local + túnel SSH (`docs/PANEL.md`). No es panel por negocio.
 - Piloto 2026, lado dueño.
 - WhatsApp real: +57 314 5801851. Phone ID y tokens solo en `.env`.
 - Desde el 30 sep el webhook entra por el VPS (nginx con HTTPS hacia `127.0.0.1:8090`). Ngrok apagado.
@@ -149,7 +150,7 @@ Muros 14-17 hechos (29 sep): 14 tono en la KB, 15 stock 0 no se vende, 16 dueño
 - Diseño (después): verde #0B3D2E, acento #C4A35A, fondo casi negro. Logo después.
 
 ## 0.10 Alcance
-- Hoy: 1 negocio, 1 WhatsApp, dueño por número (`WA_OWNER_PHONE`), panel de ese negocio.
+- Hoy: 1 negocio, 1 WhatsApp, dueño por número (`WA_OWNER_PHONE`), un panel local + túnel SSH. No es panel por negocio.
 - 2028: varios negocios. No se construye ahora.
 
 ## 0.11 Capítulo VPS (vivo 30 sep)
@@ -163,7 +164,7 @@ Muros 14-17 hechos (29 sep): 14 tono en la KB, 15 stock 0 no se vende, 16 dueño
 ## 1. Visión (fija hasta que Alex apruebe cambio)
 AXEL es el asistente del comercio, no de un rubro. La barbería fue el primer catálogo de prueba, no el producto. Una categoría nueva = llenar la KB (`kb.json`), no un programa nuevo.
 AXEL AI OS opera un negocio: atiende por WhatsApp, Instagram, web, email y voz; memoria de cliente; agenda; venta; cobro; marketing. Supervisión en 3 niveles. Trazabilidad de cada acto.
-Hoy el piloto corre en el VPS; WhatsApp real entra por su dominio. El panel solo en http://127.0.0.1:8090. App de Meta en desarrollo.
+Hoy el piloto corre en el VPS; WhatsApp real entra por su dominio. El panel solo en http://127.0.0.1:8090; desde el PC se ve con túnel SSH. App de Meta en desarrollo.
 
 ## 2. Módulos
 | Módulo | Estado |
