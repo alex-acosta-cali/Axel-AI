@@ -5,10 +5,10 @@ GitHub: https://github.com/alex-acosta-cali/Axel-AI (privado)
 
 ## 0. Estado hoy
 - Mapa al 30 sep. VPS vivo. No Meta producción.
-- 30 sep: VPS vivo. Ngrok apagado. El 314 responde por el dominio del VPS (HTTPS). El panel sigue solo en 127.0.0.1. No Meta producción.
+- 30 sep: VPS vivo. Ngrok apagado. El WhatsApp del negocio responde por el dominio del VPS (HTTPS). El panel sigue solo en 127.0.0.1. No Meta producción.
 - Panel 2026 = local + túnel SSH (`docs/PANEL.md`). No es panel por negocio.
 - Piloto 2026, lado dueño.
-- WhatsApp real: +57 314 5801851. Phone ID y tokens solo en `.env`.
+- WhatsApp real: número en la sección 0.10 (Alcance). Phone ID y tokens solo en `.env`.
 - Desde el 30 sep el webhook entra por el VPS (nginx con HTTPS hacia `127.0.0.1:8090`). Ngrok apagado.
 - Claude Code trabaja en el repo (ejecutor; Grok revisa, Alex aprueba).
 - Pruebas OK: `test_memory_cross_channel`, `test_level3_approval`, `test_message`, `test_kb_cafeteria`, `test_kb_ferreteria`, `test_configurar`, `test_aviso_cita`, `test_panel_envios`, `test_webhook` y `test_piloto_2026`.
@@ -150,7 +150,7 @@ Muros 14-17 hechos (29 sep): 14 tono en la KB, 15 stock 0 no se vende, 16 dueño
 - Diseño (después): verde #0B3D2E, acento #C4A35A, fondo casi negro. Logo después.
 
 ## 0.10 Alcance
-- Hoy: 1 negocio, 1 WhatsApp, dueño por número (`WA_OWNER_PHONE`), un panel local + túnel SSH. No es panel por negocio.
+- Hoy: 1 negocio, 1 WhatsApp (+57 314 5801851), dueño por número (`WA_OWNER_PHONE`), un panel local + túnel SSH. No es panel por negocio.
 - 2028: varios negocios. No se construye ahora.
 
 ## 0.11 Capítulo VPS (vivo 30 sep)
