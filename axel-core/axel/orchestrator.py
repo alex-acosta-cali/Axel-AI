@@ -237,10 +237,14 @@ def _editar_kb(cual: str, m: re.Match) -> str:
         precio = _pesos(m.group(3))
         if precio <= 0:
             return "No entendí el precio."
+        existia = kb_mod.buscar_producto(m.group(1))
         p = kb_mod.set_producto(m.group(1), m.group(2), precio, int(m.group(4)))
         if not p:
             return "No entendí el producto. Ejemplo: producto CAF01 | cafe molido | 12000 | 30"
-        return f"Listo, producto {p['codigo']} {p['nombre']} {kb_mod.precio_txt(p['precio'])} · stock {p['stock']}."
+        return (
+            f"Listo, producto {p['codigo']} {'actualizado: ' if existia else ''}"
+            f"{p['nombre']} {kb_mod.precio_txt(p['precio'])} · stock {p['stock']}."
+        )
     if cual == "proveedor":
         numero = kb_mod.set_proveedor_contacto(m.group(1))
         if not numero:

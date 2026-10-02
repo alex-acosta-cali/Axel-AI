@@ -296,14 +296,17 @@ def productos_por_nombre(texto: str) -> list[dict]:
 
 
 def set_producto(codigo: str, nombre: str, precio: int, stock: int) -> dict:
-    """Crea o reemplaza el producto con ese código. {} si código o nombre no sirven."""
+    """Crea o reemplaza el producto con ese código. {} si código o nombre no sirven.
+    Muro 61: si el código ya existe, se actualiza en su lugar. Nunca queda otra fila."""
     codigo = " ".join((codigo or "").split()).upper()[:20]
     nombre = nombre_servicio(nombre)
     if not codigo or len(re.findall(r"[a-záéíóúüñ]", nombre)) < 2:
         return {}
     item = {"codigo": codigo, "nombre": nombre, "precio": int(precio), "stock": int(stock)}
     kb = load_kb()
-    kb["productos"] = [p for p in kb.get("productos") or [] if p.get("codigo") != codigo] + [item]
+    lista = list(kb.get("productos") or [])
+    pos = next((i for i, p in enumerate(lista) if str(p.get("codigo") or "").upper() == codigo), len(lista))
+    kb["productos"] = lista[:pos] + [item] + [p for p in lista[pos + 1:] if str(p.get("codigo") or "").upper() != codigo]
     _guardar(kb)
     return item
 

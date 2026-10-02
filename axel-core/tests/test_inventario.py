@@ -232,6 +232,12 @@ def main() -> int:
         assert memory.list_envios(1)[0]["tipo"] == "sin_producto"
         assert len(memory.list_pedidos(500)) == n_pedidos
 
+        # Muro 61: mismo código actualiza nombre, precio y stock en su lugar. No hay otra fila.
+        r = dice("producto caf02 | cafe en grano | 16000 | 5", DUENO)
+        assert r == "Listo, producto CAF02 actualizado: cafe en grano $16.000 · stock 5.", r
+        assert [p["codigo"] for p in kb.productos()] == ["CAF01", "CAF02", "CAF03"], kb.productos()
+        assert kb.buscar_producto("CAF02") == {"codigo": "CAF02", "nombre": "cafe en grano", "precio": 16000, "stock": 5}
+
         # Muro 39: kb.json roto no tumba AXEL. Usa la última copia.
         kb_tmp.write_text("{roto", encoding="utf-8")
         assert kb.buscar_producto("CAF01"), "no usó la última copia"
