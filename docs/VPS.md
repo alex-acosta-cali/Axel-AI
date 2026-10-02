@@ -8,6 +8,16 @@ curl -s http://127.0.0.1:8090/health
 journalctl -u axel -n 30
 ```
 
+## KB fuera de git (muro 39)
+`kb.json` ya no está en git. Lo edita el dueño por chat. En git queda `kb.example.json`.
+El primer `git pull` después del muro 39 borra `kb.json` del VPS. Antes de ese pull:
+```bash
+cp /opt/Axel-AI/axel-core/kb.json /opt/Axel-AI/kb.json.antes
+cd /opt/Axel-AI && git pull
+cp /opt/Axel-AI/kb.json.antes /opt/Axel-AI/axel-core/kb.json
+```
+Si `kb.json` falta o está roto, AXEL usa `kb.ultima.json` o la copia más nueva de `copias/`. No se cae.
+
 ## Copia
 ```bash
 bash /opt/Axel-AI/axel-core/scripts/copia_vps.sh

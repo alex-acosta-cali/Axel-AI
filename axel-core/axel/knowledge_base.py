@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 from typing import Optional
@@ -13,13 +14,41 @@ DEFAULT_KB = {
 
 
 def load_kb(business_id: str = "biz_default") -> dict:
-    """Muro 34-35: hoy solo existe biz_default (kb.json). Otro id no ve la KB del piloto."""
+    """Muro 34-35: hoy solo existe biz_default (kb.json). Otro id no ve la KB del piloto.
+    Muro 39: si kb.json falta o está roto, usa la última copia buena. No tumba AXEL."""
     if business_id != "biz_default":
         return dict(DEFAULT_KB, faqs=[])
     path = _kb_path()
-    if path.exists():
-        return json.loads(path.read_text(encoding="utf-8"))
+    datos = _leer_json(path)
+    if datos is not None:
+        return datos
+    for copia in _copias_kb():
+        datos = _leer_json(copia)
+        if datos is not None:
+            print(f"KB: {path.name} falta o está roto. Uso la copia {copia.name}.")
+            return datos
     return DEFAULT_KB
+
+
+def _leer_json(path: Path) -> Optional[dict]:
+    try:
+        datos = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return datos if isinstance(datos, dict) else None
+
+
+def _ultima_path() -> Path:
+    """Copia de la última KB guardada bien, junto a kb.json."""
+    path = _kb_path()
+    return path.with_name(path.stem + ".ultima.json")
+
+
+def _copias_kb() -> list[Path]:
+    """Primero la última guardada; después las de copia.ps1 / copia_vps.sh, la más nueva primero."""
+    copias = Path(__file__).resolve().parents[2] / "copias"
+    viejas = sorted(copias.glob("kb_*.json"), reverse=True) if copias.is_dir() else []
+    return [_ultima_path(), *viejas]
 
 
 def answer(text: str) -> Optional[str]:
@@ -266,7 +295,15 @@ def set_producto(codigo: str, nombre: str, precio: int, stock: int) -> dict:
 
 
 def _guardar(kb: dict) -> None:
-    _kb_path().write_text(json.dumps(kb, ensure_ascii=False, indent=2), encoding="utf-8")
+    """Muro 39: escribe en un temporal y reemplaza al final. Un apagón no deja kb.json a medias."""
+    texto = json.dumps(kb, ensure_ascii=False, indent=2)
+    for destino in (_kb_path(), _ultima_path()):
+        tmp = destino.with_name(destino.name + ".tmp")
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(texto)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, destino)
 
 
 def nombre_servicio(nombre: str) -> str:
@@ -429,7 +466,7 @@ def set_business_name(nombre: str) -> str:
                 "a": respuesta,
             }
         )
-    _kb_path().write_text(json.dumps(kb, ensure_ascii=False, indent=2), encoding="utf-8")
+    _guardar(kb)
     return nombre
 
 
@@ -453,5 +490,5 @@ def set_hours(abre: str, cierra: str) -> str:
             break
     else:
         faqs.insert(0, {"q": ["horario", "horarios", "abren", "cierran"], "a": f"Atendemos de {horario}."})
-    _kb_path().write_text(json.dumps(kb, ensure_ascii=False, indent=2), encoding="utf-8")
+    _guardar(kb)
     return horario
