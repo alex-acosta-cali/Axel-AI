@@ -187,6 +187,14 @@ Muros 14-17 hechos (29 sep): 14 tono en la KB, 15 stock 0 no se vende, 16 dueño
 - Arreglo (Grok): mensaje de más de 500 letras no entra a ninguna regex; responde «Mensaje muy largo.» Prueba en `test_webhook`. Commit «Mensaje largo no traba.»
 - kb.json del VPS daba `kb_ok: false`; Alex lo arregló. Health: `kb_ok: true`, 3 servicios.
 - PC tras el apagón: git sin daño, `axel.db` y `axel_m3.db` íntegras, `kb.json` carga, `.env` intacto, todo compila.
+- Corrección: el kb.json del VPS no se rompió solo. El commit `188c4b6` (KB fuera de git) lo sacó de git y el `git pull` de las 04:48 UTC lo borró. 14 h sin KB. Hoy es igual a la copia del 1 oct: no se perdió nada.
+
+### Muro de operación 67-70 (hecho 2 oct, sin función nueva)
+- 67. `ONB_SERVICIO` ya no es regex: se lee de derecha a izquierda en una pasada (`_servicio_linea`). `producto A | B | C | N`: campos sin espacio al borde, lineal. Mismo resultado que antes en toda línea con precio. 200 letras raras: menos de 1 s. Más de 500: «Mensaje muy largo.». Prueba: `tests/test_regex.py`.
+- 68. `tests/test_message.py` no llama al 8090: levanta el demo en un puerto libre con base y KB temporales. Sin puerto, se salta. No escribe en el VPS.
+- 69. `scripts/vigia.sh`: si `/health` no trae `"kb_ok": true` en 5 s, `systemctl restart axel`. Solo el script; no está instalado.
+- 70. `docs/OPERACION.md`: PYTHONUNBUFFERED, cron del vigía cada 5 min, test_message sin túnel.
+- Estado: muros 55 a 66 y 67-70 hechos en el PC. El VPS sigue en `45faff8`: atrasado hasta este push.
 
 ### Siguiente
 - Producto: nada. Meta producción, cobro e IG: no.
