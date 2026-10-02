@@ -97,11 +97,22 @@ def main() -> int:
         cli = demo.memory.find_by_identity("whatsapp", "573000000777")
         entrantes = [s for s in demo.memory.last_summaries(cli["customer_id"], 10)]
         assert len(entrantes) == 1, entrantes
+
+        # Más de 500 letras no entra a la regex: responde rápido y el servidor sigue vivo.
+        largo = "hola" + " " * 3000 + "x"
+        for quien in ("tester", "573000000001"):
+            cuerpo = json.dumps({"channel_user_id": quien, "phone": quien, "text": largo}).encode()
+            estado, resp = pide("POST", "/webhooks/test", body=cuerpo, extra={"Content-Type": "application/json"})
+            assert estado == 200 and json.loads(resp)["reply_text"] == "Mensaje muy largo.", resp
+        normal = json.dumps({"text": "a" * 500}).encode()
+        estado, resp = pide("POST", "/webhooks/test", body=normal, extra={"Content-Type": "application/json"})
+        assert estado == 200 and json.loads(resp)["reply_text"] != "Mensaje muy largo.", resp
+        assert pide("GET", "/health")[0] == 200
     finally:
         server.shutdown()
         server.server_close()
 
-    print("OK — webhook: panel cerrado a Host público, verify obligatorio, firma y wamid")
+    print("OK — webhook: panel cerrado a Host público, verify obligatorio, firma, wamid y mensaje largo")
     return 0
 
 

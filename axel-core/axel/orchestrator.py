@@ -1053,6 +1053,10 @@ def pick_agent(intent: str) -> str:
     return "atencion"
 
 
+MAX_LETRAS = 500
+MENSAJE_LARGO = "Mensaje muy largo."
+
+
 def process(env: Envelope, memory: Memory) -> Envelope:
     if not _nombre_usable(env.name):
         env.name = None
@@ -1080,7 +1084,17 @@ def process(env: Envelope, memory: Memory) -> Envelope:
     env.payload["history"] = history
     env.payload["es_dueno"] = _es_dueno(env)
 
-    if _try_owner_setup(env, memory) or _try_owner_decision(env, memory):
+    # El servidor es de un solo hilo: una regex atascada traba todo. Más de 500 letras no entra a ninguna.
+    largo = len(env.text or "") > MAX_LETRAS
+    if largo:
+        env.intent = "muy_largo"
+        env.agent = "atencion"
+        env.reply_text = MENSAJE_LARGO
+        env.result = "ok"
+        env.why = f"mensaje de mas de {MAX_LETRAS} letras, sin regex"
+        env.text = (env.text or "")[:MAX_LETRAS]
+
+    if largo or _try_owner_setup(env, memory) or _try_owner_decision(env, memory):
         memory.save_turn(
             customer_id=env.customer_id,
             event_id=env.event_id,
