@@ -102,8 +102,10 @@ def handle(env: Envelope, memory=None) -> Envelope:
         suyos = []
         if memory is not None and env.customer_id:
             suyos = [p for p in memory.list_pedidos(500) if p.get("customer_id") == env.customer_id]
+        # Muro 53: pedido del inventario, solo el código. Servicio sin código, su nombre.
         lineas = [
-            f"- {p['servicio']} {kb.precio_txt(p['precio'])} · {p.get('estado') or 'anotado'} · "
+            f"- {(kb.producto_de_pedido(p['servicio']) or {}).get('codigo') or p['servicio']} "
+            f"{kb.precio_txt(p['precio'])} · {p.get('estado') or 'anotado'} · "
             f"{reservas._creada_cali(str(p.get('created_at') or '')).strftime('%d/%m %H:%M')}"
             for p in suyos[:15]
         ]

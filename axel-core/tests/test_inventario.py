@@ -189,6 +189,15 @@ def main() -> int:
         assert dice(f"pedido en camino {pid}", DUENO) == f"No hay pedido #{pid} pagado."
         assert dice(f"pedido en camino {pid}", LUIS, "Luis") != f"Pedido #{pid} en camino. AXEL no le escribe al proveedor."
 
+        # Muro 53: mi pedido. El cliente ve solo los suyos: código, precio, estado.
+        r = dice("mi pedido", LUIS, "Luis")
+        assert r.startswith("Tus pedidos:\n- CAF03 $9.000 · en camino · "), r
+        assert "CAF01 $12.000 · entregado" in r and "cafe" not in r, r
+        r = dice("mis pedidos", ANA, "Ana")
+        assert "· en camino ·" not in r and "CAF03 $9.000 · rechazado" in r, r
+        r = dice("mi pedido", "573000000009", "Nadie")
+        assert r.startswith("No tienes pedidos."), r
+
         # Muro 51: inventario es del dueño. Código, nombre, stock y disponible.
         r = dice("inventario", DUENO)
         assert r.startswith("Inventario:\n"), r
