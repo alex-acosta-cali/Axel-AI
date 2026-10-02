@@ -32,7 +32,7 @@ from axel.agents.reservas import (
 from axel.connectors import whatsapp
 from axel.envelope import Envelope
 from axel.memory import Memory
-from axel.orchestrator import _reporte, pedidos_filas, process
+from axel.orchestrator import _reporte, inventario_filas, pedidos_filas, process
 
 def _db_path() -> str:
     """Base fija: /opt/Axel-AI/axel-core/axel.db en el VPS; si esa carpeta no existe, junto al código.
@@ -157,6 +157,14 @@ def _tabla_pedidos() -> str:
         "<tr>" + "".join(f"<td>{html.escape(c)}</td>" for c in fila) + "</tr>" for fila in pedidos_filas(memory)
     ) or "<tr><td colspan='4'>No hay pedidos.</td></tr>"
     return f"<table><tr><th>Hora Cali</th><th>Cliente</th><th>Pedido</th><th>Estado</th></tr>{filas}</table>"
+
+
+def _tabla_inventario() -> str:
+    """Muro 65: máximo 15 productos, igual que el comando inventario. Solo lectura, solo local."""
+    filas = "".join(
+        "<tr>" + "".join(f"<td>{html.escape(str(c))}</td>" for c in fila) + "</tr>" for fila in inventario_filas(memory)
+    ) or "<tr><td colspan='4'>No hay productos.</td></tr>"
+    return f"<table><tr><th>Código</th><th>Nombre</th><th>Stock</th><th>Disponible</th></tr>{filas}</table>"
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -292,6 +300,8 @@ th{{background:#222}} .ok{{color:#8f8}} .tomada{{color:#f99}} .paso{{color:#888}
 <table><tr><th>Nombre</th><th>Celular</th><th>Correo</th><th>ID</th></tr>{tabla_cli}</table>
 <h2>Pedidos</h2>
 {_tabla_pedidos()}
+<h2>Inventario</h2>
+{_tabla_inventario()}
 <h2>Catálogo</h2>
 {_tabla_catalogo()}
 <h2>Cupos de la semana</h2>

@@ -68,7 +68,22 @@ def main() -> int:
     assert "3001112233" in panel.split("<h2>Clientes WhatsApp</h2>")[1], "el celular sigue en la tabla de clientes"
     assert "3001112233" not in panel.split("<h2>Envíos</h2>")[1].split("<h2>")[0]
 
-    print("OK — panel: 8 envíos sin texto ni celular entero; citas con cita_at")
+    # Muro 65: inventario en el panel. 16 productos, salen 15. Disponible descuenta el pedido abierto.
+    productos = [{"codigo": f"P{i:02d}", "nombre": f"cosa {i}", "precio": 1000, "stock": 3} for i in range(16)]
+    original = demo.kb.productos
+    demo.kb.productos = lambda: productos
+    try:
+        memory.add_pedido(gil, "P00 cosa 0", 1000)
+        tabla = demo._tabla_inventario()
+    finally:
+        demo.kb.productos = original
+    print(tabla)
+    assert tabla.count("<tr>") == 16, "cabecera + 15 filas"
+    assert "<td>P00</td><td>cosa 0</td><td>3</td><td>2</td>" in tabla, tabla
+    assert "P15" not in tabla, "máximo 15"
+    assert "<h2>Inventario</h2>" in panel
+
+    print("OK — panel: 8 envíos sin texto ni celular entero; citas con cita_at; inventario 15")
     return 0
 
 

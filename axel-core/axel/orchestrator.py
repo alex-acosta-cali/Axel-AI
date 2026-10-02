@@ -529,16 +529,21 @@ def _pedido_listo(memory: Memory, quien: str) -> str:
     )
 
 
+def inventario_filas(memory: Memory, limit: int = 15) -> list[tuple[str, str, int, int]]:
+    """(código, nombre, stock, disponible). Disponible = stock menos pedidos abiertos. Solo para el dueño."""
+    filas = []
+    for p in kb_mod.productos()[:limit]:
+        stock = int(p.get("stock") or 0)
+        filas.append((str(p["codigo"]), str(p["nombre"]), stock, max(stock - memory.pedidos_abiertos(str(p["codigo"])), 0)))
+    return filas
+
+
 def _inventario(memory: Memory) -> str:
     """Muro 51: solo el dueño. Código, nombre, stock y disponible (stock menos pedidos abiertos). Máximo 15."""
-    productos = kb_mod.productos()
-    if not productos:
+    filas = inventario_filas(memory)
+    if not filas:
         return "No hay productos. Ejemplo: producto CAF01 | cafe molido | 12000 | 30"
-    lineas = []
-    for p in productos[:15]:
-        stock = int(p.get("stock") or 0)
-        disponible = max(stock - memory.pedidos_abiertos(str(p["codigo"])), 0)
-        lineas.append(f"- {p['codigo']} · {p['nombre']} · stock {stock} · disponible {disponible}")
+    lineas = [f"- {c} · {n} · stock {s} · disponible {d}" for c, n, s, d in filas]
     return "Inventario:\n" + "\n".join(lineas)
 
 
