@@ -91,9 +91,32 @@ ONB_PREGUNTA = {
     "onb_reemplazo": "Ya hay servicios guardados. ¿Los reemplazo o sumo los nuevos? Responde reemplazar o sumar.",
     "onb_servicios": "Dime servicios, uno por línea: nombre precio\nEjemplo: cafe 4000\nCuando termines escribe listo.",
 }
-ONB_SERVICIO = re.compile(r"^(.+?)\s+\$?\s*([\d.,]+)\s*(?:pesos)?\s*\.?$", re.I)
+def _servicio_linea(linea: str) -> tuple[str, str] | None:
+    """Muro 67: 'nombre precio' sin regex, de derecha a izquierda en una pasada. Lo mismo que leía
+    ^(.+?)\\s+\\$?\\s*([\\d.,]+)\\s*(?:pesos)?\\s*\\.?$, que con muchos espacios tardaba al cubo. (nombre, precio) o None."""
+    t = (linea or "").rstrip()
+    if t.endswith("."):
+        t = t[:-1].rstrip()
+    if t[-5:].lower() == "pesos":
+        t = t[:-5].rstrip()
+    i = len(t)
+    while i > 0 and (t[i - 1].isdecimal() or t[i - 1] in ".,"):
+        i -= 1
+    precio, resto = t[i:], t[:i]
+    if not precio:
+        return None
+    antes = resto.rstrip()
+    sin_signo = antes[:-1] if antes.endswith("$") else ""
+    if sin_signo[-1:].isspace() and sin_signo.strip():
+        return sin_signo.rstrip(), precio
+    if len(antes) < len(resto) and antes:
+        return antes, precio
+    return None
+
+
 _ADMIN = r"^(?:axeladmin\s+)?"
 _PRECIO = r"\$?\s*([\d.,]+)\s*(?:pesos)?\s*\.?$"
+_CAMPO = r"([^\s|](?:[^|]*[^\s|])?)"
 OWNER_KB = [
     ("rubro", re.compile(_ADMIN + r"el rubro es\s+(.+)$", re.I)),
     ("agenda", re.compile(_ADMIN + r"agenda\s+(si|sí|no)\s*\.?$", re.I)),
@@ -109,7 +132,8 @@ OWNER_KB = [
     ("politica", re.compile(_ADMIN + r"pol[ií]tica\s+(?:de\s+)?(cancelaci[oó]n|garant[ií]a)\s*:?\s*(.*?)\s*$", re.I)),
     ("agenda_palabras", re.compile(_ADMIN + r"agenda\s+palabras\s*:?\s*(.*?)\s*$", re.I)),
     ("producto_borrar", re.compile(_ADMIN + r"producto\s+borrar\s+([a-z0-9][a-z0-9-]{0,19})\s*\.?$", re.I)),
-    ("producto", re.compile(_ADMIN + r"producto\s+([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*(\d+)\s*\.?$", re.I)),
+    # Muro 67: cada campo empieza y termina sin espacio. Los espacios no se reparten de varias formas: lineal.
+    ("producto", re.compile(_ADMIN + r"producto\s+" + r"\s*\|\s*".join([_CAMPO] * 3) + r"\s*\|\s*(\d+)\s*\.?$", re.I)),
     ("proveedor", re.compile(_ADMIN + r"contacto\s+(?:del\s+)?proveedor\s*:?\s*(.+?)\s*\.?$", re.I)),
 ]
 PREGUNTA_NOMBRE = "¿Cómo quieres que te llame?"
@@ -349,9 +373,9 @@ def _servicios_configurar(env: Envelope, memory: Memory, text: str) -> str:
         linea = linea.strip()
         if not linea:
             continue
-        m = ONB_SERVICIO.match(linea)
-        precio = _pesos(m.group(2)) if m else 0
-        nombre = kb_mod.nombre_servicio(m.group(1)) if m else ""
+        m = _servicio_linea(linea)
+        precio = _pesos(m[1]) if m else 0
+        nombre = kb_mod.nombre_servicio(m[0]) if m else ""
         existe = kb_mod.buscar_servicio(nombre) if nombre else None
         if precio <= 0:
             malas.append(linea)
