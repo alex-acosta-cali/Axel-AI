@@ -246,6 +246,24 @@ def main() -> int:
         assert [p["codigo"] for p in kb.productos()] == ["CAF01", "CAF03"], kb.productos()
         assert dice("producto borrar CAF02", DUENO) == "No tengo el producto CAF02."
 
+        # Muro 63: tres líneas pegadas, cada una queda. Una mala no tumba las otras.
+        r = dice(
+            "producto A1 | tela | 10000 | 4\nproducto A9 | tela | gratis | 1\n"
+            "producto A2 | hilo | 2000 | 9\nproducto A3 | botón | 500 | 20",
+            DUENO,
+        )
+        assert r.split("\n") == [
+            "Listo, producto A1 tela $10.000 · stock 4.",
+            "No entendí el precio.",
+            "Listo, producto A2 hilo $2.000 · stock 9.",
+            "Listo, producto A3 botón $500 · stock 20.",
+        ], r
+        assert [p["codigo"] for p in kb.productos()] == ["CAF01", "CAF03", "A1", "A2", "A3"], kb.productos()
+        assert dice("producto B1 | tela | 1000 | 1\nproducto B2 | hilo | 1000 | 1", LUIS, "Luis").startswith(
+            "Eso solo lo cambia el dueño."
+        )
+        assert not kb.buscar_producto("B1")
+
         # Muro 39: kb.json roto no tumba AXEL. Usa la última copia.
         kb_tmp.write_text("{roto", encoding="utf-8")
         assert kb.buscar_producto("CAF01"), "no usó la última copia"

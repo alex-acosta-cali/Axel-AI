@@ -400,16 +400,27 @@ def _try_owner_setup(env: Envelope, memory: Memory) -> bool:
     nombre = OWNER_NOMBRE.match(text)
     horario = OWNER_HORARIO.match(text)
     comando = _comando_kb(text)
+    # Muro 63: varias líneas "producto ..." pegadas. Cada una queda o falla sola.
+    lineas = [l.strip() for l in text.splitlines() if l.strip()]
+    lote = lineas if len(lineas) > 1 and all(re.match(r"^(?:axeladmin\s+)?producto\b", l, re.I) for l in lineas) else []
+    if lote:
+        comando = None
     if not _es_dueno(env):
-        if not (nombre or horario or comando):
+        if not (nombre or horario or comando or lote):
             return False
         env.reply_text = "Eso solo lo cambia el dueño."
-    elif env.business_id != "biz_default" and (nombre or horario or comando or t in ONB_START):
+    elif env.business_id != "biz_default" and (nombre or horario or comando or lote or t in ONB_START):
         # Muro 36: solo existe la KB de biz_default. Otro id no escribe.
         env.reply_text = "Este negocio aún no tiene base propia. No guardé nada."
     else:
         paso = memory.get_open_task(env.customer_id or "")
-        if comando:
+        if lote:
+            salidas = []
+            for linea in lote:
+                uno = _comando_kb(linea)
+                salidas.append(_editar_kb(*uno, memory=memory) if uno else f"No entendí: {linea[:60]}")
+            env.reply_text = "\n".join(salidas)
+        elif comando:
             env.reply_text = _editar_kb(*comando, memory=memory)
         elif nombre:
             guardado = set_business_name(nombre.group(1))
