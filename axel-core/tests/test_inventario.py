@@ -264,6 +264,21 @@ def main() -> int:
         )
         assert not kb.buscar_producto("B1")
 
+        # Muro 64: disponible 0 avisa al dueño una vez por código, hasta que vuelva a haber.
+        def avisos_stock() -> int:
+            return sum(1 for e in memory.list_envios(500) if e.get("tipo") == "sin_stock")
+
+        antes_aviso = avisos_stock()
+        dice("producto S1 | sal | 1000 | 1", DUENO)
+        assert avisos_stock() == antes_aviso, "cargar stock no avisa"
+        assert dice("me lo llevo S1", ANA, "Ana").startswith("Pedido anotado: S1")
+        assert avisos_stock() == antes_aviso + 1, "disponible 0 sin aviso"
+        assert dice("me lo llevo S1", LUIS, "Luis") == "No hay S1 ahora."
+        assert avisos_stock() == antes_aviso + 1, "avisó dos veces"
+        dice("cancelar pedido", ANA, "Ana")
+        assert dice("me lo llevo S1", LUIS, "Luis").startswith("Pedido anotado: S1")
+        assert avisos_stock() == antes_aviso + 2, "volvió a haber y no avisó de nuevo"
+
         # Muro 39: kb.json roto no tumba AXEL. Usa la última copia.
         kb_tmp.write_text("{roto", encoding="utf-8")
         assert kb.buscar_producto("CAF01"), "no usó la última copia"

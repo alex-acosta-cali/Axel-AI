@@ -169,6 +169,18 @@ def _pesos(raw: str) -> int:
     return int(digitos) if digitos else 0
 
 
+def _revisar_stock(memory: Memory | None, codigo: str, avisar: bool = True) -> None:
+    """Muro 64: disponible 0 avisa al dueño una vez por código. Cuando vuelve a haber, el próximo 0 avisa otra vez."""
+    p = kb_mod.buscar_producto(codigo)
+    if memory is None or not p:
+        return
+    disponible = int(p.get("stock") or 0) - memory.pedidos_abiertos(str(p["codigo"]))
+    if disponible > 0:
+        memory.limpiar_sin_stock(str(p["codigo"]))
+    elif avisar and memory.marcar_sin_stock(str(p["codigo"])):
+        notify.aviso_sin_stock(str(p["codigo"]), str(p["nombre"]), memory)
+
+
 def _editar_kb(cual: str, m: re.Match, memory: Memory | None = None) -> str:
     """Aplica un comando del dueño sobre rubro, agenda, servicios o franjas. Devuelve lo que quedó."""
     if cual == "producto_borrar":
@@ -179,6 +191,8 @@ def _editar_kb(cual: str, m: re.Match, memory: Memory | None = None) -> str:
         if memory is not None and memory.pedidos_abiertos(codigo):
             return "Tiene pedidos abiertos."
         kb_mod.remove_producto(codigo)
+        if memory is not None:
+            memory.limpiar_sin_stock(codigo)
         return f"Listo, borré el producto {codigo}."
     if cual == "rubro":
         rubro = kb_mod.set_rubro(m.group(1))
@@ -251,6 +265,8 @@ def _editar_kb(cual: str, m: re.Match, memory: Memory | None = None) -> str:
         p = kb_mod.set_producto(m.group(1), m.group(2), precio, int(m.group(4)))
         if not p:
             return "No entendí el producto. Ejemplo: producto CAF01 | cafe molido | 12000 | 30"
+        # El dueño cargó stock: si vuelve a haber, se limpia el aviso. Él mismo no recibe aviso de su 0.
+        _revisar_stock(memory, str(p["codigo"]), avisar=False)
         return (
             f"Listo, producto {p['codigo']} {'actualizado: ' if existia else ''}"
             f"{p['nombre']} {kb_mod.precio_txt(p['precio'])} · stock {p['stock']}."
@@ -552,6 +568,7 @@ def _cliente_cancela(memory: Memory, customer_id: str, numero: str | None) -> st
     p = abiertos[0]
     if memory.cancelar_pedido(int(p["pedido_id"])) != "cancelado":
         return PEDIDO_YA_VA_CLIENTE
+    _revisar_stock(memory, _codigo_txt(str(p["servicio"])), avisar=False)
     return f"Cancelé tu pedido de {_codigo_txt(str(p['servicio']))}."
 
 
@@ -564,6 +581,7 @@ def _cancelar_pedido(memory: Memory, numero: str | None) -> str:
         # Muro 58: el cliente de ese pedido se entera.
         p = next((p for p in memory.list_pedidos(500) if int(p["pedido_id"]) == int(numero)), None)
         if p:
+            _revisar_stock(memory, _codigo_txt(str(p["servicio"])), avisar=False)
             notify.aviso_cliente(
                 memory, "pedido_cancelado", str(p.get("phone") or ""),
                 f"El dueño canceló tu pedido de {_codigo_txt(str(p['servicio']))}.", str(p["customer_id"]),
@@ -992,6 +1010,7 @@ def _pedido_codigo(env: Envelope, memory: Memory, codigo: str) -> None:
     pedido = f"{p['codigo']} {p['nombre']} {kb_mod.precio_txt(p['precio'])}"
     memory.add_pedido(env.customer_id, f"{p['codigo']} {p['nombre']}", int(p["precio"]))
     env.payload["aviso_pedido"] = notify.aviso_pedido(env.name or env.phone or "sin nombre", pedido, memory)
+    _revisar_stock(memory, str(p["codigo"]))
     env.reply_text = f"Pedido anotado: {pedido}. Stock {stock}. El dueño confirma el pago."
     env.why = "pedido por referencia en inventario"
 

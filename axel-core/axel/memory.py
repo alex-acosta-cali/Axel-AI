@@ -95,6 +95,12 @@ CREATE TABLE IF NOT EXISTS avisos_cita (
     created_at TEXT,
     PRIMARY KEY (event_id, plazo)
 );
+CREATE TABLE IF NOT EXISTS avisos_stock (
+    codigo TEXT NOT NULL,
+    business_id TEXT NOT NULL DEFAULT 'biz_default',
+    created_at TEXT,
+    PRIMARY KEY (codigo, business_id)
+);
 CREATE TABLE IF NOT EXISTS wamid_visto (
     wamid TEXT PRIMARY KEY,
     created_at TEXT
@@ -490,6 +496,20 @@ class Memory:
         with self._conn() as conn:
             fila = conn.execute("SELECT 1 FROM avisos_cita WHERE event_id = ? AND plazo = ?", (event_id, plazo)).fetchone()
             return fila is not None
+
+    def marcar_sin_stock(self, codigo: str, business_id: str = "biz_default") -> bool:
+        """Muro 64: True la primera vez que ese código queda sin disponible; False si ya se avisó."""
+        with self._conn() as conn:
+            cur = conn.execute(
+                "INSERT OR IGNORE INTO avisos_stock(codigo, business_id, created_at) VALUES (?,?,datetime('now'))",
+                (codigo, business_id),
+            )
+            return cur.rowcount == 1
+
+    def limpiar_sin_stock(self, codigo: str, business_id: str = "biz_default") -> None:
+        """Muro 64: volvió a haber. El próximo 0 avisa otra vez."""
+        with self._conn() as conn:
+            conn.execute("DELETE FROM avisos_stock WHERE codigo = ? AND business_id = ?", (codigo, business_id))
 
     def marcar_wamid(self, wamid: str) -> bool:
         """True la primera vez que llega ese mensaje de WhatsApp; False si Meta lo reintenta."""

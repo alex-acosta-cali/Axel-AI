@@ -71,6 +71,13 @@ def aviso_sin_producto(buscado: str, memory: Memory | None = None) -> str:
     return text
 
 
+def aviso_sin_stock(codigo: str, nombre: str, memory: Memory | None = None) -> str:
+    """Muro 64: un código quedó con disponible 0. Una vez, hasta que vuelva a haber."""
+    text = f"Sin stock: {codigo} {nombre[:40]}. Disponible 0."
+    enviar(memory, "sin_stock", os.getenv("WA_OWNER_PHONE") or "", text)
+    return text
+
+
 def aviso_cliente(memory: Memory | None, tipo: str, phone: str, text: str, customer_id: str = "") -> str:
     """Aviso a un cliente. Si su celular es el del dueño, no se envía: fila 'omitido_dueno'.
     Fuera de su ventana de 24 h tampoco: fila 'fuera_24h'."""
