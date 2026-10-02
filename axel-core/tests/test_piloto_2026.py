@@ -55,6 +55,10 @@ def main() -> int:
         print(quien[-1], repr(texto), "->", out.reply_text)
         return out
 
+    def n_pend(intent: str) -> int:
+        """Muro 40: número del pendiente de ese intent para aprobar N / rechazar N."""
+        return next(int(p["n"]) for p in memory.list_pending() if p["intent"] == intent)
+
     def pagar(quien: str) -> None:
         """Muro 38: el dueño marca pagado cada pedido anotado de ese cliente con pedido pagado N."""
         cid = memory.find_by_identity("whatsapp", quien)["customer_id"]
@@ -324,7 +328,11 @@ def main() -> int:
         notify.send_text = lambda to, text: intentos.append(to) or {"status": 500, "body": {}}
         try:
             assert notify.enviar(memory, "aviso_24h", CLIENTE, "Recordatorio: tu cita es hoy a las 11:00.") == "fallo"
-            dice("aprobar", DUENO)
+            # Muro 40: sin número no decide; lista los pendientes.
+            lista = dice("aprobar", DUENO).reply_text or ""
+            assert lista.startswith("Pendientes:\n- #") and "aprobar N" in lista, lista
+            assert dice("aprobar 999", DUENO).reply_text.startswith("No hay pendiente #999.")
+            dice(f"aprobar {n_pend('reembolso')}", DUENO)
         finally:
             notify.send_text = envio_real
         assert intentos == [CLIENTE], intentos
@@ -396,7 +404,7 @@ def main() -> int:
         assert borrar.supervision_level == 3 and borrar.approval_status == "pending_owner", borrar
         assert "No se borra nada solo" in (borrar.reply_text or "")
         assert [p["intent"] for p in memory.list_pending()] == ["borrar_datos"], memory.list_pending()
-        assert "Quedó rejected" in (dice("rechazar", DUENO).reply_text or "")
+        assert "Quedó rejected" in (dice(f"rechazar {n_pend('borrar_datos')}", DUENO).reply_text or "")
         ficha = memory.get_customer(cid)
         assert ficha["name"] == "Nora" and ficha["email"] == "nora@correo.com" and memory.list_notes(cid), ficha
         assert (dice("mi ficha", nuevo).reply_text or "").startswith("Tu ficha AXEL: Nora, cel 3000000400")
@@ -405,7 +413,7 @@ def main() -> int:
         enviados = []
         notify.send_text = lambda to, text: enviados.append((to, text)) or {"fake": True}
         try:
-            r = dice("aprobar", DUENO).reply_text or ""
+            r = dice(f"aprobar {n_pend('borrar_datos')}", DUENO).reply_text or ""
         finally:
             notify.send_text = envio_real
         assert "Quedó approved" in r and "Datos borrados: nombre, correo y notas" in r, r

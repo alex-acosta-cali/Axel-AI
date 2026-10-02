@@ -403,9 +403,10 @@ class Memory:
             )
 
     def list_pending(self) -> list[dict[str, Any]]:
+        """Muro 40: 'n' es el número que el dueño escribe en aprobar N / rechazar N."""
         with self._conn() as conn:
             rows = conn.execute(
-                "SELECT * FROM pending_approvals WHERE status = 'pending' ORDER BY created_at DESC"
+                "SELECT rowid AS n, * FROM pending_approvals WHERE status = 'pending' ORDER BY created_at DESC, rowid DESC"
             ).fetchall()
         return [dict(r) for r in rows]
 

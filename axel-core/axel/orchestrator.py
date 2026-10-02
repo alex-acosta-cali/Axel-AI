@@ -584,7 +584,7 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         env.supervision_level = 1
         env.reply_text = (
             "Comandos dueño: estado, estado axel, reporte, limpiar, pendientes, citas, clientes, pedidos, pedido pagado N, pedido listo, envios, catalogo, "
-            "aceptar/aprobar, rechazo/rechazar, ayuda, "
+            "aprobar N, rechazar N, ayuda, "
             "configurar, cancelar configurar, el negocio se llama NOMBRE, abrimos de H1 a H2, "
             "el rubro es X, agenda si/no, agrega servicio X a N, "
             "cambia el precio de X a N, stock X N, tono formal/cercano, quita servicio X, franjas 8 12 16,"
@@ -609,11 +609,7 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         env.agent = "escalamiento"
         env.supervision_level = 1
         pend = memory.list_pending()
-        if not pend:
-            env.reply_text = "No hay pendientes."
-        else:
-            lineas = [f"- {p.get('intent')}: {p.get('requested_action')}" for p in pend[:5]]
-            env.reply_text = "Pendientes:\n" + "\n".join(lineas)
+        env.reply_text = _lista_pendientes(pend) if pend else "No hay pendientes."
         env.result = "ok"
         env.approval_status = "na"
         return True
@@ -714,12 +710,20 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
     env.agent = "escalamiento"
     env.supervision_level = 1
     pend = memory.list_pending()
+    env.result = "ok"
+    env.approval_status = "na"
     if not pend:
         env.reply_text = "No hay decisiones pendientes."
-        env.result = "ok"
-        env.approval_status = "na"
         return True
-    row = pend[0]
+    # Muro 40: sin número no se decide. Nunca se toma el primero.
+    numero = re.match(r"^(?:aprobar|aceptar|acepto|autorizo|autorizar|rechazar|rechazo|niego|denegar)\s+#?(\d+)\b", t)
+    if not numero:
+        env.reply_text = _lista_pendientes(pend)
+        return True
+    row = next((p for p in pend if int(p["n"]) == int(numero.group(1))), None)
+    if not row:
+        env.reply_text = f"No hay pendiente #{numero.group(1)}.\n" + _lista_pendientes(pend)
+        return True
     decision = "approved" if si else "rejected"
     borrar = si and row.get("intent") == "borrar_datos"
     # Aviso al cliente antes de resolver el caso.
@@ -740,8 +744,12 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         + (" Datos borrados: nombre, correo y notas. Pedidos, citas y auditoría se quedan." if borrar else "")
     )
     env.approval_status = decision
-    env.result = "ok"
     return True
+
+
+def _lista_pendientes(pend: list[dict]) -> str:
+    lineas = [f"- #{p['n']} {p.get('intent')}: {p.get('requested_action')}" for p in pend[:10]]
+    return "Pendientes:\n" + "\n".join(lineas) + "\nEscribe aprobar N o rechazar N."
 
 
 # "ref CAF01", "código CAF01" o solo "CAF01" (letras y luego cifras).
