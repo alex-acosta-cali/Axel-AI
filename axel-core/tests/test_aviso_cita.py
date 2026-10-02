@@ -6,13 +6,14 @@ from __future__ import annotations
 import json
 import sys
 import tempfile
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from axel import knowledge_base as kb
+from axel.agents import reservas
 from axel.agents.reservas import _CALI, _NOMBRE_DIA, _ahora_cali, _cuando, avisos_cita, cerrar_recordatorio, cupos_de, proxima_viva, recordatorio_dia
 from axel.envelope import Envelope
 from axel.memory import Memory
@@ -115,21 +116,23 @@ def main() -> int:
             print(quien, repr(texto), "->", out.reply_text)
             return out.reply_text or ""
 
-        manana = _ahora_cali().date() + timedelta(days=1)
+        # Reloj fijo: lunes 05/10 8:00 Cali. «mañana» = martes 06/10, sin cupo guardado por esta prueba
+        # (las fijas son 02/10 9:00, 03/10 11:00 y 05/10 15:00). Con el reloj real chocaba el viernes 02/10.
+        reservas._ahora_cali = lambda: datetime(2026, 10, 5, 8, 0, tzinfo=_CALI)
+        manana = date(2026, 10, 6)
         dice("quiero una cita", "ana")
         r = dice("mañana 11", "ana")
-        if manana.weekday() == 6:
-            assert not r.startswith("Quedó tu cita"), "domingo no se agenda"
-        else:
-            assert r.startswith(f"Quedó tu cita: {_NOMBRE_DIA[manana.weekday()]} 11:00"), r
-            ana = memory.find_by_identity("test", "ana")["customer_id"]
-            assert memory.last_reserva(ana)["cita_at"] == f"{manana.isoformat()} 11:00", memory.last_reserva(ana)
-            assert dice("mis citas", "ana") == f"Tus reservas:\n- {_NOMBRE_DIA[manana.weekday()]} {manana.strftime('%d/%m')} 11:00"
-            dice("quiero una cita", "beto")
-            assert not dice("mañana 11", "beto").startswith("Quedó tu cita"), "franja tomada"
+        assert r.startswith(f"Quedó tu cita: {_NOMBRE_DIA[manana.weekday()]} 11:00"), r
+        ana = memory.find_by_identity("test", "ana")["customer_id"]
+        assert memory.last_reserva(ana)["cita_at"] == f"{manana.isoformat()} 11:00", memory.last_reserva(ana)
+        assert dice("mis citas", "ana") == f"Tus reservas:\n- {_NOMBRE_DIA[manana.weekday()]} {manana.strftime('%d/%m')} 11:00"
+        dice("quiero una cita", "beto")
+        r = dice("mañana 11", "beto")
+        assert r.startswith("Ese cupo ya está tomado."), "franja tomada"
         dice("quiero una cita", "caro")
         assert not dice("mañana 10", "caro").startswith("Quedó tu cita"), "10 no es franja"
     finally:
+        reservas._ahora_cali = _ahora_cali
         kb._kb_path = original
         kb_tmp.unlink(missing_ok=True)
 
