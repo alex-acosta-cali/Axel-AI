@@ -138,10 +138,13 @@ def main() -> int:
         assert len(msgs) == 1 and msgs[0]["foto"] is True and msgs[0]["text"] == "", msgs
         assert "MEDIA123" not in json.dumps(msgs), msgs
         # Con pedido anotado: comprobante. Sin pedido: producto. Al dueño: "Llegó una foto."
+        # Muro 55: el pedido anotado pasa a por verificar y el dueño sabe cuál.
         assert dice("", ANA, foto=True) == FOTO_COMPROBANTE
+        assert memory.list_pedidos()[0]["estado"] == "por verificar"
         assert dice("", LUIS, foto=True).startswith(FOTO_PRODUCTO)
-        fotos = [e for e in memory.list_envios(50) if e["tipo"] == "foto"]
-        assert len(fotos) == 2 and all(e["texto"] == "Llegó una foto." for e in fotos), fotos
+        fotos = [e["texto"] for e in memory.list_envios(50) if e["tipo"] == "foto"]
+        pid = memory.list_pedidos()[0]["pedido_id"]
+        assert sorted(fotos) == ["Llegó una foto.", f"Llegó una foto. Pedido {pid} quedó por verificar."], fotos
 
         # Muro 38: listo sin pagar no entrega. Pagado N usa el # de pedidos. Reporte con estados.
         pid = memory.list_pedidos()[0]["pedido_id"]

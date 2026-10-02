@@ -556,6 +556,21 @@ class Memory:
             ).fetchone()
         return bool(row)
 
+    def foto_por_verificar(self, customer_id: str, business_id: str = "biz_default") -> int | None:
+        """Muro 55: el pedido más nuevo del cliente sin pagar pasa a 'por verificar'. Su número, o None si no hay."""
+        if not customer_id:
+            return None
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT pedido_id FROM pedidos WHERE customer_id = ? AND estado IN ('anotado', 'por verificar')"
+                " AND COALESCE(business_id, 'biz_default') = ? ORDER BY created_at DESC, pedido_id DESC LIMIT 1",
+                (customer_id, business_id),
+            ).fetchone()
+            if not row:
+                return None
+            conn.execute("UPDATE pedidos SET estado = 'por verificar' WHERE pedido_id = ?", (row[0],))
+        return int(row[0])
+
     def pedidos_abiertos(self, codigo: str, business_id: str = "biz_default") -> int:
         """Muro 47/49: pedidos de ese código que todavía no se entregan ni se rechazan.
         Cuenta por código ('CAF01 ...'), no por nombre: si el dueño cambia el nombre, la unidad sigue reservada."""

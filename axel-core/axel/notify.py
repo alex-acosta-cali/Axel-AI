@@ -56,9 +56,10 @@ def aviso_pedido(quien: str, pedido: str, memory: Memory | None = None) -> str:
     return text
 
 
-def aviso_foto(memory: Memory | None = None) -> str:
-    """Muro 42: al dueño solo se le dice que llegó. AXEL no descarga ni interpreta la foto."""
-    text = "Llegó una foto."
+def aviso_foto(memory: Memory | None = None, pedido_id: int | None = None) -> str:
+    """Muro 42: al dueño solo se le dice que llegó. AXEL no descarga ni interpreta la foto.
+    Muro 55: si un pedido pasó a por verificar, se dice cuál."""
+    text = "Llegó una foto." + (f" Pedido {pedido_id} quedó por verificar." if pedido_id else "")
     enviar(memory, "foto", os.getenv("WA_OWNER_PHONE") or "", text)
     return text
 

@@ -938,14 +938,16 @@ FOTO_PRODUCTO = "Recibí la foto. Escribe el código o el nombre. El dueño conf
 
 
 def _foto(env: Envelope, memory: Memory) -> None:
-    """Muro 42: la foto no se lee. Con pedido anotado o por verificar es comprobante; si no, producto."""
+    """Muro 42: la foto no se lee. Con pedido anotado o por verificar es comprobante; si no, producto.
+    Muro 55: el pedido sin pagar más nuevo pasa a por verificar. El pago lo marca el dueño."""
     env.intent = "foto"
     env.agent = "atencion"
     env.supervision_level = 1
     env.result = "ok"
     env.approval_status = "na"
-    env.reply_text = FOTO_COMPROBANTE if memory.pedido_por_pagar(env.customer_id or "") else FOTO_PRODUCTO
-    env.payload["aviso_foto"] = notify.aviso_foto(memory)
+    pedido_id = memory.foto_por_verificar(env.customer_id or "")
+    env.reply_text = FOTO_COMPROBANTE if pedido_id else FOTO_PRODUCTO
+    env.payload["aviso_foto"] = notify.aviso_foto(memory, pedido_id)
     env.why = "foto recibida, no leída"
 
 
