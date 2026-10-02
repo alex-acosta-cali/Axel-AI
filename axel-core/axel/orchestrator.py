@@ -488,6 +488,25 @@ def _pedido_listo(memory: Memory, quien: str) -> str:
     )
 
 
+_CANCELAR_PEDIDO = re.compile(r"^cancelar (?:el )?pedido(?:\s+#?(\d+))?\s*\.?$")
+PEDIDO_YA_VA = "Ese pedido ya va. No lo cancelo."
+PEDIDO_CLIENTE_NO_CANCELA = "Los pedidos los cancela el dueño. AXEL no cancela pedidos."
+
+
+def _cancelar_pedido(memory: Memory, numero: str | None) -> str:
+    """Muro 50: solo el dueño. Anotado o por verificar pasa a rechazado y suelta la unidad."""
+    if not numero:
+        return "Escribe cancelar pedido y el número del pedido (lo ves en pedidos)."
+    estado = memory.cancelar_pedido(int(numero))
+    if estado == "cancelado":
+        return f"Pedido #{numero} cancelado. La unidad vuelve al disponible."
+    if estado in {"pagado", "en camino"}:
+        return PEDIDO_YA_VA
+    if estado:
+        return f"El pedido #{numero} ya está {estado}. No lo cancelo."
+    return f"No hay pedido #{numero}."
+
+
 def _lista_anotados(pedidos: list[dict]) -> str:
     return "\n".join(
         f"- {p.get('name') or 'sin nombre'} · {p['servicio']} {kb_mod.precio_txt(p['precio'])} · "
@@ -658,6 +677,15 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         env.agent = "escalamiento"
         env.supervision_level = 1
         env.reply_text = _pedido_listo(memory, (listo.group(1) or "").strip())
+        env.result = "ok"
+        env.approval_status = "na"
+        return True
+    cancelar = _CANCELAR_PEDIDO.match(t)
+    if cancelar:
+        env.intent = "admin"
+        env.agent = "escalamiento"
+        env.supervision_level = 1
+        env.reply_text = _cancelar_pedido(memory, cancelar.group(1))
         env.result = "ok"
         env.approval_status = "na"
         return True
@@ -1024,6 +1052,16 @@ def process(env: Envelope, memory: Memory) -> Envelope:
     resuelto = False
     if env.payload.get("foto") and not env.payload["es_dueno"]:
         _foto(env, memory)
+        resuelto = True
+    elif not env.payload["es_dueno"] and _CANCELAR_PEDIDO.match(_norm(env.text or "").strip()):
+        # Muro 50: un cliente no cancela pedidos (ni el de otro). Lo hace el dueño.
+        env.intent = "pedido"
+        env.agent = "atencion"
+        env.supervision_level = 1
+        env.result = "ok"
+        env.approval_status = "na"
+        env.reply_text = PEDIDO_CLIENTE_NO_CANCELA
+        env.why = "cancelar pedido es del dueño"
         resuelto = True
     elif not env.payload["es_dueno"] and open_task not in {"reserva", "reprogramar"}:
         if codigo:

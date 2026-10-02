@@ -167,6 +167,20 @@ def main() -> int:
         r = dice("me lo llevo CAF01", ANA, "Ana")
         assert r.startswith("No hay CAF01 ahora."), r
 
+        # Muro 50: cancelar pedido N es del dueño. Anotado pasa a rechazado y suelta la unidad.
+        dice("producto CAF03 | cafe tostado | 9000 | 1", DUENO)
+        dice("me lo llevo CAF03", ANA, "Ana")
+        assert dice("me lo llevo CAF03", LUIS, "Luis").startswith("No hay CAF03 ahora.")
+        pid = memory.list_pedidos()[0]["pedido_id"]
+        assert dice(f"cancelar pedido {pid}", LUIS).startswith("Los pedidos los cancela el dueño.")
+        assert memory.list_pedidos()[0]["estado"] == "anotado"
+        assert dice(f"cancelar pedido {pid}", DUENO).startswith(f"Pedido #{pid} cancelado.")
+        assert memory.list_pedidos()[0]["estado"] == "rechazado"
+        assert dice("me lo llevo CAF03", LUIS, "Luis").startswith("Pedido anotado: CAF03")
+        pid = memory.list_pedidos()[0]["pedido_id"]
+        dice(f"pedido pagado {pid}", DUENO)
+        assert dice(f"cancelar pedido {pid}", DUENO) == "Ese pedido ya va. No lo cancelo."
+
         # Muro 39: kb.json roto no tumba AXEL. Usa la última copia.
         kb_tmp.write_text("{roto", encoding="utf-8")
         assert kb.buscar_producto("CAF01"), "no usó la última copia"

@@ -594,6 +594,23 @@ class Memory:
             )
             return cur.rowcount == 1
 
+    def cancelar_pedido(self, pedido_id: int, business_id: str = "biz_default") -> str:
+        """Muro 50: 'anotado' o 'por verificar' pasa a 'rechazado' y la unidad vuelve al disponible.
+        Devuelve 'cancelado' si lo canceló; si no, el estado que tiene ('' si no existe)."""
+        with self._conn() as conn:
+            cur = conn.execute(
+                "UPDATE pedidos SET estado = 'rechazado' WHERE pedido_id = ? AND estado IN ('anotado', 'por verificar')"
+                " AND COALESCE(business_id, 'biz_default') = ?",
+                (pedido_id, business_id),
+            )
+            if cur.rowcount == 1:
+                return "cancelado"
+            row = conn.execute(
+                "SELECT estado FROM pedidos WHERE pedido_id = ? AND COALESCE(business_id, 'biz_default') = ?",
+                (pedido_id, business_id),
+            ).fetchone()
+        return str(row[0]) if row else ""
+
     def pagar_pedido(self, pedido_id: int, business_id: str = "biz_default") -> bool:
         """Muro 38: solo el dueño marca pagado. AXEL no mira el banco ni acepta una foto como pago."""
         with self._conn() as conn:
