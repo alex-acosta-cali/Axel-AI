@@ -192,10 +192,15 @@ def main() -> int:
         assert dice(f"cancelar pedido {pid}", DUENO) == "Ese pedido ya va. No lo cancelo."
 
         # Muro 52: pagado y con contacto proveedor pasa a en camino. No se le escribe al proveedor.
+        # Muro 59: al cliente sí: un solo envío, a Luis.
+        memory.set_customer_phone(memory.list_pedidos()[0]["customer_id"], LUIS)
         envios_antes = len(memory.list_envios(100))
         assert dice(f"pedido en camino {pid}", DUENO) == f"Pedido #{pid} en camino. AXEL no le escribe al proveedor."
         assert memory.list_pedidos()[0]["estado"] == "en camino"
-        assert len(memory.list_envios(100)) == envios_antes
+        assert len(memory.list_envios(100)) == envios_antes + 1
+        aviso = memory.list_envios(1)[0]
+        assert aviso["tipo"] == "pedido_en_camino" and aviso["destino"] and LUIS.endswith(aviso["destino"]), aviso
+        assert aviso["texto"] == "Tu pedido de CAF03 va en camino.", aviso
         assert dice(f"pedido en camino {pid}", DUENO) == f"No hay pedido #{pid} pagado."
         assert dice(f"pedido en camino {pid}", LUIS, "Luis") != f"Pedido #{pid} en camino. AXEL no le escribe al proveedor."
 

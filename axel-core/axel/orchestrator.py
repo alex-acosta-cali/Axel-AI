@@ -744,6 +744,13 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         elif not camino.group(1):
             env.reply_text = "Escribe pedido en camino y el número del pedido (lo ves en pedidos)."
         elif memory.en_camino_pedido(int(camino.group(1))):
+            # Muro 59: al cliente sí se le avisa. Al proveedor no.
+            p = next((p for p in memory.list_pedidos(500) if int(p["pedido_id"]) == int(camino.group(1))), None)
+            if p:
+                notify.aviso_cliente(
+                    memory, "pedido_en_camino", str(p.get("phone") or ""),
+                    f"Tu pedido de {_codigo_txt(str(p['servicio']))} va en camino.", str(p["customer_id"]),
+                )
             env.reply_text = f"Pedido #{camino.group(1)} en camino. AXEL no le escribe al proveedor."
         else:
             env.reply_text = f"No hay pedido #{camino.group(1)} pagado."
