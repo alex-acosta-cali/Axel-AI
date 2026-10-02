@@ -108,6 +108,8 @@ CREATE TABLE IF NOT EXISTS envios (
     created_at TEXT
 );
 """
+# Muro 38: estados del pedido, en orden. 'rechazado' va aparte. Sin banco.
+ESTADOS_PEDIDO = ("anotado", "por verificar", "pagado", "en camino", "entregado")
 # Nota vieja "Pedido piloto corte $25.000 (sin cobro)" -> fila en pedidos.
 _NOTA_PEDIDO = re.compile(r"^Pedido piloto (.+) \$([\d.]+) \(sin cobro\)$")
 
@@ -559,10 +561,20 @@ class Memory:
         return [dict(r) for r in rows]
 
     def entregar_pedido(self, pedido_id: int, business_id: str = "biz_default") -> bool:
-        """Ese pedido 'anotado' pasa a 'entregado'. Entregado no es pagado: AXEL no cobra."""
+        """Muro 38: solo un pedido 'pagado' o 'en camino' pasa a 'entregado'. AXEL no cobra."""
         with self._conn() as conn:
             cur = conn.execute(
-                "UPDATE pedidos SET estado = 'entregado' WHERE pedido_id = ? AND estado = 'anotado'"
+                "UPDATE pedidos SET estado = 'entregado' WHERE pedido_id = ? AND estado IN ('pagado', 'en camino')"
+                " AND COALESCE(business_id, 'biz_default') = ?",
+                (pedido_id, business_id),
+            )
+            return cur.rowcount == 1
+
+    def pagar_pedido(self, pedido_id: int, business_id: str = "biz_default") -> bool:
+        """Muro 38: solo el dueño marca pagado. AXEL no mira el banco ni acepta una foto como pago."""
+        with self._conn() as conn:
+            cur = conn.execute(
+                "UPDATE pedidos SET estado = 'pagado' WHERE pedido_id = ? AND estado IN ('anotado', 'por verificar')"
                 " AND COALESCE(business_id, 'biz_default') = ?",
                 (pedido_id, business_id),
             )

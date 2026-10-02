@@ -424,18 +424,19 @@ def pedidos_filas(memory: Memory, limit: int = 15) -> list[tuple[str, str, str, 
     """(hora Cali, nombre o celular, 'servicio $N', anotado/entregado) de los últimos pedidos. Solo para el dueño."""
     filas = []
     for p in memory.list_pedidos(limit):
-        pedido = f"{p['servicio']} {kb_mod.precio_txt(p['precio'])}"
+        pedido = f"#{p['pedido_id']} {p['servicio']} {kb_mod.precio_txt(p['precio'])}"
         hora = reservas._creada_cali(str(p.get("created_at") or "")).strftime("%d/%m %H:%M")
         filas.append((hora, str(p.get("name") or p.get("phone") or "sin nombre"), pedido, str(p.get("estado") or "anotado")))
     return filas
 
 
 PEDIDO_LISTO_AYUDA = "Escribe pedido listo NOMBRE o las últimas 4 cifras del celular."
+PEDIDO_FALTA_PAGO = "Falta marcarlo pagado."
 
 
 def _pedido_listo(memory: Memory, quien: str) -> str:
-    """Marca entregado un pedido anotado. Sin 'quien': solo si hay uno hoy. Nunca el de otra persona."""
-    anotados = [p for p in memory.list_pedidos(500) if (p.get("estado") or "anotado") == "anotado"]
+    """Marca entregado un pedido abierto. Sin 'quien': solo si hay uno hoy. Nunca el de otra persona."""
+    anotados = [p for p in memory.list_pedidos(500) if (p.get("estado") or "anotado") not in {"entregado", "rechazado"}]
     if not anotados:
         return "No hay pedidos anotados."
     if quien:
@@ -459,9 +460,13 @@ def _pedido_listo(memory: Memory, quien: str) -> str:
             return f"No hay pedidos anotados hoy. {PEDIDO_LISTO_AYUDA}"
         if len(cands) > 1:
             return "Pedidos anotados:\n" + _lista_anotados(cands) + f"\n{PEDIDO_LISTO_AYUDA}"
-    p = cands[0]
+    # Muro 38: solo se entrega lo pagado o en camino. El pago lo marca el dueño.
+    listos = [p for p in cands if p.get("estado") in {"pagado", "en camino"}]
+    if not listos:
+        return PEDIDO_FALTA_PAGO
+    p = listos[0]
     if not memory.entregar_pedido(int(p["pedido_id"])):
-        return "No hay pedidos anotados."
+        return PEDIDO_FALTA_PAGO
     notify.aviso_cliente_listo(str(p.get("phone") or ""), str(p["servicio"]), memory, str(p["customer_id"]))
     return (
         f"Entregado: {p['servicio']} {kb_mod.precio_txt(p['precio'])} · "
@@ -497,7 +502,7 @@ def _reporte(memory: Memory) -> str:
         f"Pedidos hoy: {len(pedidos)} · total {kb_mod.precio_txt(sum(int(p['precio']) for p in pedidos))}",
         *[
             f"- {estado}s: {len(grupo)} · {kb_mod.precio_txt(sum(int(p['precio']) for p in grupo))}"
-            for estado in ("anotado", "entregado")
+            for estado in ("anotado", "pagado", "entregado")
             for grupo in [[p for p in pedidos if (p.get("estado") or "anotado") == estado]]
         ],
         f"Pendientes N3: {len(memory.list_pending())}",
@@ -578,7 +583,7 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         env.agent = "escalamiento"
         env.supervision_level = 1
         env.reply_text = (
-            "Comandos dueño: estado, estado axel, reporte, limpiar, pendientes, citas, clientes, pedidos, pedido listo, envios, catalogo, "
+            "Comandos dueño: estado, estado axel, reporte, limpiar, pendientes, citas, clientes, pedidos, pedido pagado N, pedido listo, envios, catalogo, "
             "aceptar/aprobar, rechazo/rechazar, ayuda, "
             "configurar, cancelar configurar, el negocio se llama NOMBRE, abrimos de H1 a H2, "
             "el rubro es X, agenda si/no, agrega servicio X a N, "
@@ -643,6 +648,20 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         env.agent = "escalamiento"
         env.supervision_level = 1
         env.reply_text = _pedido_listo(memory, (listo.group(1) or "").strip())
+        env.result = "ok"
+        env.approval_status = "na"
+        return True
+    pagado = re.match(r"^pedido pagado(?:\s+#?(\d+))?$", t)
+    if pagado:
+        env.intent = "admin"
+        env.agent = "escalamiento"
+        env.supervision_level = 1
+        if not pagado.group(1):
+            env.reply_text = "Escribe pedido pagado y el número del pedido (lo ves en pedidos)."
+        elif memory.pagar_pedido(int(pagado.group(1))):
+            env.reply_text = f"Pedido #{pagado.group(1)} pagado. Lo marcaste tú: AXEL no mira el banco."
+        else:
+            env.reply_text = f"No hay pedido #{pagado.group(1)} por pagar."
         env.result = "ok"
         env.approval_status = "na"
         return True

@@ -144,13 +144,16 @@ def main() -> int:
         reporte = dice("reporte")
         assert reporte.startswith("Reporte ") and "(Cali)" in reporte, reporte
         assert "Citas hoy: 0" in reporte and "Pedidos hoy: 2 · total $35.000" in reporte and "Pendientes N3: 0" in reporte
-        assert "- anotados: 2 · $35.000\n- entregados: 0 · $0" in reporte, reporte
+        assert "- anotados: 2 · $35.000\n- pagados: 0 · $0\n- entregados: 0 · $0" in reporte, reporte
         # Dos anotados hoy: "pedido listo" lista y pide nombre; con nombre marca el más nuevo de ese cliente.
         assert dice("pedido listo").startswith("Pedidos anotados:\n")
         dice("me llamo Ana", canal="whatsapp")
+        # Muro 38: sin pagado no se entrega.
+        assert dice("pedido listo ana") == "Falta marcarlo pagado."
+        assert dice("pedido pagado 2").startswith("Pedido #2 pagado.")
         assert dice("pedido listo ana") == "Entregado: barba $10.000 · Ana. AXEL no cobra."
         reporte = dice("reporte")
-        assert "Pedidos hoy: 2 · total $35.000\n- anotados: 1 · $25.000\n- entregados: 1 · $10.000" in reporte, reporte
+        assert "Pedidos hoy: 2 · total $35.000\n- anotados: 1 · $25.000\n- pagados: 0 · $0\n- entregados: 1 · $10.000" in reporte, reporte
         assert "Pedidos hoy" not in dice("reporte", canal="whatsapp"), "el cliente no ve el reporte"
         assert re.search(r"Último pedido: barba \$10\.000, \d\d/\d\d \d\d:\d\d\.$", dice("mi ficha", canal="whatsapp"))
 

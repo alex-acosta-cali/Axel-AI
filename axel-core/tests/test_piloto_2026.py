@@ -55,6 +55,13 @@ def main() -> int:
         print(quien[-1], repr(texto), "->", out.reply_text)
         return out
 
+    def pagar(quien: str) -> None:
+        """Muro 38: el dueño marca pagado cada pedido anotado de ese cliente con pedido pagado N."""
+        cid = memory.find_by_identity("whatsapp", quien)["customer_id"]
+        for p in memory.list_pedidos(500):
+            if p["customer_id"] == cid and p["estado"] == "anotado":
+                assert (dice(f"pedido pagado {p['pedido_id']}", DUENO).reply_text or "").startswith(f"Pedido #{p['pedido_id']} pagado.")
+
     original = kb._kb_path
     kb._kb_path = lambda: kb_tmp
     try:
@@ -86,6 +93,11 @@ def main() -> int:
         assert dueno.endswith("cafe $4.000 · anotado"), dueno
         dice("pedido listo", CLIENTE)
         assert [p["estado"] for p in memory.list_pedidos()] == ["anotado"], "el cliente no cambia estado"
+        # Muro 38: sin pagado no se entrega. El cliente no marca pagado.
+        assert dice("pedido listo", DUENO).reply_text == "Falta marcarlo pagado."
+        dice("pedido pagado 1", CLIENTE)
+        assert [p["estado"] for p in memory.list_pedidos()] == ["anotado"], "el cliente no marca pagado"
+        pagar(CLIENTE)
         assert dice("pedido listo", DUENO).reply_text == "Entregado: cafe $4.000 · sin nombre. AXEL no cobra."
         assert (dice("pedidos", DUENO).reply_text or "").endswith("cafe $4.000 · entregado")
         assert dice("pedido listo", DUENO).reply_text == "No hay pedidos anotados."
@@ -184,6 +196,8 @@ def main() -> int:
         assert mismo.startswith("Hay varios con ese nombre") and "cel …2233" in mismo, mismo
         assert estados() == antes_listo, mismo
         # Al entregar, aviso a ESE cliente por su celular. Sin celular no se envía (solo log).
+        pagar(fer)
+        pagar(gil)
         enviados = []
         envio_real = notify.send_text
         notify.send_text = lambda to, text: enviados.append((to, text)) or {"fake": True}
@@ -192,7 +206,7 @@ def main() -> int:
         assert enviados == [("3001112233", "Tu pedido de corte quedó listo. El dueño confirma el pago. AXEL no cobra.")], enviados
         fer_id = memory.find_by_identity("whatsapp", fer)["customer_id"]
         assert dict((p["customer_id"], p["estado"]) for p in memory.list_pedidos(50) if p["servicio"] == "corte") == {
-            fer_id: "entregado", memory.find_by_identity("whatsapp", gil)["customer_id"]: "anotado"
+            fer_id: "entregado", memory.find_by_identity("whatsapp", gil)["customer_id"]: "pagado"
         }
         r = dice("pedido listo", DUENO).reply_text or ""
         assert r.startswith("Entregado: corte $") and r.endswith(" · Gil. AXEL no cobra."), r
@@ -223,6 +237,7 @@ def main() -> int:
         assert de_hab() == ["anotado", "anotado"], "pedido listo solo no cierra los dos"
 
         dice("mi celular 3004445566", p1)
+        pagar(p1)
         enviados = []
         notify.send_text = lambda to, text: enviados.append((to, text)) or {"fake": True}
         try:
@@ -338,6 +353,7 @@ def main() -> int:
         vieja_id = memory.find_by_identity("whatsapp", vieja)["customer_id"]
         with memory._conn() as conn:
             conn.execute("UPDATE messages SET created_at = datetime('now', '-25 hours') WHERE customer_id = ?", (vieja_id,))
+        pagar(vieja)
         enviados = []
         notify.send_text = lambda to, text: enviados.append((to, text)) or {"fake": True}
         try:
