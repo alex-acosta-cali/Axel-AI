@@ -175,7 +175,9 @@ def main() -> int:
         dice("me lo llevo CAF03", ANA, "Ana")
         assert dice("me lo llevo CAF03", LUIS, "Luis").startswith("No hay CAF03 ahora.")
         pid = memory.list_pedidos()[0]["pedido_id"]
-        assert dice(f"cancelar pedido {pid}", LUIS).startswith("Los pedidos los cancela el dueño.")
+        # Muro 56: Luis no cancela el pedido de Ana.
+        assert dice(f"cancelar pedido {pid}", LUIS).startswith(f"No tienes pedido #{pid}.")
+        assert dice("cancelar pedido", LUIS).startswith("No tienes pedidos para cancelar.")
         assert memory.list_pedidos()[0]["estado"] == "anotado"
         assert dice(f"cancelar pedido {pid}", DUENO).startswith(f"Pedido #{pid} cancelado.")
         assert memory.list_pedidos()[0]["estado"] == "rechazado"

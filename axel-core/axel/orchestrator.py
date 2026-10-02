@@ -503,7 +503,31 @@ def _inventario(memory: Memory) -> str:
 
 _CANCELAR_PEDIDO = re.compile(r"^cancelar (?:el )?pedido(?:\s+#?(\d+))?\s*\.?$")
 PEDIDO_YA_VA = "Ese pedido ya va. No lo cancelo."
-PEDIDO_CLIENTE_NO_CANCELA = "Los pedidos los cancela el dueño. AXEL no cancela pedidos."
+PEDIDO_YA_VA_CLIENTE = "Ese pedido ya va. Lo cancela el dueño."
+
+
+def _codigo_txt(servicio: str) -> str:
+    """Pedido del inventario: su código. Servicio sin código: su nombre."""
+    return str((kb_mod.producto_de_pedido(servicio) or {}).get("codigo") or servicio)
+
+
+def _cliente_cancela(memory: Memory, customer_id: str, numero: str | None) -> str:
+    """Muro 56: el cliente cancela solo lo suyo, anotado o por verificar. Sin número, el más nuevo de esos.
+    Pasa a rechazado y suelta la unidad. Pagado o en camino lo cancela el dueño."""
+    suyos = [p for p in memory.list_pedidos(500) if p.get("customer_id") == customer_id]
+    if numero:
+        suyos = [p for p in suyos if int(p["pedido_id"]) == int(numero)]
+        if not suyos:
+            return f"No tienes pedido #{numero}."
+    abiertos = [p for p in suyos if (p.get("estado") or "anotado") in {"anotado", "por verificar"}]
+    if not abiertos:
+        if any(p.get("estado") in {"pagado", "en camino"} for p in suyos):
+            return PEDIDO_YA_VA_CLIENTE
+        return "No tienes pedidos para cancelar."
+    p = abiertos[0]
+    if memory.cancelar_pedido(int(p["pedido_id"])) != "cancelado":
+        return PEDIDO_YA_VA_CLIENTE
+    return f"Cancelé tu pedido de {_codigo_txt(str(p['servicio']))}."
 
 
 def _cancelar_pedido(memory: Memory, numero: str | None) -> str:
@@ -1093,15 +1117,15 @@ def process(env: Envelope, memory: Memory) -> Envelope:
     if env.payload.get("foto") and not env.payload["es_dueno"]:
         _foto(env, memory)
         resuelto = True
-    elif not env.payload["es_dueno"] and _CANCELAR_PEDIDO.match(_norm(env.text or "").strip()):
-        # Muro 50: un cliente no cancela pedidos (ni el de otro). Lo hace el dueño.
+    elif not env.payload["es_dueno"] and (cancela := _CANCELAR_PEDIDO.match(_norm(env.text or "").strip())):
+        # Muro 56: el cliente cancela lo suyo si no está pagado. Nunca el de otro.
         env.intent = "pedido"
         env.agent = "atencion"
         env.supervision_level = 1
         env.result = "ok"
         env.approval_status = "na"
-        env.reply_text = PEDIDO_CLIENTE_NO_CANCELA
-        env.why = "cancelar pedido es del dueño"
+        env.reply_text = _cliente_cancela(memory, env.customer_id or "", cancela.group(1))
+        env.why = "cliente cancela su pedido sin pagar"
         resuelto = True
     elif not env.payload["es_dueno"] and open_task not in {"reserva", "reprogramar"}:
         if codigo:
