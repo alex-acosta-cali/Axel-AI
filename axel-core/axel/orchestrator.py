@@ -726,9 +726,22 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         return True
     decision = "approved" if si else "rejected"
     borrar = si and row.get("intent") == "borrar_datos"
+    # Muro 41: aprobar una referencia lleva precio y plazo del dueño. Sin ellos no se resuelve.
+    ref_ok = None
+    if si and row.get("intent") == "referencia":
+        ref_ok = _APROBAR_REF.match((env.text or "").strip())
+        if not ref_ok or _pesos(ref_ok.group(1)) <= 0:
+            env.reply_text = REF_APROBAR_AYUDA
+            return True
     # Aviso al cliente antes de resolver el caso.
     cli = memory.get_customer(str(row.get("customer_id") or "")) or {}
-    if borrar:
+    if ref_ok:
+        codigo = str(row.get("requested_action") or "").split(" · ")[0]
+        texto_cliente = (
+            f"{codigo}: {kb_mod.precio_txt(_pesos(ref_ok.group(1)))}. Entrega: {ref_ok.group(2).strip()[:60]}. "
+            "El dueño confirma el pedido y el pago. AXEL no cobra."
+        )
+    elif borrar:
         texto_cliente = "El dueño aprobó borrar tus datos. Tu nombre, correo y notas ya no quedan en la ficha."
     elif si:
         texto_cliente = "El dueño ya revisó tu caso y lo aprobó. Te escribimos si falta algo."
@@ -742,6 +755,7 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         f"Quedó {decision} el caso {row.get('event_id')} "
         f"({row.get('intent')})."
         + (" Datos borrados: nombre, correo y notas. Pedidos, citas y auditoría se quedan." if borrar else "")
+        + (f" Al cliente: {texto_cliente}" if ref_ok else "")
     )
     env.approval_status = decision
     return True
@@ -792,6 +806,51 @@ def _referencia(env: Envelope, memory: Memory, codigo: str) -> None:
     env.result = "pending"
     env.approval_status = "pending_owner"
     env.why = REF_SIN_INVENTARIO
+
+
+# Muro 41: "me lo llevo CAF01" / "lo compro ref CAF01".
+_PEDIDO_CODIGO = re.compile(
+    r"(?:me lo llevo|lo compro)\s+(?:el\s+|la\s+)?(?:(?:ref|referencia|c[oó]digo)\s*:?\s*)?([a-z0-9][a-z0-9-]{1,19})\s*[.!]?$", re.I
+)
+
+
+def _codigo_pedido(texto: str) -> str:
+    """El código de un pedido por referencia: uno del inventario o con forma de código (letras y cifras). '' si no."""
+    m = _PEDIDO_CODIGO.search((texto or "").strip())
+    if not m:
+        return ""
+    codigo = m.group(1).upper()
+    if kb_mod.buscar_producto(codigo) or re.match(r"^[A-Z]{2,}-?\d", codigo):
+        return codigo
+    return ""
+
+
+def _pedido_codigo(env: Envelope, memory: Memory, codigo: str) -> None:
+    """Muro 41: con stock se anota con el precio de venta del inventario. Sin stock no se anota.
+    Sin el código en inventario no se anota: nota al dueño (muro 37)."""
+    p = kb_mod.buscar_producto(codigo)
+    if not p:
+        _referencia(env, memory, codigo)
+        return
+    env.intent = "pedido"
+    env.agent = "atencion"
+    env.supervision_level = 1
+    env.result = "ok"
+    env.approval_status = "na"
+    stock = int(p.get("stock") or 0)
+    if stock <= 0:
+        env.reply_text = f"No hay {codigo} ahora."
+        env.why = "referencia sin stock"
+        return
+    pedido = f"{p['codigo']} {p['nombre']} {kb_mod.precio_txt(p['precio'])}"
+    memory.add_pedido(env.customer_id, f"{p['codigo']} {p['nombre']}", int(p["precio"]))
+    env.payload["aviso_pedido"] = notify.aviso_pedido(env.name or env.phone or "sin nombre", pedido, memory)
+    env.reply_text = f"Pedido anotado: {pedido}. Stock {stock}. El dueño confirma el pago."
+    env.why = "pedido por referencia en inventario"
+
+
+_APROBAR_REF = re.compile(r"^\S+\s+#?\d+\s+\$?([\d.,]+)\s+(.+)$")
+REF_APROBAR_AYUDA = "Escribe aprobar N PRECIO PLAZO. Ejemplo: aprobar 3 45000 mañana."
 
 
 def pick_agent(intent: str) -> str:
@@ -927,8 +986,18 @@ def process(env: Envelope, memory: Memory) -> Envelope:
         env.reply_text = f"Anoté en tu ficha: {texto}"
     open_task = memory.get_open_task(env.customer_id)
     ref = _REFERENCIA.match((env.text or "").strip())
-    if ref and not env.payload["es_dueno"] and open_task not in {"reserva", "reprogramar"}:
-        _referencia(env, memory, ref.group(1) or ref.group(2))
+    codigo = _codigo_pedido(env.text or "")
+    resuelto = False
+    if not env.payload["es_dueno"] and open_task not in {"reserva", "reprogramar"}:
+        if codigo:
+            _pedido_codigo(env, memory, codigo)
+            resuelto = True
+            if open_task == "oferta_cita":
+                memory.set_open_task(env.customer_id, "")
+                open_task = ""
+        elif ref:
+            _referencia(env, memory, ref.group(1) or ref.group(2))
+            resuelto = True
     if (
         open_task in {"reserva", "reprogramar", "oferta_cita"}
         and env.intent in {"pregunta", "saludo", "venta"}
@@ -949,7 +1018,7 @@ def process(env: Envelope, memory: Memory) -> Envelope:
         elif re.search(r"^(no|despues|después|ahora no)", _norm(env.text or "")):
             memory.set_open_task(env.customer_id, "")
             env.intent = "pregunta"
-    if env.intent != "referencia":
+    if not resuelto:
         env.agent = pick_agent(env.intent)
         env.supervision_level = classify_level(env.intent)
         env.why = reason_for(env.intent or "", env.supervision_level)
@@ -958,7 +1027,7 @@ def process(env: Envelope, memory: Memory) -> Envelope:
         env.model = decision.model
         env.model_reason = decision.reason
 
-    if env.intent == "referencia":
+    if resuelto:
         pass
     elif needs_owner_approval(env.supervision_level):
         env = escalamiento.handle(env)
