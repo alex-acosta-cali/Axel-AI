@@ -611,6 +611,16 @@ class Memory:
             ).fetchone()
         return str(row[0]) if row else ""
 
+    def en_camino_pedido(self, pedido_id: int, business_id: str = "biz_default") -> bool:
+        """Muro 52: solo un pedido 'pagado' pasa a 'en camino'. AXEL no le escribe al proveedor."""
+        with self._conn() as conn:
+            cur = conn.execute(
+                "UPDATE pedidos SET estado = 'en camino' WHERE pedido_id = ? AND estado = 'pagado'"
+                " AND COALESCE(business_id, 'biz_default') = ?",
+                (pedido_id, business_id),
+            )
+            return cur.rowcount == 1
+
     def pagar_pedido(self, pedido_id: int, business_id: str = "biz_default") -> bool:
         """Muro 38: solo el dueño marca pagado. AXEL no mira el banco ni acepta una foto como pago."""
         with self._conn() as conn:

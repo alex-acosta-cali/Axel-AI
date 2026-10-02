@@ -629,7 +629,7 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         env.agent = "escalamiento"
         env.supervision_level = 1
         env.reply_text = (
-            "Comandos dueño: estado, estado axel, reporte, limpiar, pendientes, citas, clientes, pedidos, pedido pagado N, pedido listo, cancelar pedido N, inventario, envios, catalogo, "
+            "Comandos dueño: estado, estado axel, reporte, limpiar, pendientes, citas, clientes, pedidos, pedido pagado N, pedido listo, pedido en camino N, cancelar pedido N, inventario, envios, catalogo, "
             "aprobar N, rechazar N, ayuda, "
             "configurar, cancelar configurar, el negocio se llama NOMBRE, abrimos de H1 a H2, "
             "el rubro es X, agenda si/no, agrega servicio X a N, "
@@ -699,6 +699,23 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         env.agent = "escalamiento"
         env.supervision_level = 1
         env.reply_text = _cancelar_pedido(memory, cancelar.group(1))
+        env.result = "ok"
+        env.approval_status = "na"
+        return True
+    camino = re.match(r"^pedido en camino(?:\s+#?(\d+))?\s*\.?$", t)
+    if camino:
+        env.intent = "admin"
+        env.agent = "escalamiento"
+        env.supervision_level = 1
+        # Muro 52: solo pagado y con contacto proveedor. No se le escribe al proveedor.
+        if not kb_mod.proveedor_contacto():
+            env.reply_text = "Falta el contacto proveedor."
+        elif not camino.group(1):
+            env.reply_text = "Escribe pedido en camino y el número del pedido (lo ves en pedidos)."
+        elif memory.en_camino_pedido(int(camino.group(1))):
+            env.reply_text = f"Pedido #{camino.group(1)} en camino. AXEL no le escribe al proveedor."
+        else:
+            env.reply_text = f"No hay pedido #{camino.group(1)} pagado."
         env.result = "ok"
         env.approval_status = "na"
         return True
