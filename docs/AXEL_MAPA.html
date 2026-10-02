@@ -95,7 +95,7 @@
 <body>
 <header>
   <h1>AXEL AI OS — mapa del organismo</h1>
-  <p>Un solo sistema. 2026 Mercado local → 2028 Maestro → 2030 Quantum. Estado real al 1 oct 2026. Un negocio, un WhatsApp, VPS vivo, panel 2026 = local + túnel SSH (no por negocio). No Meta producción.<br><b>Piloto 2026 cerrado (30 sep). Checklist marcado. VPS vivo. Ngrok apagado.</b> Siguiente de producto: nada. Meta producción, cobro e IG: no. Diseño del panel: otro hilo.</p>
+  <p>Un solo sistema. 2026 Mercado local → 2028 Maestro → 2030 Quantum. Estado real al 2 oct 2026. Un negocio, un WhatsApp, VPS vivo, panel 2026 = local + túnel SSH (no por negocio). No Meta producción.<br><b>Piloto 2026 cerrado (30 sep). Checklist marcado. VPS vivo. Ngrok apagado.</b> Siguiente de producto: nada. Meta producción, cobro e IG: no. Diseño del panel: otro hilo.</p>
 </header>
 <div class="legend">
   <span><i class="dot ok"></i>Hecho en el piloto</span>
@@ -156,17 +156,17 @@
     <div class="node ok"><b>Atención</b><span>KB + saludo vivo</span>
       <div class="tip">HECHO. Horario, precios, no inventa, pide nombre usable, saludo con turno o pedido + abierto/cerrado.</div></div>
     <div class="node ok"><b>Reservas</b><span>franjas KB · cita_at</span>
-      <div class="tip">HECHO. Cita nueva guarda cita_at (hora exacta Cali); cupos, saludo, avisos, reporte, mis citas, citas del dueño y panel la usan. Las viejas siguen con el texto, no se reescriben. Choque de cupos, mañana/ñ, cancelar/reprogramar con palabras de agenda, avisos 24h y 2h si el proceso vive.</div></div>
+      <div class="tip">HECHO. Cita nueva guarda cita_at (hora exacta Cali); cupos, saludo, avisos, reporte, mis citas, citas del dueño y panel la usan. Las viejas siguen con el texto, no se reescriben. Choque de cupos, mañana/ñ, cancelar/reprogramar con palabras de agenda, avisos 24h y 2h si el proceso vive. La prueba de aviso (test_aviso_cita) ya no depende de «mañana» con el reloj real.</div></div>
     <div class="node mid"><b>Ventas / pedidos</b><span>anota, no cobra</span>
       <div class="tip">PARCIAL. me lo llevo → fila. pedido listo por nombre o 4 cifras. Aviso al dueño y al cliente. Stock 0 no se vende («agotado»). No cobra: el dueño confirma el pago. NO hay cotización formal ni plata.</div></div>
     <div class="node ok"><b>Inventario</b><span>código · precio · stock</span>
-      <div class="tip">HECHO (1 oct). productos[] en kb.json: código, nombre, precio de venta, stock. El dueño: producto COD | NOMBRE | PRECIO | STOCK. «me lo llevo CAF01» anota si hay disponible (stock menos pedidos abiertos); si no, «No hay CAF01 ahora.». El stock baja solo al entregar, nunca de 0. Sin stock al entregar: «Falta producto.». No hay costo de proveedor.</div></div>
+      <div class="tip">HECHO (1 oct). productos[] en kb.json: código, nombre, precio de venta, stock. El dueño: producto COD | NOMBRE | PRECIO | STOCK. «me lo llevo CAF01» anota si hay disponible (stock menos pedidos abiertos, contado por código: cambiar el nombre no suelta la unidad); si no, «No hay CAF01 ahora.». El stock baja solo al entregar, nunca de 0. Sin stock al entregar: «Falta producto.». No hay costo de proveedor. El dueño ve inventario (código, nombre, stock, disponible; máx. 15). El cliente no.</div></div>
     <div class="node ok"><b>Contacto proveedor</b><span>guardado, sin escribirle</span>
       <div class="tip">HECHO (1 oct). El dueño: contacto proveedor NUMERO. Se guarda en kb.json (fuera de git). AXEL no le escribe. La nota de referencia sin inventario dice el número. No es secreto. No hay costo.</div></div>
     <div class="node ok"><b>Referencia</b><span>sin inventario no se vende</span>
       <div class="tip">HECHO (1 oct). Código fuera de inventario: no anota, nota al dueño «Referencia sin inventario. Falta tu sí.». El dueño aprueba con aprobar N PRECIO PLAZO y AXEL se lo manda al cliente. Sin número, aprobar lista los pendientes.</div></div>
     <div class="node ok"><b>Estados</b><span>sin banco</span>
-      <div class="tip">HECHO (1 oct). anotado → pagado (pedido pagado N, lo marca el dueño) → entregado (pedido listo). Listo sin pagar: «Falta marcarlo pagado.». por verificar, en camino y rechazado existen; nadie los pone aún. reporte: anotados, pagados, entregados.</div></div>
+      <div class="tip">HECHO (1 oct). anotado → pagado (pedido pagado N, lo marca el dueño) → en camino (pedido en camino N, solo con contacto proveedor; AXEL no le escribe) → entregado (pedido listo). Listo sin pagar: «Falta marcarlo pagado.». cancelar pedido N (dueño): anotado o por verificar pasa a rechazado y suelta la unidad; pagado o en camino no se cancela. por verificar existe y nadie lo pone aún. El cliente ve los suyos con mi pedido (código, precio, estado). reporte: anotados, pagados, entregados.</div></div>
     <div class="node ok"><b>Foto recibida</b><span>no leída</span>
       <div class="tip">HECHO (1 oct). La foto entra marcada; no se descarga ni se lee. Con pedido anotado o por verificar: comprobante, «el dueño lo verifica». Si no: pide código o nombre. Al dueño: «Llegó una foto.». AXEL no mira el banco.</div></div>
     <div class="node"><b>Facturación / cobro</b><span>N3 + humano</span>

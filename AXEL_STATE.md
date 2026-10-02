@@ -1,5 +1,5 @@
 # AXEL_STATE.md
-Actualizado: 2026-10-01 (Cali)
+Actualizado: 2026-10-02 (Cali)
 Dueño: Alex. Repo: C:\Proyectos\Axel-AI (PC) · /opt/Axel-AI (VPS)
 GitHub: https://github.com/alex-acosta-cali/Axel-AI (privado)
 
@@ -158,6 +158,14 @@ Muros 14-17 hechos (29 sep): 14 tono en la KB, 15 stock 0 no se vende, 16 dueño
 - 45. El stock baja solo al entregar. «me lo llevo» no descuenta. `pedido listo` de un pedido pagado baja 1, nunca de 0. Con 0, el siguiente: «No hay CODIGO ahora.»
 - 46. `contacto proveedor NUMERO`: el dueño lo guarda en `kb.json`. AXEL no le escribe. La nota de referencia sin inventario dice «Proveedor: NUMERO.». No hay costo. El número no es secreto; va en `kb.json`, que no vuelve a git.
 - 47. Disponible = stock menos pedidos abiertos de ese código (anotado, por verificar, pagado, en camino). La última unidad no se vende dos veces. Al entregar sin stock: «Falta producto.» y no se entrega.
+
+### Muros 49-53 (hechos 2 oct)
+- 49. Disponible por código, no por nombre. El pedido guarda «CAF01 cafe», pero se cuenta solo «CAF01». Si el dueño cambia el nombre, la unidad sigue reservada. Entregar y bajar stock también van por código.
+- 49b. `test_aviso_cita` ya no depende de «mañana» con el reloj real: usa un reloj fijo (lunes 05/10) solo dentro de la prueba. Reservas y agenda sin cambios.
+- 50. `cancelar pedido N` (dueño): anotado o por verificar pasa a `rechazado` y la unidad vuelve al disponible. Pagado o en camino: «Ese pedido ya va. No lo cancelo.» El cliente no cancela pedidos, ni el suyo ni el de otro.
+- 51. `inventario` (dueño): código, nombre, stock y disponible. Máximo 15. El cliente no lo ve.
+- 52. `pedido en camino N` (dueño): solo si está pagado y hay contacto proveedor. AXEL no le escribe al proveedor. Sin contacto: «Falta el contacto proveedor.»
+- 53. «mi pedido» / «mis pedidos»: el cliente ve solo los suyos (código, precio, estado y hora). Pedido de servicio sin código: su nombre. Sin pedidos: «No tienes pedidos.»
 
 ### Siguiente
 - Producto: nada. Meta producción, cobro e IG: no.
