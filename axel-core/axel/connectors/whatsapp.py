@@ -32,7 +32,9 @@ def parse_incoming(body: dict[str, Any]) -> list[dict[str, Any]]:
                 for c in value.get("contacts", [])
             }
             for msg in value.get("messages", []):
-                if msg.get("type") != "text":
+                # Muro 42: una foto entra marcada. No se guarda su id de media: no se descarga ni se lee.
+                foto = msg.get("type") == "image"
+                if msg.get("type") != "text" and not foto:
                     continue
                 wa_id = msg.get("from", "")
                 out.append(
@@ -41,7 +43,8 @@ def parse_incoming(body: dict[str, Any]) -> list[dict[str, Any]]:
                         "channel_user_id": wa_id,
                         "phone": f"+{wa_id}" if wa_id and not str(wa_id).startswith("+") else wa_id,
                         "name": contacts.get(wa_id),
-                        "text": (msg.get("text") or {}).get("body", ""),
+                        "text": "" if foto else (msg.get("text") or {}).get("body", ""),
+                        "foto": foto,
                         "raw_ref": msg.get("id"),
                     }
                 )

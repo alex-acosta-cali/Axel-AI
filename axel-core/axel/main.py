@@ -62,6 +62,7 @@ async def wa_incoming(request: Request) -> dict:
             phone=item.get("phone"),
             name=item.get("name"),
             text=item.get("text") or "",
+            payload={"foto": item.get("foto") is True},
             business_id=os.getenv("BUSINESS_ID", "biz_default"),
         )
         out = process(env, memory)

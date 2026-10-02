@@ -56,6 +56,13 @@ def aviso_pedido(quien: str, pedido: str, memory: Memory | None = None) -> str:
     return text
 
 
+def aviso_foto(memory: Memory | None = None) -> str:
+    """Muro 42: al dueño solo se le dice que llegó. AXEL no descarga ni interpreta la foto."""
+    text = "Llegó una foto."
+    enviar(memory, "foto", os.getenv("WA_OWNER_PHONE") or "", text)
+    return text
+
+
 def aviso_cliente(memory: Memory | None, tipo: str, phone: str, text: str, customer_id: str = "") -> str:
     """Aviso a un cliente. Si su celular es el del dueño, no se envía: fila 'omitido_dueno'.
     Fuera de su ventana de 24 h tampoco: fila 'fuera_24h'."""

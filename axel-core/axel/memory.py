@@ -545,6 +545,17 @@ class Memory:
             ).fetchone()
         return dict(row) if row else None
 
+    def pedido_por_pagar(self, customer_id: str) -> bool:
+        """Muro 42: True si ese cliente tiene un pedido 'anotado' o 'por verificar'."""
+        if not customer_id:
+            return False
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT 1 FROM pedidos WHERE customer_id = ? AND estado IN ('anotado', 'por verificar') LIMIT 1",
+                (customer_id,),
+            ).fetchone()
+        return bool(row)
+
     def list_pedidos(self, limit: int = 15, business_id: str = "biz_default") -> list[dict[str, Any]]:
         """Filas de pedidos de todos los clientes del negocio, las más nuevas primero. Solo para el dueño."""
         with self._conn() as conn:

@@ -849,6 +849,22 @@ def _pedido_codigo(env: Envelope, memory: Memory, codigo: str) -> None:
     env.why = "pedido por referencia en inventario"
 
 
+FOTO_COMPROBANTE = "Recibí el comprobante. El dueño lo verifica. AXEL no mira el banco."
+FOTO_PRODUCTO = "Recibí la foto. Escribe el código o el nombre. El dueño confirma la referencia."
+
+
+def _foto(env: Envelope, memory: Memory) -> None:
+    """Muro 42: la foto no se lee. Con pedido anotado o por verificar es comprobante; si no, producto."""
+    env.intent = "foto"
+    env.agent = "atencion"
+    env.supervision_level = 1
+    env.result = "ok"
+    env.approval_status = "na"
+    env.reply_text = FOTO_COMPROBANTE if memory.pedido_por_pagar(env.customer_id or "") else FOTO_PRODUCTO
+    env.payload["aviso_foto"] = notify.aviso_foto(memory)
+    env.why = "foto recibida, no leída"
+
+
 _APROBAR_REF = re.compile(r"^\S+\s+#?\d+\s+\$?([\d.,]+)\s+(.+)$")
 REF_APROBAR_AYUDA = "Escribe aprobar N PRECIO PLAZO. Ejemplo: aprobar 3 45000 mañana."
 
@@ -988,7 +1004,10 @@ def process(env: Envelope, memory: Memory) -> Envelope:
     ref = _REFERENCIA.match((env.text or "").strip())
     codigo = _codigo_pedido(env.text or "")
     resuelto = False
-    if not env.payload["es_dueno"] and open_task not in {"reserva", "reprogramar"}:
+    if env.payload.get("foto") and not env.payload["es_dueno"]:
+        _foto(env, memory)
+        resuelto = True
+    elif not env.payload["es_dueno"] and open_task not in {"reserva", "reprogramar"}:
         if codigo:
             _pedido_codigo(env, memory, codigo)
             resuelto = True

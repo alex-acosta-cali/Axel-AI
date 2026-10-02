@@ -365,6 +365,7 @@ th{{background:#222}} .ok{{color:#8f8}} .tomada{{color:#f99}} .paso{{color:#888}
             phone=data.get("phone"),
             email=data.get("email"),
             name=data.get("name"),
+            payload={"foto": data.get("foto") is True},
         )
         return process(env, memory).model_dump()
 
