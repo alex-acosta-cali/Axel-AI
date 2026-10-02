@@ -242,6 +242,24 @@ def set_stock(producto: str, cantidad: int) -> bool:
     return cambiado
 
 
+def productos() -> list[dict]:
+    """kb["productos"]: código, nombre, precio, stock. Vacía al empezar. Los precios al cliente siguen en servicios[]."""
+    return list(load_kb().get("productos") or [])
+
+
+def set_producto(codigo: str, nombre: str, precio: int, stock: int) -> dict:
+    """Crea o reemplaza el producto con ese código. {} si código o nombre no sirven."""
+    codigo = " ".join((codigo or "").split()).upper()[:20]
+    nombre = nombre_servicio(nombre)
+    if not codigo or len(re.findall(r"[a-záéíóúüñ]", nombre)) < 2:
+        return {}
+    item = {"codigo": codigo, "nombre": nombre, "precio": int(precio), "stock": int(stock)}
+    kb = load_kb()
+    kb["productos"] = [p for p in kb.get("productos") or [] if p.get("codigo") != codigo] + [item]
+    _guardar(kb)
+    return item
+
+
 def _guardar(kb: dict) -> None:
     _kb_path().write_text(json.dumps(kb, ensure_ascii=False, indent=2), encoding="utf-8")
 

@@ -108,6 +108,7 @@ OWNER_KB = [
     ("franjas", re.compile(_ADMIN + r"franjas\s+([\d:\s,y]+?)\s*\.?$", re.I)),
     ("politica", re.compile(_ADMIN + r"pol[ií]tica\s+(?:de\s+)?(cancelaci[oó]n|garant[ií]a)\s*:?\s*(.*?)\s*$", re.I)),
     ("agenda_palabras", re.compile(_ADMIN + r"agenda\s+palabras\s*:?\s*(.*?)\s*$", re.I)),
+    ("producto", re.compile(_ADMIN + r"producto\s+([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*(\d+)\s*\.?$", re.I)),
 ]
 PREGUNTA_NOMBRE = "¿Cómo quieres que te llame?"
 PREGUNTA_NOMBRE_VIEJA = "¿Cómo te llamas?"
@@ -231,6 +232,14 @@ def _editar_kb(cual: str, m: re.Match) -> str:
         if not palabras:
             return "Faltan las palabras. Ejemplo: agenda palabras cita reserva mesa turno"
         return f"Listo, palabras de agenda: {', '.join(palabras)}."
+    if cual == "producto":
+        precio = _pesos(m.group(3))
+        if precio <= 0:
+            return "No entendí el precio."
+        p = kb_mod.set_producto(m.group(1), m.group(2), precio, int(m.group(4)))
+        if not p:
+            return "No entendí el producto. Ejemplo: producto CAF01 | cafe molido | 12000 | 30"
+        return f"Listo, producto {p['codigo']} {p['nombre']} {kb_mod.precio_txt(p['precio'])} · stock {p['stock']}."
     guardado = _guardar_franjas(m.group(1))
     return f"Listo, {guardado}" if guardado else "No entendí las franjas. Ejemplo: franjas 8 12 16"
 
@@ -375,6 +384,9 @@ def _try_owner_setup(env: Envelope, memory: Memory) -> bool:
         if not (nombre or horario or comando):
             return False
         env.reply_text = "Eso solo lo cambia el dueño."
+    elif env.business_id != "biz_default" and (nombre or horario or comando or t in ONB_START):
+        # Muro 36: solo existe la KB de biz_default. Otro id no escribe.
+        env.reply_text = "Este negocio aún no tiene base propia. No guardé nada."
     else:
         paso = memory.get_open_task(env.customer_id or "")
         if comando:
@@ -572,7 +584,8 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
             "el rubro es X, agenda si/no, agrega servicio X a N, "
             "cambia el precio de X a N, stock X N, tono formal/cercano, quita servicio X, franjas 8 12 16,"
             "agrega pregunta X respuesta Y, quita pregunta X, la ubicacion es X, "
-            "politica cancelacion X, politica garantia X, agenda palabras cita reserva mesa turno."
+            "politica cancelacion X, politica garantia X, agenda palabras cita reserva mesa turno, "
+            "producto COD | NOMBRE | PRECIO | STOCK."
         )
         env.result = "ok"
         env.approval_status = "na"
