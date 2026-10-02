@@ -160,7 +160,9 @@
     <div class="node mid"><b>Ventas / pedidos</b><span>anota, no cobra</span>
       <div class="tip">PARCIAL. me lo llevo → fila. pedido listo por nombre o 4 cifras. Aviso al dueño y al cliente. Stock 0 no se vende («agotado»). No cobra: el dueño confirma el pago. NO hay cotización formal ni plata.</div></div>
     <div class="node ok"><b>Inventario</b><span>código · precio · stock</span>
-      <div class="tip">HECHO (1 oct). productos[] en kb.json: código, nombre, precio de venta, stock. El dueño: producto COD | NOMBRE | PRECIO | STOCK. «me lo llevo CAF01» anota si hay stock; sin stock «No hay CAF01 ahora.». Anotar no baja stock. No hay costo de proveedor.</div></div>
+      <div class="tip">HECHO (1 oct). productos[] en kb.json: código, nombre, precio de venta, stock. El dueño: producto COD | NOMBRE | PRECIO | STOCK. «me lo llevo CAF01» anota si hay disponible (stock menos pedidos abiertos); si no, «No hay CAF01 ahora.». El stock baja solo al entregar, nunca de 0. Sin stock al entregar: «Falta producto.». No hay costo de proveedor.</div></div>
+    <div class="node ok"><b>Contacto proveedor</b><span>guardado, sin escribirle</span>
+      <div class="tip">HECHO (1 oct). El dueño: contacto proveedor NUMERO. Se guarda en kb.json (fuera de git). AXEL no le escribe. La nota de referencia sin inventario dice el número. No es secreto. No hay costo.</div></div>
     <div class="node ok"><b>Referencia</b><span>sin inventario no se vende</span>
       <div class="tip">HECHO (1 oct). Código fuera de inventario: no anota, nota al dueño «Referencia sin inventario. Falta tu sí.». El dueño aprueba con aprobar N PRECIO PLAZO y AXEL se lo manda al cliente. Sin número, aprobar lista los pendientes.</div></div>
     <div class="node ok"><b>Estados</b><span>sin banco</span>

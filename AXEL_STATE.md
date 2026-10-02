@@ -155,6 +155,9 @@ Muros 14-17 hechos (29 sep): 14 tono en la KB, 15 stock 0 no se vende, 16 dueño
 - 41. «me lo llevo CAF01» anota con precio de venta si hay stock. Sin stock: «No hay CAF01 ahora.» Código fuera de inventario: no anota, nota al dueño. Al aprobar, el dueño escribe `aprobar N PRECIO PLAZO` y AXEL se lo manda al cliente. No hay costo de proveedor. Anotar no baja stock.
 - 42. Foto: entra marcada, no se descarga ni se lee. Con pedido anotado o por verificar: «Recibí el comprobante. El dueño lo verifica. AXEL no mira el banco.» Si no: «Recibí la foto. Escribe el código o el nombre. El dueño confirma la referencia.» Al dueño: «Llegó una foto.»
 - 43. Prueba: `tests/test_inventario.py` (tokens vacíos, sin túnel).
+- 45. El stock baja solo al entregar. «me lo llevo» no descuenta. `pedido listo` de un pedido pagado baja 1, nunca de 0. Con 0, el siguiente: «No hay CODIGO ahora.»
+- 46. `contacto proveedor NUMERO`: el dueño lo guarda en `kb.json`. AXEL no le escribe. La nota de referencia sin inventario dice «Proveedor: NUMERO.». No hay costo. El número no es secreto; va en `kb.json`, que no vuelve a git.
+- 47. Disponible = stock menos pedidos abiertos de ese código (anotado, por verificar, pagado, en camino). La última unidad no se vende dos veces. Al entregar sin stock: «Falta producto.» y no se entrega.
 
 ### Siguiente
 - Producto: nada. Meta producción, cobro e IG: no.
