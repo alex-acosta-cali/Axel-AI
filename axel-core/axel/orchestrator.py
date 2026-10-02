@@ -536,6 +536,13 @@ def _cancelar_pedido(memory: Memory, numero: str | None) -> str:
         return "Escribe cancelar pedido y el número del pedido (lo ves en pedidos)."
     estado = memory.cancelar_pedido(int(numero))
     if estado == "cancelado":
+        # Muro 58: el cliente de ese pedido se entera.
+        p = next((p for p in memory.list_pedidos(500) if int(p["pedido_id"]) == int(numero)), None)
+        if p:
+            notify.aviso_cliente(
+                memory, "pedido_cancelado", str(p.get("phone") or ""),
+                f"El dueño canceló tu pedido de {_codigo_txt(str(p['servicio']))}.", str(p["customer_id"]),
+            )
         return f"Pedido #{numero} cancelado. La unidad vuelve al disponible."
     if estado in {"pagado", "en camino"}:
         return PEDIDO_YA_VA

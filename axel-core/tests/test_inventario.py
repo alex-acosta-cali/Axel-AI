@@ -179,8 +179,13 @@ def main() -> int:
         assert dice(f"cancelar pedido {pid}", LUIS).startswith(f"No tienes pedido #{pid}.")
         assert dice("cancelar pedido", LUIS).startswith("No tienes pedidos para cancelar.")
         assert memory.list_pedidos()[0]["estado"] == "anotado"
+        # Muro 58: Ana recibe el aviso de cancelación. Su celular, como lo deja el webhook.
+        memory.set_customer_phone(memory.list_pedidos()[0]["customer_id"], ANA)
         assert dice(f"cancelar pedido {pid}", DUENO).startswith(f"Pedido #{pid} cancelado.")
         assert memory.list_pedidos()[0]["estado"] == "rechazado"
+        aviso = memory.list_envios(1)[0]
+        assert aviso["tipo"] == "pedido_cancelado" and aviso["destino"] and ANA.endswith(aviso["destino"]), aviso
+        assert aviso["texto"] == "El dueño canceló tu pedido de CAF03.", aviso
         assert dice("me lo llevo CAF03", LUIS, "Luis").startswith("Pedido anotado: CAF03")
         pid = memory.list_pedidos()[0]["pedido_id"]
         dice(f"pedido pagado {pid}", DUENO)
