@@ -193,6 +193,7 @@ Muros 14-17 hechos (29 sep): 14 tono en la KB, 15 stock 0 no se vende, 16 dueño
 - 67. `ONB_SERVICIO` ya no es regex: se lee de derecha a izquierda en una pasada (`_servicio_linea`). `producto A | B | C | N`: campos sin espacio al borde, lineal. Mismo resultado que antes en toda línea con precio. 200 letras raras: menos de 1 s. Más de 500: «Mensaje muy largo.». Prueba: `tests/test_regex.py`.
 - 68. `tests/test_message.py` no llama al 8090: levanta el demo en un puerto libre con base y KB temporales. Sin puerto, se salta. No escribe en el VPS.
 - 69. `scripts/vigia.sh`: si `/health` no trae `"kb_ok": true` en 5 s, `systemctl restart axel`. Solo el script; no está instalado.
+- 71. Vigía: reinicia solo si `/health` no contesta en 5 s. Con `kb_ok` false no reinicia (reiniciar no trae la KB): escribe «KB ausente, no reinicio.». `OPERACION.md`: antes de `git pull`, copia de `kb.json` y `axel.db`; si el pull borra `kb.json`, se devuelve la copia.
 - 70. `docs/OPERACION.md`: PYTHONUNBUFFERED, cron del vigía cada 5 min, test_message sin túnel.
 - Estado: muros 55 a 66 y 67-70 hechos en el PC. El VPS sigue en `45faff8`: atrasado hasta este push.
 
