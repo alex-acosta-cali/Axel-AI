@@ -281,6 +281,20 @@ def buscar_producto(codigo: str) -> Optional[dict]:
     return next((p for p in productos() if str(p.get("codigo") or "") == codigo), None)
 
 
+def productos_por_nombre(texto: str) -> list[dict]:
+    """Muro 60: productos cuyo código es el texto, o cuyo nombre lleva todas sus palabras (sin tildes)."""
+    porcodigo = buscar_producto(texto)
+    if porcodigo:
+        return [porcodigo]
+    palabras = re.findall(r"\w+", _plano(texto))
+    if not palabras:
+        return []
+    return [
+        p for p in productos()
+        if all(re.search(rf"(?<!\w){re.escape(w)}", _plano(str(p.get("nombre") or ""))) for w in palabras)
+    ]
+
+
 def set_producto(codigo: str, nombre: str, precio: int, stock: int) -> dict:
     """Crea o reemplaza el producto con ese código. {} si código o nombre no sirven."""
     codigo = " ".join((codigo or "").split()).upper()[:20]

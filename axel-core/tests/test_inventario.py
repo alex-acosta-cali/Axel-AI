@@ -221,6 +221,17 @@ def main() -> int:
         r = dice("inventario", LUIS, "Luis")
         assert "Inventario:" not in r and "CAF03" not in r and "stock" not in r, r
 
+        # Muro 60: tienen NOMBRE. Uno: precio y disponible. Varios: lista sin anotar. Ninguno: aviso al dueño.
+        n_pedidos = len(memory.list_pedidos(500))
+        r = dice("¿tienen café molido?", ANA, "Ana")
+        assert r.startswith("CAF01 cafe molido: $12.000. Disponible 0."), r
+        r = dice("tienen cafe", ANA, "Ana")
+        assert r.startswith("Tengo:\n- CAF01 cafe molido $12.000\n- CAF02") and r.count("\n- ") == 3, r
+        r = dice("tienen azucar", ANA, "Ana")
+        assert r.startswith("No tengo azucar en inventario. Le aviso al dueño."), r
+        assert memory.list_envios(1)[0]["tipo"] == "sin_producto"
+        assert len(memory.list_pedidos(500)) == n_pedidos
+
         # Muro 39: kb.json roto no tumba AXEL. Usa la última copia.
         kb_tmp.write_text("{roto", encoding="utf-8")
         assert kb.buscar_producto("CAF01"), "no usó la última copia"

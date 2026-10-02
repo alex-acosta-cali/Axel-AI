@@ -971,6 +971,31 @@ def _pedido_codigo(env: Envelope, memory: Memory, codigo: str) -> None:
     env.why = "pedido por referencia en inventario"
 
 
+# Muro 60: "tienen cafe molido?". Solo si hay inventario y no es un servicio de la KB.
+_TIENEN = re.compile(r"^¿?\s*tienen\s+(.+?)\s*[?.!]*$", re.I)
+
+
+def _tienen(env: Envelope, memory: Memory, buscado: str) -> None:
+    """Uno: precio y disponible. Varios: lista de 5, sin anotar. Ninguno: no anota y avisa al dueño."""
+    env.intent = "referencia"
+    env.agent = "atencion"
+    env.supervision_level = 1
+    env.result = "ok"
+    env.approval_status = "na"
+    env.why = "producto buscado por nombre"
+    hallados = kb_mod.productos_por_nombre(buscado)
+    if len(hallados) == 1:
+        p = hallados[0]
+        disponible = max(int(p.get("stock") or 0) - memory.pedidos_abiertos(str(p["codigo"])), 0)
+        env.reply_text = f"{p['codigo']} {p['nombre']}: {kb_mod.precio_txt(p['precio'])}. Disponible {disponible}."
+    elif hallados:
+        lineas = [f"- {p['codigo']} {p['nombre']} {kb_mod.precio_txt(p['precio'])}" for p in hallados[:5]]
+        env.reply_text = "Tengo:\n" + "\n".join(lineas) + "\nEscribe me lo llevo y el código."
+    else:
+        env.payload["aviso_sin_producto"] = notify.aviso_sin_producto(buscado, memory)
+        env.reply_text = f"No tengo {buscado[:40]} en inventario. Le aviso al dueño."
+
+
 FOTO_COMPROBANTE = "Recibí el comprobante. El dueño lo verifica. AXEL no mira el banco."
 FOTO_PRODUCTO = "Recibí la foto. Escribe el código o el nombre. El dueño confirma la referencia."
 
@@ -1127,6 +1152,9 @@ def process(env: Envelope, memory: Memory) -> Envelope:
     open_task = memory.get_open_task(env.customer_id)
     ref = _REFERENCIA.match((env.text or "").strip())
     codigo = _codigo_pedido(env.text or "")
+    tienen = _TIENEN.match((env.text or "").strip())
+    if tienen and (not kb_mod.productos() or kb_mod.servicio_en(tienen.group(1))):
+        tienen = None
     resuelto = False
     if env.payload.get("foto") and not env.payload["es_dueno"]:
         _foto(env, memory)
@@ -1142,7 +1170,10 @@ def process(env: Envelope, memory: Memory) -> Envelope:
         env.why = "cliente cancela su pedido sin pagar"
         resuelto = True
     elif not env.payload["es_dueno"] and open_task not in {"reserva", "reprogramar"}:
-        if codigo:
+        if tienen:
+            _tienen(env, memory, tienen.group(1))
+            resuelto = True
+        elif codigo:
             _pedido_codigo(env, memory, codigo)
             resuelto = True
             if open_task == "oferta_cita":

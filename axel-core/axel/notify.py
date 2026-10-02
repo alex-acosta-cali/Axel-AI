@@ -64,6 +64,13 @@ def aviso_foto(memory: Memory | None = None, pedido_id: int | None = None) -> st
     return text
 
 
+def aviso_sin_producto(buscado: str, memory: Memory | None = None) -> str:
+    """Muro 60: un cliente pidió algo que no está en inventario. Solo informa: no se anota nada."""
+    text = f"Preguntaron por {buscado[:40]}. No está en inventario."
+    enviar(memory, "sin_producto", os.getenv("WA_OWNER_PHONE") or "", text)
+    return text
+
+
 def aviso_cliente(memory: Memory | None, tipo: str, phone: str, text: str, customer_id: str = "") -> str:
     """Aviso a un cliente. Si su celular es el del dueño, no se envía: fila 'omitido_dueno'.
     Fuera de su ventana de 24 h tampoco: fila 'fuera_24h'."""
