@@ -294,6 +294,11 @@ def set_producto(codigo: str, nombre: str, precio: int, stock: int) -> dict:
     return item
 
 
+def producto_de_pedido(servicio: str) -> Optional[dict]:
+    """El producto del inventario de un pedido ('CODIGO nombre'). None si no es del inventario."""
+    return next((p for p in productos() if f"{p.get('codigo')} {p.get('nombre')}" == (servicio or "").strip()), None)
+
+
 def bajar_stock(servicio: str) -> Optional[dict]:
     """Muro 45: al entregar, el producto de ese pedido ('CODIGO nombre') baja 1. Nunca de 0. None si no es del inventario."""
     kb = load_kb()

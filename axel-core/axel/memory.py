@@ -556,6 +556,17 @@ class Memory:
             ).fetchone()
         return bool(row)
 
+    def pedidos_abiertos(self, servicio: str, business_id: str = "biz_default") -> int:
+        """Muro 47: pedidos de ese producto que todavía no se entregan ni se rechazan."""
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM pedidos WHERE servicio = ?"
+                " AND estado IN ('anotado', 'por verificar', 'pagado', 'en camino')"
+                " AND COALESCE(business_id, 'biz_default') = ?",
+                (servicio, business_id),
+            ).fetchone()
+        return int(row[0]) if row else 0
+
     def list_pedidos(self, limit: int = 15, business_id: str = "biz_default") -> list[dict[str, Any]]:
         """Filas de pedidos de todos los clientes del negocio, las más nuevas primero. Solo para el dueño."""
         with self._conn() as conn:

@@ -438,6 +438,7 @@ def pedidos_filas(memory: Memory, limit: int = 15) -> list[tuple[str, str, str, 
 
 PEDIDO_LISTO_AYUDA = "Escribe pedido listo NOMBRE o las últimas 4 cifras del celular."
 PEDIDO_FALTA_PAGO = "Falta marcarlo pagado."
+PEDIDO_FALTA_PRODUCTO = "Falta producto."
 
 
 def _pedido_listo(memory: Memory, quien: str) -> str:
@@ -471,6 +472,10 @@ def _pedido_listo(memory: Memory, quien: str) -> str:
     if not listos:
         return PEDIDO_FALTA_PAGO
     p = listos[0]
+    # Muro 47: si el producto del inventario ya no alcanza, no se entrega.
+    producto = kb_mod.producto_de_pedido(str(p["servicio"]))
+    if producto and int(producto.get("stock") or 0) <= 0:
+        return PEDIDO_FALTA_PRODUCTO
     if not memory.entregar_pedido(int(p["pedido_id"])):
         return PEDIDO_FALTA_PAGO
     # Muro 45: el stock del inventario baja solo al entregar. Anotar no lo toca.
@@ -849,10 +854,11 @@ def _pedido_codigo(env: Envelope, memory: Memory, codigo: str) -> None:
     env.supervision_level = 1
     env.result = "ok"
     env.approval_status = "na"
-    stock = int(p.get("stock") or 0)
+    # Muro 47: disponible = stock menos pedidos abiertos de ese código. La última unidad no se vende dos veces.
+    stock = int(p.get("stock") or 0) - memory.pedidos_abiertos(f"{p['codigo']} {p['nombre']}")
     if stock <= 0:
         env.reply_text = f"No hay {codigo} ahora."
-        env.why = "referencia sin stock"
+        env.why = "referencia sin stock disponible"
         return
     pedido = f"{p['codigo']} {p['nombre']} {kb_mod.precio_txt(p['precio'])}"
     memory.add_pedido(env.customer_id, f"{p['codigo']} {p['nombre']}", int(p["precio"]))
