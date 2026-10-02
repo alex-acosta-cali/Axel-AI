@@ -556,14 +556,15 @@ class Memory:
             ).fetchone()
         return bool(row)
 
-    def pedidos_abiertos(self, servicio: str, business_id: str = "biz_default") -> int:
-        """Muro 47: pedidos de ese producto que todavía no se entregan ni se rechazan."""
+    def pedidos_abiertos(self, codigo: str, business_id: str = "biz_default") -> int:
+        """Muro 47/49: pedidos de ese código que todavía no se entregan ni se rechazan.
+        Cuenta por código ('CAF01 ...'), no por nombre: si el dueño cambia el nombre, la unidad sigue reservada."""
         with self._conn() as conn:
             row = conn.execute(
-                "SELECT COUNT(*) FROM pedidos WHERE servicio = ?"
+                "SELECT COUNT(*) FROM pedidos WHERE (servicio = ? OR substr(servicio, 1, length(?) + 1) = ? || ' ')"
                 " AND estado IN ('anotado', 'por verificar', 'pagado', 'en camino')"
                 " AND COALESCE(business_id, 'biz_default') = ?",
-                (servicio, business_id),
+                (codigo, codigo, codigo, business_id),
             ).fetchone()
         return int(row[0]) if row else 0
 

@@ -294,16 +294,24 @@ def set_producto(codigo: str, nombre: str, precio: int, stock: int) -> dict:
     return item
 
 
+def _codigo_de_pedido(servicio: str) -> str:
+    """Muro 49: el pedido guarda 'CODIGO nombre'. Se mira solo el código: el nombre puede cambiar."""
+    partes = (servicio or "").split()
+    return partes[0] if partes else ""
+
+
 def producto_de_pedido(servicio: str) -> Optional[dict]:
-    """El producto del inventario de un pedido ('CODIGO nombre'). None si no es del inventario."""
-    return next((p for p in productos() if f"{p.get('codigo')} {p.get('nombre')}" == (servicio or "").strip()), None)
+    """El producto del inventario de un pedido, por código. None si no es del inventario."""
+    codigo = _codigo_de_pedido(servicio)
+    return next((p for p in productos() if str(p.get("codigo") or "") == codigo), None) if codigo else None
 
 
 def bajar_stock(servicio: str) -> Optional[dict]:
-    """Muro 45: al entregar, el producto de ese pedido ('CODIGO nombre') baja 1. Nunca de 0. None si no es del inventario."""
+    """Muro 45: al entregar, el producto de ese pedido baja 1 (por código). Nunca de 0. None si no es del inventario."""
+    codigo = _codigo_de_pedido(servicio)
     kb = load_kb()
     for p in kb.get("productos") or []:
-        if f"{p.get('codigo')} {p.get('nombre')}" == (servicio or "").strip():
+        if codigo and str(p.get("codigo") or "") == codigo:
             p["stock"] = max(int(p.get("stock") or 0) - 1, 0)
             _guardar(kb)
             return p

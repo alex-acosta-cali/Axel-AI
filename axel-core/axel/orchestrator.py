@@ -855,7 +855,7 @@ def _pedido_codigo(env: Envelope, memory: Memory, codigo: str) -> None:
     env.result = "ok"
     env.approval_status = "na"
     # Muro 47: disponible = stock menos pedidos abiertos de ese código. La última unidad no se vende dos veces.
-    stock = int(p.get("stock") or 0) - memory.pedidos_abiertos(f"{p['codigo']} {p['nombre']}")
+    stock = int(p.get("stock") or 0) - memory.pedidos_abiertos(str(p["codigo"]))
     if stock <= 0:
         env.reply_text = f"No hay {codigo} ahora."
         env.why = "referencia sin stock disponible"
