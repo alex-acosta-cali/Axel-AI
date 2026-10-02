@@ -93,12 +93,24 @@ def main() -> int:
         assert r.startswith("No hay CAF02 ahora."), r
         assert len(memory.list_pedidos()) == 1
 
-        # Muro 37/41: código raro no se anota. Nota al dueño, sin precio inventado.
+        # Muro 46: contacto del proveedor. Se guarda, no se le escribe. El cliente no lo cambia.
+        r = dice("contacto proveedor 300 123 4567", LUIS, "Luis")
+        assert r.startswith("Eso solo lo cambia el dueño."), r
+        envios_antes = len(memory.list_envios(100))
+        r = dice("contacto proveedor 300 123 4567", DUENO)
+        assert r == "Listo, contacto proveedor: 3001234567. AXEL no le escribe.", r
+        assert kb.proveedor_contacto() == "3001234567"
+        assert len(memory.list_envios(100)) == envios_antes
+
+        # Muro 37/41: código raro no se anota. Nota al dueño con el proveedor, sin precio ni costo inventado.
         r = dice("lo compro XYZ9", LUIS, "Luis")
         assert "XYZ9" in r and "$" not in r, r
         assert len(memory.list_pedidos()) == 1
         refs = [p for p in memory.list_pending() if p["intent"] == "referencia"]
         assert len(refs) == 1 and "Falta tu sí" in refs[0]["requested_action"], refs
+        assert "Proveedor: 3001234567." in refs[0]["requested_action"], refs
+        assert "3001234567" not in r
+        assert not [e for e in memory.list_envios(100) if "3001234567" in str(e["destino"])]
 
         # Muro 40: sin número se listan los pendientes. No se toma el primero.
         r = dice("aprobar", DUENO)

@@ -416,6 +416,21 @@ def set_ubicacion(texto: str) -> str:
     return texto
 
 
+def set_proveedor_contacto(numero: str) -> str:
+    """Muro 46: solo el número del proveedor. AXEL no le escribe. Sin costo. '' si no son 7 a 15 cifras."""
+    cifras = re.sub(r"\D", "", numero or "")
+    if not 7 <= len(cifras) <= 15:
+        return ""
+    kb = load_kb()
+    kb["proveedor_contacto"] = cifras
+    _guardar(kb)
+    return cifras
+
+
+def proveedor_contacto() -> str:
+    return str(load_kb().get("proveedor_contacto") or "")
+
+
 def _faq_con(faqs: list[dict], clave: str) -> Optional[dict]:
     buscada = _plano(clave)
     for item in faqs:

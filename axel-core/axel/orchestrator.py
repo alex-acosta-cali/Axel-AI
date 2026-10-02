@@ -109,6 +109,7 @@ OWNER_KB = [
     ("politica", re.compile(_ADMIN + r"pol[ií]tica\s+(?:de\s+)?(cancelaci[oó]n|garant[ií]a)\s*:?\s*(.*?)\s*$", re.I)),
     ("agenda_palabras", re.compile(_ADMIN + r"agenda\s+palabras\s*:?\s*(.*?)\s*$", re.I)),
     ("producto", re.compile(_ADMIN + r"producto\s+([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*(\d+)\s*\.?$", re.I)),
+    ("proveedor", re.compile(_ADMIN + r"contacto\s+(?:del\s+)?proveedor\s*:?\s*(.+?)\s*\.?$", re.I)),
 ]
 PREGUNTA_NOMBRE = "¿Cómo quieres que te llame?"
 PREGUNTA_NOMBRE_VIEJA = "¿Cómo te llamas?"
@@ -240,6 +241,11 @@ def _editar_kb(cual: str, m: re.Match) -> str:
         if not p:
             return "No entendí el producto. Ejemplo: producto CAF01 | cafe molido | 12000 | 30"
         return f"Listo, producto {p['codigo']} {p['nombre']} {kb_mod.precio_txt(p['precio'])} · stock {p['stock']}."
+    if cual == "proveedor":
+        numero = kb_mod.set_proveedor_contacto(m.group(1))
+        if not numero:
+            return "No entendí el número. Ejemplo: contacto proveedor 3001234567"
+        return f"Listo, contacto proveedor: {numero}. AXEL no le escribe."
     guardado = _guardar_franjas(m.group(1))
     return f"Listo, {guardado}" if guardado else "No entendí las franjas. Ejemplo: franjas 8 12 16"
 
@@ -593,7 +599,7 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
             "cambia el precio de X a N, stock X N, tono formal/cercano, quita servicio X, franjas 8 12 16,"
             "agrega pregunta X respuesta Y, quita pregunta X, la ubicacion es X, "
             "politica cancelacion X, politica garantia X, agenda palabras cita reserva mesa turno, "
-            "producto COD | NOMBRE | PRECIO | STOCK."
+            "producto COD | NOMBRE | PRECIO | STOCK, contacto proveedor NUMERO."
         )
         env.result = "ok"
         env.approval_status = "na"
@@ -793,14 +799,17 @@ def _referencia(env: Envelope, memory: Memory, codigo: str) -> None:
         env.why = "referencia en inventario"
         return
     # Solo nota en pendientes: no se envía WhatsApp ni se inventa precio.
+    # Muro 46: si el dueño guardó el contacto del proveedor, la nota lo dice. AXEL no le escribe.
+    proveedor = kb_mod.proveedor_contacto()
+    nota = REF_SIN_INVENTARIO + (f" Proveedor: {proveedor}." if proveedor else "")
     memory.save_pending_approval(
         {
             "event_id": env.event_id,
             "customer_id": env.customer_id,
             "intent": "referencia",
             "why": REF_SIN_INVENTARIO,
-            "requested_action": f"{codigo} · {REF_SIN_INVENTARIO}",
-            "notify_text": REF_SIN_INVENTARIO,
+            "requested_action": f"{codigo} · {nota}",
+            "notify_text": nota,
             "status": "pending",
         }
     )
