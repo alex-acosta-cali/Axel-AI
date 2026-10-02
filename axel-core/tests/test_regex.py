@@ -23,7 +23,7 @@ DUENO, ANA = "573000000001", "573000000002"
 from axel import knowledge_base as kb  # noqa: E402
 from axel.envelope import Envelope  # noqa: E402
 from axel.memory import Memory  # noqa: E402
-from axel.orchestrator import MENSAJE_LARGO, ONB_PREGUNTA, process  # noqa: E402
+from axel.orchestrator import MENSAJE_LARGO, ONB_PREGUNTA, _servicio_linea, process  # noqa: E402
 
 KB_TIENDA = {
     "negocio": "Tienda regex",
@@ -79,9 +79,11 @@ def main() -> int:
     kb._kb_path = lambda: kb_tmp
     try:
         def dice(texto: str, quien: str = DUENO, canal: str = "whatsapp") -> str:
-            t = time.perf_counter()
+            # Tiempo de CPU: una regex atascada lo gasta; esperar el disco de SQLite no.
+            # En Windows el commit a disco a veces tarda 1-2 s y no es la regex.
+            t = time.process_time()
             out = process(Envelope(text=texto, channel=canal, channel_user_id=quien), memory)
-            dura = time.perf_counter() - t
+            dura = time.process_time() - t
             print(quien[-1], repr(texto[:30]), len(texto), "letras", f"{dura:.3f}s", "->", (out.reply_text or "")[:60])
             assert dura < 1, f"{dura:.2f}s con {texto[:30]!r}"
             return out.reply_text or ""
@@ -97,6 +99,13 @@ def main() -> int:
         for texto in RARAS:
             assert len(texto) == 200, len(texto)
             dice(texto, "panel_regex", "panel")
+        # Con 200 letras la regex vieja tardaba 0,05 s: no se notaba. Con 499 (justo bajo el corte) gastaba
+        # casi 1 s de CPU. El lector nuevo es lineal: 499 letras en menos de 0,05 s.
+        borde = "a" + " " * 497 + "!"
+        dice(borde, "panel_regex", "panel")
+        t = time.process_time()
+        assert _servicio_linea(borde) is None
+        assert time.process_time() - t < 0.05, "el lector de servicios no es lineal"
         # La línea buena sigue entrando igual que antes.
         assert "Guardé: cafe $4.000, corte $15.000" in dice("cafe 4000\ncorte $ 15.000 pesos.", "panel_regex", "panel")
         dice("listo", "panel_regex", "panel")
