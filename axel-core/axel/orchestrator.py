@@ -108,6 +108,7 @@ OWNER_KB = [
     ("franjas", re.compile(_ADMIN + r"franjas\s+([\d:\s,y]+?)\s*\.?$", re.I)),
     ("politica", re.compile(_ADMIN + r"pol[ií]tica\s+(?:de\s+)?(cancelaci[oó]n|garant[ií]a)\s*:?\s*(.*?)\s*$", re.I)),
     ("agenda_palabras", re.compile(_ADMIN + r"agenda\s+palabras\s*:?\s*(.*?)\s*$", re.I)),
+    ("producto_borrar", re.compile(_ADMIN + r"producto\s+borrar\s+([a-z0-9][a-z0-9-]{0,19})\s*\.?$", re.I)),
     ("producto", re.compile(_ADMIN + r"producto\s+([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*(\d+)\s*\.?$", re.I)),
     ("proveedor", re.compile(_ADMIN + r"contacto\s+(?:del\s+)?proveedor\s*:?\s*(.+?)\s*\.?$", re.I)),
 ]
@@ -168,8 +169,17 @@ def _pesos(raw: str) -> int:
     return int(digitos) if digitos else 0
 
 
-def _editar_kb(cual: str, m: re.Match) -> str:
+def _editar_kb(cual: str, m: re.Match, memory: Memory | None = None) -> str:
     """Aplica un comando del dueño sobre rubro, agenda, servicios o franjas. Devuelve lo que quedó."""
+    if cual == "producto_borrar":
+        codigo = m.group(1).upper()
+        if not kb_mod.buscar_producto(codigo):
+            return f"No tengo el producto {codigo}."
+        # Muro 62: con pedidos abiertos de ese código no se borra.
+        if memory is not None and memory.pedidos_abiertos(codigo):
+            return "Tiene pedidos abiertos."
+        kb_mod.remove_producto(codigo)
+        return f"Listo, borré el producto {codigo}."
     if cual == "rubro":
         rubro = kb_mod.set_rubro(m.group(1))
         return f"Listo, rubro: {rubro}." if rubro else "No entendí el rubro."
@@ -400,7 +410,7 @@ def _try_owner_setup(env: Envelope, memory: Memory) -> bool:
     else:
         paso = memory.get_open_task(env.customer_id or "")
         if comando:
-            env.reply_text = _editar_kb(*comando)
+            env.reply_text = _editar_kb(*comando, memory=memory)
         elif nombre:
             guardado = set_business_name(nombre.group(1))
             env.reply_text = (
@@ -671,7 +681,7 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
             "cambia el precio de X a N, stock X N, tono formal/cercano, quita servicio X, franjas 8 12 16,"
             "agrega pregunta X respuesta Y, quita pregunta X, la ubicacion es X, "
             "politica cancelacion X, politica garantia X, agenda palabras cita reserva mesa turno, "
-            "producto COD | NOMBRE | PRECIO | STOCK, contacto proveedor NUMERO."
+            "producto COD | NOMBRE | PRECIO | STOCK, producto borrar COD, contacto proveedor NUMERO."
         )
         env.result = "ok"
         env.approval_status = "na"

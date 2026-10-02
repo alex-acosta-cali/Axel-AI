@@ -311,6 +311,19 @@ def set_producto(codigo: str, nombre: str, precio: int, stock: int) -> dict:
     return item
 
 
+def remove_producto(codigo: str) -> bool:
+    """Muro 62: quita el producto con ese código. False si no existe."""
+    codigo = " ".join((codigo or "").split()).upper()
+    kb = load_kb()
+    lista = list(kb.get("productos") or [])
+    quedan = [p for p in lista if str(p.get("codigo") or "").upper() != codigo]
+    if len(quedan) == len(lista):
+        return False
+    kb["productos"] = quedan
+    _guardar(kb)
+    return True
+
+
 def _codigo_de_pedido(servicio: str) -> str:
     """Muro 49: el pedido guarda 'CODIGO nombre'. Se mira solo el código: el nombre puede cambiar."""
     partes = (servicio or "").split()

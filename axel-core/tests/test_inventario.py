@@ -238,6 +238,14 @@ def main() -> int:
         assert [p["codigo"] for p in kb.productos()] == ["CAF01", "CAF02", "CAF03"], kb.productos()
         assert kb.buscar_producto("CAF02") == {"codigo": "CAF02", "nombre": "cafe en grano", "precio": 16000, "stock": 5}
 
+        # Muro 62: producto borrar. Con pedido abierto (CAF03 en camino) no. Sin abiertos sí. El cliente no.
+        assert dice("producto borrar CAF03", DUENO) == "Tiene pedidos abiertos."
+        assert kb.buscar_producto("CAF03")
+        assert dice("producto borrar CAF02", LUIS, "Luis").startswith("Eso solo lo cambia el dueño.")
+        assert dice("producto borrar caf02", DUENO) == "Listo, borré el producto CAF02."
+        assert [p["codigo"] for p in kb.productos()] == ["CAF01", "CAF03"], kb.productos()
+        assert dice("producto borrar CAF02", DUENO) == "No tengo el producto CAF02."
+
         # Muro 39: kb.json roto no tumba AXEL. Usa la última copia.
         kb_tmp.write_text("{roto", encoding="utf-8")
         assert kb.buscar_producto("CAF01"), "no usó la última copia"
