@@ -1,5 +1,5 @@
 # AXEL_STATE.md
-Actualizado: 2026-09-30 (Cali)
+Actualizado: 2026-10-01 (Cali)
 Dueño: Alex. Repo: C:\Proyectos\Axel-AI (PC) · /opt/Axel-AI (VPS)
 GitHub: https://github.com/alex-acosta-cali/Axel-AI (privado)
 
@@ -12,7 +12,7 @@ GitHub: https://github.com/alex-acosta-cali/Axel-AI (privado)
 - WhatsApp del negocio (número en .env).
 - Desde el 30 sep el webhook entra por el VPS (nginx con HTTPS hacia `127.0.0.1:8090`). Ngrok apagado.
 - Claude Code trabaja en el repo (ejecutor; Grok revisa, Alex aprueba).
-- Pruebas OK: `test_memory_cross_channel`, `test_level3_approval`, `test_message`, `test_kb_cafeteria`, `test_kb_ferreteria`, `test_configurar`, `test_aviso_cita`, `test_panel_envios`, `test_webhook` y `test_piloto_2026`.
+- Pruebas OK: `test_memory_cross_channel`, `test_level3_approval`, `test_message`, `test_kb_cafeteria`, `test_kb_ferreteria`, `test_configurar`, `test_aviso_cita`, `test_panel_envios`, `test_webhook`, `test_piloto_2026` y `test_inventario` (1 oct).
 - App de Meta sigue **En desarrollo** (no publicada).
 - 28 sep: un cupo confirmado por franja (probado). Cancelar y reprogramar sueltan el cupo viejo.
 - 28 sep: reembolso N3, el dueño aprueba y el cliente recibe el aviso. Probado con un segundo celular.
@@ -131,7 +131,7 @@ Muros 14-17 hechos (29 sep): 14 tono en la KB, 15 stock 0 no se vende, 16 dueño
 - Panel: cualquier Host que no sea 127.0.0.1 ni localhost es público. También `X-Forwarded-For`, `X-Forwarded-Host`, `X-Real-IP` o `Forwarded`: 403 `solo_local`. Prueba: `test_webhook.py`.
 - nginx: debe mandar `proxy_set_header Host $host;` (o `X-Forwarded-For`). Si manda Host 127.0.0.1 sin cabeceras, el código no lo ve como público. Prueba real hecha (checklist 30 sep): el dominio desde el celular sin wifi da 403.
 - `WA_VERIFY_TOKEN` obligatorio en `.env`: sin valor, el verify de Meta no pasa. Sin valor por defecto.
-- `axel/main.py` marcado NO ARRANCAR (FastAPI viejo, sin firma ni wamid). El servicio es `python -m axel.demo`. `AXEL_M05_WhatsApp.md` todavía muestra `uvicorn axel.main:app`: no usar.
+- `axel/main.py` marcado NO ARRANCAR (FastAPI viejo, sin firma ni wamid). El servicio es `python -m axel.demo`. `AXEL_M05_WhatsApp.md` ya dice `python -m axel.demo` (1 oct).
 - Firma Meta y wamid con prueba sin Meta real (`test_webhook.py`).
 - Recordatorio diario al dueño: hora Cali, desde que abre el negocio (KB), solo citas de hoy, una vez por día aunque AXEL se reinicie, fila `recordatorio_dia` en `envios`.
 - Base fija: `/opt/Axel-AI/axel-core/axel.db` si esa carpeta existe; si no, junto al código. `AXEL_DB` solo para pruebas.
@@ -145,8 +145,21 @@ Muros 14-17 hechos (29 sep): 14 tono en la KB, 15 stock 0 no se vende, 16 dueño
 - Cron (puesto en el VPS, checklist 30 sep), 3:00 Cali: `0 3 * * * /opt/Axel-AI/axel-core/scripts/copia_vps.sh >> /opt/Axel-AI/copias/copia.log 2>&1` (si el VPS está en UTC: `0 8 * * *`).
 - Copia fuera del VPS: una vez por semana Alex la baja al PC con `scp`. No se contrata otro sitio.
 
+### Muros 34-43 (hechos 1 oct)
+- 34-35. `business_id` ya está en clientes, citas y pedidos (por defecto `biz_default`). La KB es por `business_id`: otro id no ve `kb.json`.
+- 36. Inventario corto: `kb.json` → `productos[]` (código, nombre, precio de venta, stock). El dueño: `producto COD | NOMBRE | PRECIO | STOCK`.
+- 37. Referencia: «ref CAF01» con inventario da precio y stock. Sin inventario no hay precio ni pedido: nota al dueño «Referencia sin inventario. Falta tu sí.» (`docs/VENTA_REFERENCIA.md`).
+- 38. Estados del pedido sin banco: `anotado` → `pagado` (`pedido pagado N`, el # de `pedidos`) → `entregado` (`pedido listo`). Listo sin pagar: «Falta marcarlo pagado.» `por verificar`, `en camino` y `rechazado` existen y nadie los pone todavía. `reporte`: anotados, pagados, entregados.
+- 39. `kb.json` fuera de git (`kb.example.json` sí va). Se guarda en temporal y se reemplaza al final, con copia `kb.ultima.json`. Si está roto, AXEL usa la última copia y no se cae.
+- 40. `aprobar N` / `rechazar N`. Sin número lista los pendientes. Nunca toma el primero.
+- 41. «me lo llevo CAF01» anota con precio de venta si hay stock. Sin stock: «No hay CAF01 ahora.» Código fuera de inventario: no anota, nota al dueño. Al aprobar, el dueño escribe `aprobar N PRECIO PLAZO` y AXEL se lo manda al cliente. No hay costo de proveedor. Anotar no baja stock.
+- 42. Foto: entra marcada, no se descarga ni se lee. Con pedido anotado o por verificar: «Recibí el comprobante. El dueño lo verifica. AXEL no mira el banco.» Si no: «Recibí la foto. Escribe el código o el nombre. El dueño confirma la referencia.» Al dueño: «Llegó una foto.»
+- 43. Prueba: `tests/test_inventario.py` (tokens vacíos, sin túnel).
+
 ### Siguiente
 - Producto: nada. Meta producción, cobro e IG: no.
+- Meta a la cuenta de Alex: sigue en octubre, después de la Ley 1581. No esta semana.
+- `phone_number_id` → `business_id`: solo papel (`docs/PUERTA_PHONE.md`).
 - Verify (`WA_VERIFY_TOKEN` en `.env`): cambiarlo lo hace Alex, no Claude.
 - Plantillas 24 h: solo papel (`docs/WHATSAPP_24H.md`).
 - Diseño del panel: otro hilo (verde #0B3D2E, acento #C4A35A, fondo casi negro; logo después).
@@ -195,7 +208,7 @@ Hoy el piloto corre en el VPS; WhatsApp real entra por su dominio. El panel solo
 - `datos` y `venta` (consulta de precio) = nivel 1.
 - Reserva / reprogramar / cancelar = nivel 2.
 - Reembolso / queja = nivel 3. Un pendiente por cliente+intent.
-- Meta: no portafolio en cuentas restringidas. Migrar a cuenta de Alex ~octubre.
+- Meta: no portafolio en cuentas restringidas. Migrar a cuenta de Alex en octubre, después de la Ley 1581.
 
 ## 4. Cómo arrancar
 ```

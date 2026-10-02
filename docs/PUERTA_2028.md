@@ -8,12 +8,11 @@ Un negocio = un `business_id`, una KB, un WhatsApp, un dueño, un panel.
 ## Hoy
 - Todo es `biz_default`. Un solo negocio.
 - `Envelope.business_id` vale `biz_default`.
-- La tabla `customers` ya tiene `business_id` (por defecto `biz_default`).
-- Citas y pedidos todavía no lo llevan.
+- Clientes, citas y pedidos ya tienen `business_id` (por defecto `biz_default`). Hecho (muros 34-35).
+- La KB es por `business_id`: otro id no ve `kb.json`.
 
-## Primer ladrillo futuro (no se hace ahora)
-- Citas, pedidos y clientes llevan el `business_id`.
-- Clientes ya lo tienen. Faltarían citas y pedidos.
+## Siguiente ladrillo (no se hace ahora)
+- Que el `phone_number_id` de Meta diga qué `business_id` es. Solo papel: `docs/PUERTA_PHONE.md`.
 - Se hace solo cuando Alex lo apruebe con Grok.
 
 ## No hay

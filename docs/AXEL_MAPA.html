@@ -95,7 +95,7 @@
 <body>
 <header>
   <h1>AXEL AI OS — mapa del organismo</h1>
-  <p>Un solo sistema. 2026 Mercado local → 2028 Maestro → 2030 Quantum. Estado real al 30 sep 2026. Un negocio, un WhatsApp, VPS vivo, panel 2026 = local + túnel SSH (no por negocio). No Meta producción.<br><b>Piloto 2026 cerrado (30 sep). Checklist marcado. VPS vivo. Ngrok apagado.</b> Siguiente de producto: nada. Meta producción, cobro e IG: no. Diseño del panel: otro hilo.</p>
+  <p>Un solo sistema. 2026 Mercado local → 2028 Maestro → 2030 Quantum. Estado real al 1 oct 2026. Un negocio, un WhatsApp, VPS vivo, panel 2026 = local + túnel SSH (no por negocio). No Meta producción.<br><b>Piloto 2026 cerrado (30 sep). Checklist marcado. VPS vivo. Ngrok apagado.</b> Siguiente de producto: nada. Meta producción, cobro e IG: no. Diseño del panel: otro hilo.</p>
 </header>
 <div class="legend">
   <span><i class="dot ok"></i>Hecho en el piloto</span>
@@ -158,7 +158,15 @@
     <div class="node ok"><b>Reservas</b><span>franjas KB · cita_at</span>
       <div class="tip">HECHO. Cita nueva guarda cita_at (hora exacta Cali); cupos, saludo, avisos, reporte, mis citas, citas del dueño y panel la usan. Las viejas siguen con el texto, no se reescriben. Choque de cupos, mañana/ñ, cancelar/reprogramar con palabras de agenda, avisos 24h y 2h si el proceso vive.</div></div>
     <div class="node mid"><b>Ventas / pedidos</b><span>anota, no cobra</span>
-      <div class="tip">PARCIAL. me lo llevo → fila. pedido listo por nombre o 4 cifras. Aviso al dueño y al cliente. Stock 0 no se vende («agotado»); no es inventario, no resta. No cobra: el dueño confirma el pago. NO hay cotización formal ni plata.</div></div>
+      <div class="tip">PARCIAL. me lo llevo → fila. pedido listo por nombre o 4 cifras. Aviso al dueño y al cliente. Stock 0 no se vende («agotado»). No cobra: el dueño confirma el pago. NO hay cotización formal ni plata.</div></div>
+    <div class="node ok"><b>Inventario</b><span>código · precio · stock</span>
+      <div class="tip">HECHO (1 oct). productos[] en kb.json: código, nombre, precio de venta, stock. El dueño: producto COD | NOMBRE | PRECIO | STOCK. «me lo llevo CAF01» anota si hay stock; sin stock «No hay CAF01 ahora.». Anotar no baja stock. No hay costo de proveedor.</div></div>
+    <div class="node ok"><b>Referencia</b><span>sin inventario no se vende</span>
+      <div class="tip">HECHO (1 oct). Código fuera de inventario: no anota, nota al dueño «Referencia sin inventario. Falta tu sí.». El dueño aprueba con aprobar N PRECIO PLAZO y AXEL se lo manda al cliente. Sin número, aprobar lista los pendientes.</div></div>
+    <div class="node ok"><b>Estados</b><span>sin banco</span>
+      <div class="tip">HECHO (1 oct). anotado → pagado (pedido pagado N, lo marca el dueño) → entregado (pedido listo). Listo sin pagar: «Falta marcarlo pagado.». por verificar, en camino y rechazado existen; nadie los pone aún. reporte: anotados, pagados, entregados.</div></div>
+    <div class="node ok"><b>Foto recibida</b><span>no leída</span>
+      <div class="tip">HECHO (1 oct). La foto entra marcada; no se descarga ni se lee. Con pedido anotado o por verificar: comprobante, «el dueño lo verifica». Si no: pide código o nombre. Al dueño: «Llegó una foto.». AXEL no mira el banco.</div></div>
     <div class="node"><b>Facturación / cobro</b><span>N3 + humano</span>
       <div class="tip">NO. Plan: factura después de venta confirmada y cobro real. Hoy: “el dueño confirma el pago”.</div></div>
     <div class="node mid"><b>Postventa</b><span>solo pedido listo</span>
@@ -210,7 +218,7 @@
     <div class="node"><b>Cobro</b><span>no se pica</span>
       <div class="tip">NO. AXEL no cobra. El dueño confirma el pago.</div></div>
     <div class="node"><b>Multi-negocio</b><span>un panel por local</span>
-      <div class="tip">2028. Hoy 1 kb.json. No clones el repo para fingirlo.</div></div>
+      <div class="tip">2028. Hoy 1 kb.json. Clientes, citas y pedidos ya tienen business_id. phone_number_id → business_id: solo papel (docs/PUERTA_PHONE.md). No clones el repo para fingirlo.</div></div>
     <div class="node"><b>Modelo que razona</b><span>solo ambiguos</span>
       <div class="tip">2028. Nombre vs comando ya va por reglas. No pagar un modelo por cada hola.</div></div>
     <div class="node"><b>Aprender / verificar</b><span>2030</span>

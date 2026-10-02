@@ -54,7 +54,7 @@ Opciones simples:
 
 Ejemplo ngrok (prueba):
 ```bash
-ngrok http 8080
+ngrok http 8090
 # URL: https://xxxx.ngrok.io/webhooks/whatsapp
 ```
 
@@ -66,9 +66,10 @@ ngrok http 8080
 ```bash
 cd axel-core
 cp .env.example .env
-# llena WA_VERIFY_TOKEN, WA_ACCESS_TOKEN, WA_PHONE_NUMBER_ID
-uvicorn axel.main:app --host 0.0.0.0 --port 8080
+# llena WA_VERIFY_TOKEN, WA_ACCESS_TOKEN, WA_PHONE_NUMBER_ID, WA_APP_SECRET
+python -m axel.demo
 ```
+El arranque es `python -m axel.demo` (puerto 8090). No `uvicorn axel.main:app`: `main.py` está marcado NO ARRANCAR (sin firma ni wamid).
 
 2. En App Dashboard → WhatsApp → Configuration:
    - Callback URL: `https://TU-URL/webhooks/whatsapp`
@@ -103,7 +104,7 @@ Reservas/ventas/reembolsos siguen las reglas de niveles, pero el hito de M5 es *
 3. Debes recibir respuesta de AXEL.
 4. En el servidor:
 ```bash
-curl -s http://127.0.0.1:8080/audit
+curl -s http://127.0.0.1:8090/audit
 ```
 Verifica `channel=whatsapp`, `customer_id` creado, `agent=atencion`.
 
