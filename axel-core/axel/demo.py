@@ -265,52 +265,91 @@ class Handler(BaseHTTPRequestHandler):
         n_cli = len(memory.list_customers(50))
         n_citas = len(memory.list_confirmed_reservas(50))
         n_pend = len(memory.list_pending())
+        # Muro 72: tres bloques (Día, Conversaciones, Aprobaciones), inventario abajo. Mismos datos, mismo orden de lectura.
+        aviso_pend = f"<span class='marca'>{n_pend}</span>" if n_pend else "<span class='marca cero'>0</span>"
         return f"""<!doctype html>
-<html lang="es"><head><meta charset="utf-8"><title>AXEL vivo</title>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ΛXEL panel</title>
 <style>
-body{{font-family:Segoe UI,sans-serif;background:#111;color:#eee;margin:24px}}
-h1{{color:#6cf}} table{{border-collapse:collapse;width:100%;font-size:14px}}
-td,th{{border:1px solid #444;padding:8px;text-align:left;vertical-align:top}}
-th{{background:#222}} .ok{{color:#8f8}} .tomada{{color:#f99}} .paso{{color:#888}}
-.kpis{{display:flex;gap:12px;margin:16px 0;flex-wrap:wrap}}
-.kpi{{background:#1c1c1c;border:1px solid #444;padding:14px 18px;min-width:140px}}
-.kpi b{{display:block;font-size:28px;color:#6cf}}
-</style></head><body>
-<h1>AXEL AI OS — panel local</h1>
-<p class="ok">Servidor en http://127.0.0.1:8090</p>
+:root{{--fondo:#0e1014;--caja:#161a21;--borde:#262c36;--texto:#e8ebf0;--tenue:#8b93a1;--acento:#5cc8ff;
+--ok:#7ee08a;--mal:#ff8f8f;--aviso:#ffcc66}}
+*{{box-sizing:border-box}}
+body{{font-family:"Segoe UI",system-ui,sans-serif;background:var(--fondo);color:var(--texto);margin:0;padding:24px 16px 48px}}
+main{{max-width:1180px;margin:0 auto}}
+.marca-axel{{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:6px}}
+.marca-axel h1{{margin:0;font-size:40px;letter-spacing:.12em;font-weight:600;color:var(--acento)}}
+.marca-axel span{{color:var(--tenue);font-size:14px}}
+.kpis{{display:flex;gap:12px;margin:18px 0 28px;flex-wrap:wrap}}
+.kpi{{background:var(--caja);border:1px solid var(--borde);border-radius:10px;padding:12px 18px;min-width:130px;color:var(--tenue)}}
+.kpi b{{display:block;font-size:26px;color:var(--texto)}}
+.bloque{{background:var(--caja);border:1px solid var(--borde);border-radius:14px;padding:6px 20px 20px;margin-bottom:24px}}
+.bloque-t{{display:flex;align-items:center;gap:10px;font-size:13px;text-transform:uppercase;letter-spacing:.14em;
+color:var(--acento);margin:16px 0 4px}}
+.bloque-t i{{font-style:normal;color:var(--tenue)}}
+h2{{font-size:16px;font-weight:600;margin:22px 0 10px;color:var(--texto)}}
+.tabla{{overflow-x:auto}}
+table{{border-collapse:collapse;width:100%;font-size:14px}}
+td,th{{border-bottom:1px solid var(--borde);padding:8px 10px;text-align:left;vertical-align:top}}
+th{{color:var(--tenue);font-weight:500;font-size:12px;text-transform:uppercase;letter-spacing:.06em}}
+pre{{background:var(--fondo);border:1px solid var(--borde);border-radius:8px;padding:12px;white-space:pre-wrap;margin:0}}
+.ok{{color:var(--ok)}} .tomada{{color:var(--mal)}} .paso{{color:var(--tenue)}}
+.marca{{background:var(--aviso);color:#1a1300;border-radius:999px;padding:1px 9px;font-size:12px;letter-spacing:0}}
+.marca.cero{{background:var(--borde);color:var(--tenue)}}
+.ficha{{color:var(--tenue);font-size:14px;margin:18px 0 0}}
+form.escribir{{display:flex;gap:8px;margin:16px 0 0}}
+form.escribir input{{flex:1;min-width:0;padding:10px;border-radius:8px;border:1px solid var(--borde);background:var(--fondo);color:var(--texto)}}
+button{{padding:8px 14px;border-radius:8px;border:1px solid var(--borde);background:#222a35;color:var(--texto);cursor:pointer}}
+button:hover{{border-color:var(--acento)}}
+</style></head><body><main>
+<header class="marca-axel"><h1>ΛXEL</h1><span>panel local · solo 127.0.0.1</span></header>
 <div class="kpis">
 <div class="kpi"><b>{n_cli}</b>clientes</div>
 <div class="kpi"><b>{n_citas}</b>citas</div>
 <div class="kpi"><b>{n_pend}</b>pendientes</div>
 </div>
-<p><b>Ficha panel:</b> {ficha_html}</p>
+
+<section class="bloque" id="dia">
+<div class="bloque-t">Día</div>
 <h2>Reporte de hoy</h2>
 <pre>{html.escape(_reporte(memory))}</pre>
+<h2>Citas</h2>
+<div class="tabla"><table><tr><th>Cuando</th><th>Cliente</th><th>Qué dijo</th></tr>{tabla_citas}</table></div>
+<h2>Cupos de la semana</h2>
+<div class="tabla">{_tabla_cupos()}</div>
+<h2>Pedidos</h2>
+<div class="tabla">{_tabla_pedidos()}</div>
+<h2>Catálogo</h2>
+<div class="tabla">{_tabla_catalogo()}</div>
+</section>
+
+<section class="bloque" id="conversaciones">
+<div class="bloque-t">Conversaciones</div>
+<h2>Últimos</h2>
+<div class="tabla"><table><tr><th>Cuando</th><th>Canal</th><th>Agente</th><th>Nivel</th><th>Aprobación</th><th>Entró</th><th>Respondió</th></tr>{tabla}</table></div>
 <h2>Envíos</h2>
-{_tabla_envios()}
+<div class="tabla">{_tabla_envios()}</div>
 <h2>Clientes WhatsApp</h2>
-<table><tr><th>Nombre</th><th>Celular</th><th>Última cita</th><th>Última vez que escribió</th></tr>{tabla_wa}</table>
-<form method="post" action="/panel" style="margin:16px 0">
-<input name="text" placeholder="Escribe a AXEL" style="width:70%;padding:8px" />
+<div class="tabla"><table><tr><th>Nombre</th><th>Celular</th><th>Última cita</th><th>Última vez que escribió</th></tr>{tabla_wa}</table></div>
+<h2>Clientes</h2>
+<div class="tabla"><table><tr><th>Nombre</th><th>Celular</th><th>Correo</th><th>ID</th></tr>{tabla_cli}</table></div>
+<p class="ficha"><b>Ficha panel:</b> {ficha_html}</p>
+<form class="escribir" method="post" action="/panel">
+<input name="text" placeholder="Escribe a AXEL" />
 <button type="submit">Enviar</button>
 </form>
+</section>
+
+<section class="bloque" id="aprobaciones">
+<div class="bloque-t">Aprobaciones {aviso_pend}</div>
 <h2>Pendientes</h2>
-<table><tr><th>Evento</th><th>Intent</th><th>Pedido</th><th>Decisión</th></tr>{pendientes}</table>
-<h2>Clientes</h2>
-<table><tr><th>Nombre</th><th>Celular</th><th>Correo</th><th>ID</th></tr>{tabla_cli}</table>
-<h2>Pedidos</h2>
-{_tabla_pedidos()}
+<div class="tabla"><table><tr><th>Evento</th><th>Intent</th><th>Pedido</th><th>Decisión</th></tr>{pendientes}</table></div>
+</section>
+
+<section class="bloque" id="inventario">
 <h2>Inventario</h2>
-{_tabla_inventario()}
-<h2>Catálogo</h2>
-{_tabla_catalogo()}
-<h2>Cupos de la semana</h2>
-{_tabla_cupos()}
-<h2>Citas</h2>
-<table><tr><th>Cuando</th><th>Cliente</th><th>Qué dijo</th></tr>{tabla_citas}</table>
-<h2>Últimos</h2>
-<table><tr><th>Cuando</th><th>Canal</th><th>Agente</th><th>Nivel</th><th>Aprobación</th><th>Entró</th><th>Respondió</th></tr>{tabla}</table>
-</body></html>"""
+<div class="tabla">{_tabla_inventario()}</div>
+</section>
+</main></body></html>"""
 
     def _es_local(self) -> bool:
         """Local = Host 127.0.0.1/localhost y sin cabeceras de proxy. Cualquier otro Host es público.

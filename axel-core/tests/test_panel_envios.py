@@ -83,6 +83,16 @@ def main() -> int:
     assert "P15" not in tabla, "máximo 15"
     assert "<h2>Inventario</h2>" in panel
 
+    # Muro 72: ΛXEL arriba; Día, Conversaciones, Aprobaciones; inventario abajo.
+    orden = ["<h1>ΛXEL</h1>", 'id="dia"', 'id="conversaciones"', 'id="aprobaciones"', 'id="inventario"']
+    pos = [panel.index(x) for x in orden]
+    assert pos == sorted(pos), pos
+    dia = panel.split('id="dia"')[1].split('id="conversaciones"')[0]
+    for titulo in ("Reporte de hoy", "Citas", "Pedidos"):
+        assert f"<h2>{titulo}</h2>" in dia, titulo
+    assert "<h2>Últimos</h2>" in panel.split('id="conversaciones"')[1].split('id="aprobaciones"')[0]
+    assert "<h2>Pendientes</h2>" in panel.split('id="aprobaciones"')[1].split('id="inventario"')[0]
+
     print("OK — panel: 8 envíos sin texto ni celular entero; citas con cita_at; inventario 15")
     return 0
 
