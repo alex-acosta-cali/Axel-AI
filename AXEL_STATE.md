@@ -167,6 +167,27 @@ Muros 14-17 hechos (29 sep): 14 tono en la KB, 15 stock 0 no se vende, 16 dueño
 - 52. `pedido en camino N` (dueño): solo si está pagado y hay contacto proveedor. AXEL no le escribe al proveedor. Sin contacto: «Falta el contacto proveedor.»
 - 53. «mi pedido» / «mis pedidos»: el cliente ve solo los suyos (código, precio, estado y hora). Pedido de servicio sin código: su nombre. Sin pedidos: «No tienes pedidos.»
 
+### Edificio 55-65 (hecho 2 oct)
+- 55. Foto con pedido anotado sin pagar: el más nuevo pasa a `por verificar`. La foto no se lee ni se descarga. Cliente: «Recibí el comprobante. El dueño lo verifica. AXEL no mira el banco.» Dueño: «Llegó una foto. Pedido N quedó por verificar.» Sin pedido abierto: frase de la referencia.
+- 56. El cliente cancela lo suyo si está anotado o por verificar («cancelar pedido» toma el más nuevo). Pasa a `rechazado` y suelta la unidad. Pagado o en camino: «Ese pedido ya va. Lo cancela el dueño.» No cancela el de otro. Reemplaza la última frase del 50.
+- 57. «mi pedido» sigue con hora: `test_piloto_2026` la exige. Sin cambio.
+- 58. Si el dueño cancela, el cliente recibe «El dueño canceló tu pedido de CODIGO.»
+- 59. `pedido en camino N` le avisa al cliente: «Tu pedido de CODIGO va en camino.» Al proveedor no se le escribe.
+- 60. «tienen NOMBRE» busca por nombre. Uno: precio y disponible. Varios: lista de 5, sin anotar. Ninguno: no anota y avisa al dueño.
+- 61. `producto CODIGO` con código que ya existe actualiza nombre, precio y stock. No crea otra fila.
+- 62. `producto borrar CODIGO` (dueño): solo sin pedidos abiertos. Si hay: «Tiene pedidos abiertos.»
+- 63. El dueño pega varias líneas `producto ...`: cada una queda; una mala no tumba las otras.
+- 64. Disponible 0 al anotar: un aviso al dueño por código (tabla `avisos_stock`). No se repite hasta que vuelva a haber (cancelar o cargar stock lo limpia). El dueño no recibe aviso del 0 que él mismo carga.
+- 65. Panel local: tabla Inventario (código, nombre, stock, disponible; máx. 15). No sale por el dominio: el panel es solo local.
+- Prueba: `tests/test_edificio.py` (foto, cliente cancela, tienen, no duplica, borrar con abierto, tres líneas). 64 en `test_inventario`, 65 en `test_panel_envios`.
+
+### Incidente 2 oct: AXEL mudo en el VPS
+- Hacia las 12:00 Cali el proceso quedó al 91 % de CPU: health por dominio 504, por túnel sin respuesta. systemd lo veía «active». Se reinició con `systemctl restart axel`.
+- Causa probable: una regex atascada en el único hilo del servidor. Una conocida: `ONB_SERVICIO` con miles de espacios (solo en el alta del dueño). El texto exacto que lo trabó no quedó (prints sin flush en el journal).
+- Arreglo (Grok): mensaje de más de 500 letras no entra a ninguna regex; responde «Mensaje muy largo.» Prueba en `test_webhook`. Commit «Mensaje largo no traba.»
+- kb.json del VPS daba `kb_ok: false`; Alex lo arregló. Health: `kb_ok: true`, 3 servicios.
+- PC tras el apagón: git sin daño, `axel.db` y `axel_m3.db` íntegras, `kb.json` carga, `.env` intacto, todo compila.
+
 ### Siguiente
 - Producto: nada. Meta producción, cobro e IG: no.
 - Meta a la cuenta de Alex: sigue en octubre, después de la Ley 1581. No esta semana.
