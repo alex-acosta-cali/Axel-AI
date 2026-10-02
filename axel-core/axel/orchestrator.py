@@ -725,6 +725,48 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
     return True
 
 
+# "ref CAF01", "código CAF01" o solo "CAF01" (letras y luego cifras).
+_REFERENCIA = re.compile(
+    r"^(?:(?:ref|referencia|c[oó]digo)\s*:?\s*([a-z0-9][a-z0-9-]{1,19})|([a-z]{2,}-?\d[a-z0-9-]{0,17}))\s*[.?!]?$", re.I
+)
+REF_SIN_INVENTARIO = "Referencia sin inventario. Falta tu sí."
+
+
+def _referencia(env: Envelope, memory: Memory, codigo: str) -> None:
+    """Muro 37: con inventario, precio de venta y stock. Sin inventario no hay precio ni pedido: nota al dueño."""
+    codigo = codigo.upper()
+    env.intent = "referencia"
+    env.agent = "atencion"
+    p = kb_mod.buscar_producto(codigo)
+    if p:
+        stock = int(p.get("stock") or 0)
+        env.reply_text = f"{p['codigo']} {p['nombre']}: {kb_mod.precio_txt(p['precio'])}. " + (
+            f"Stock {stock}." if stock > 0 else "Agotado."
+        )
+        env.supervision_level = 1
+        env.result = "ok"
+        env.approval_status = "na"
+        env.why = "referencia en inventario"
+        return
+    # Solo nota en pendientes: no se envía WhatsApp ni se inventa precio.
+    memory.save_pending_approval(
+        {
+            "event_id": env.event_id,
+            "customer_id": env.customer_id,
+            "intent": "referencia",
+            "why": REF_SIN_INVENTARIO,
+            "requested_action": f"{codigo} · {REF_SIN_INVENTARIO}",
+            "notify_text": REF_SIN_INVENTARIO,
+            "status": "pending",
+        }
+    )
+    env.reply_text = f"No tengo {codigo} en inventario. Le consulto al dueño y te aviso."
+    env.supervision_level = 3
+    env.result = "pending"
+    env.approval_status = "pending_owner"
+    env.why = REF_SIN_INVENTARIO
+
+
 def pick_agent(intent: str) -> str:
     if intent in {"reserva", "reprogramar", "cancelar", "mi_cita"}:
         return "reservas"
@@ -857,6 +899,9 @@ def process(env: Envelope, memory: Memory) -> Envelope:
         env.intent = "nota"
         env.reply_text = f"Anoté en tu ficha: {texto}"
     open_task = memory.get_open_task(env.customer_id)
+    ref = _REFERENCIA.match((env.text or "").strip())
+    if ref and not env.payload["es_dueno"] and open_task not in {"reserva", "reprogramar"}:
+        _referencia(env, memory, ref.group(1) or ref.group(2))
     if (
         open_task in {"reserva", "reprogramar", "oferta_cita"}
         and env.intent in {"pregunta", "saludo", "venta"}
@@ -877,15 +922,18 @@ def process(env: Envelope, memory: Memory) -> Envelope:
         elif re.search(r"^(no|despues|después|ahora no)", _norm(env.text or "")):
             memory.set_open_task(env.customer_id, "")
             env.intent = "pregunta"
-    env.agent = pick_agent(env.intent)
-    env.supervision_level = classify_level(env.intent)
-    env.why = reason_for(env.intent or "", env.supervision_level)
+    if env.intent != "referencia":
+        env.agent = pick_agent(env.intent)
+        env.supervision_level = classify_level(env.intent)
+        env.why = reason_for(env.intent or "", env.supervision_level)
 
-    decision = route(env.intent)
-    env.model = decision.model
-    env.model_reason = decision.reason
+        decision = route(env.intent)
+        env.model = decision.model
+        env.model_reason = decision.reason
 
-    if needs_owner_approval(env.supervision_level):
+    if env.intent == "referencia":
+        pass
+    elif needs_owner_approval(env.supervision_level):
         env = escalamiento.handle(env)
         notify_owner(env, memory)
     elif env.agent == "reservas" or needs_customer_confirm(env.supervision_level):

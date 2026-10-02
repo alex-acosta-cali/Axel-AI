@@ -247,6 +247,11 @@ def productos() -> list[dict]:
     return list(load_kb().get("productos") or [])
 
 
+def buscar_producto(codigo: str) -> Optional[dict]:
+    codigo = " ".join((codigo or "").split()).upper()
+    return next((p for p in productos() if str(p.get("codigo") or "") == codigo), None)
+
+
 def set_producto(codigo: str, nombre: str, precio: int, stock: int) -> dict:
     """Crea o reemplaza el producto con ese código. {} si código o nombre no sirven."""
     codigo = " ".join((codigo or "").split()).upper()[:20]
