@@ -467,10 +467,13 @@ def _pedido_listo(memory: Memory, quien: str) -> str:
     p = listos[0]
     if not memory.entregar_pedido(int(p["pedido_id"])):
         return PEDIDO_FALTA_PAGO
+    # Muro 45: el stock del inventario baja solo al entregar. Anotar no lo toca.
+    producto = kb_mod.bajar_stock(str(p["servicio"]))
     notify.aviso_cliente_listo(str(p.get("phone") or ""), str(p["servicio"]), memory, str(p["customer_id"]))
     return (
         f"Entregado: {p['servicio']} {kb_mod.precio_txt(p['precio'])} · "
         f"{p.get('name') or p.get('phone') or 'sin nombre'}. AXEL no cobra."
+        + (f" Stock {producto['codigo']}: {producto['stock']}." if producto else "")
     )
 
 

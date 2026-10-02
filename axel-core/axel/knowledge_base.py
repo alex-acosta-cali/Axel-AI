@@ -294,6 +294,17 @@ def set_producto(codigo: str, nombre: str, precio: int, stock: int) -> dict:
     return item
 
 
+def bajar_stock(servicio: str) -> Optional[dict]:
+    """Muro 45: al entregar, el producto de ese pedido ('CODIGO nombre') baja 1. Nunca de 0. None si no es del inventario."""
+    kb = load_kb()
+    for p in kb.get("productos") or []:
+        if f"{p.get('codigo')} {p.get('nombre')}" == (servicio or "").strip():
+            p["stock"] = max(int(p.get("stock") or 0) - 1, 0)
+            _guardar(kb)
+            return p
+    return None
+
+
 def _guardar(kb: dict) -> None:
     """Muro 39: escribe en un temporal y reemplaza al final. Un apagón no deja kb.json a medias."""
     texto = json.dumps(kb, ensure_ascii=False, indent=2)

@@ -82,6 +82,8 @@ def main() -> int:
         assert r.startswith("Pedido anotado: CAF01 cafe molido $12.000"), r
         pedidos = memory.list_pedidos()
         assert len(pedidos) == 1 and pedidos[0]["estado"] == "anotado", pedidos
+        # Muro 45: me lo llevo no descuenta.
+        assert kb.buscar_producto("CAF01")["stock"] == 2
         with memory._conn() as conn:
             fila = conn.execute("SELECT business_id FROM pedidos").fetchone()
         assert fila[0] == "biz_default", fila
@@ -136,10 +138,22 @@ def main() -> int:
         r = dice(f"pedido pagado {pid}", DUENO)
         assert r.startswith(f"Pedido #{pid} pagado."), r
         r = dice("pedido listo ana", DUENO)
-        assert r.startswith("Entregado: CAF01 cafe molido $12.000"), r
+        assert r.startswith("Entregado: CAF01 cafe molido $12.000") and r.endswith("Stock CAF01: 1."), r
         assert memory.list_pedidos()[0]["estado"] == "entregado"
         r = dice("reporte", DUENO)
         assert "- anotados: 0" in r and "- pagados: 0" in r and "- entregados: 1" in r, r
+
+        # Muro 45: entregado y pagado baja 1. Si queda 0, el siguiente "no hay".
+        assert kb.buscar_producto("CAF01")["stock"] == 1
+        dice("me lo llevo CAF01", LUIS, "Luis")
+        assert kb.buscar_producto("CAF01")["stock"] == 1
+        pid = memory.list_pedidos()[0]["pedido_id"]
+        dice(f"pedido pagado {pid}", DUENO)
+        r = dice("pedido listo luis", DUENO)
+        assert r.startswith("Entregado: CAF01") and r.endswith("Stock CAF01: 0."), r
+        assert kb.buscar_producto("CAF01")["stock"] == 0
+        r = dice("me lo llevo CAF01", ANA, "Ana")
+        assert r.startswith("No hay CAF01 ahora."), r
 
         # Muro 39: kb.json roto no tumba AXEL. Usa la última copia.
         kb_tmp.write_text("{roto", encoding="utf-8")
