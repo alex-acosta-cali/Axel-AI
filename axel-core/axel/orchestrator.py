@@ -124,7 +124,7 @@ NO_EMPIEZA_NOMBRE = {
     "donde", "cual", "que", "cuanto", "cuando", "quiero", "hola", "precios",
     "cancelar", "reprogramar", "anular", "pedido", "pedidos", "reporte", "catalogo", "citas", "cita",
     "reserva", "turno", "mesa", "horario", "ayuda", "aprobar", "aceptar", "rechazar", "limpiar",
-    "configurar", "clientes", "ficha", "envios",
+    "configurar", "clientes", "ficha", "envios", "inventario",
 }
 # "mi" suelto sí puede ser nombre ("Mi Leidy"); estas frases no.
 NO_EMPIEZA_NOMBRE_FRASES = {"mi ficha", "mis citas", "mi cita", "mi reserva", "mi turno", "mi pedido", "mis pedidos"}
@@ -488,6 +488,19 @@ def _pedido_listo(memory: Memory, quien: str) -> str:
     )
 
 
+def _inventario(memory: Memory) -> str:
+    """Muro 51: solo el dueño. Código, nombre, stock y disponible (stock menos pedidos abiertos). Máximo 15."""
+    productos = kb_mod.productos()
+    if not productos:
+        return "No hay productos. Ejemplo: producto CAF01 | cafe molido | 12000 | 30"
+    lineas = []
+    for p in productos[:15]:
+        stock = int(p.get("stock") or 0)
+        disponible = max(stock - memory.pedidos_abiertos(str(p["codigo"])), 0)
+        lineas.append(f"- {p['codigo']} · {p['nombre']} · stock {stock} · disponible {disponible}")
+    return "Inventario:\n" + "\n".join(lineas)
+
+
 _CANCELAR_PEDIDO = re.compile(r"^cancelar (?:el )?pedido(?:\s+#?(\d+))?\s*\.?$")
 PEDIDO_YA_VA = "Ese pedido ya va. No lo cancelo."
 PEDIDO_CLIENTE_NO_CANCELA = "Los pedidos los cancela el dueño. AXEL no cancela pedidos."
@@ -616,7 +629,7 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         env.agent = "escalamiento"
         env.supervision_level = 1
         env.reply_text = (
-            "Comandos dueño: estado, estado axel, reporte, limpiar, pendientes, citas, clientes, pedidos, pedido pagado N, pedido listo, envios, catalogo, "
+            "Comandos dueño: estado, estado axel, reporte, limpiar, pendientes, citas, clientes, pedidos, pedido pagado N, pedido listo, cancelar pedido N, inventario, envios, catalogo, "
             "aprobar N, rechazar N, ayuda, "
             "configurar, cancelar configurar, el negocio se llama NOMBRE, abrimos de H1 a H2, "
             "el rubro es X, agenda si/no, agrega servicio X a N, "
@@ -717,6 +730,14 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         env.supervision_level = 1
         lineas = [f"- {hora} · {quien} · {pedido} · {estado}" for hora, quien, pedido, estado in pedidos_filas(memory)]
         env.reply_text = "Pedidos:\n" + "\n".join(lineas) if lineas else "No hay pedidos."
+        env.result = "ok"
+        env.approval_status = "na"
+        return True
+    if t == "inventario":
+        env.intent = "admin"
+        env.agent = "escalamiento"
+        env.supervision_level = 1
+        env.reply_text = _inventario(memory)
         env.result = "ok"
         env.approval_status = "na"
         return True

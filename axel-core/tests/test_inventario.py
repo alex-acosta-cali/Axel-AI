@@ -181,6 +181,14 @@ def main() -> int:
         dice(f"pedido pagado {pid}", DUENO)
         assert dice(f"cancelar pedido {pid}", DUENO) == "Ese pedido ya va. No lo cancelo."
 
+        # Muro 51: inventario es del dueño. Código, nombre, stock y disponible.
+        r = dice("inventario", DUENO)
+        assert r.startswith("Inventario:\n"), r
+        assert "- CAF01 · cafe molido · stock 0 · disponible 0" in r, r
+        assert "- CAF03 · cafe tostado · stock 1 · disponible 0" in r, r
+        r = dice("inventario", LUIS, "Luis")
+        assert "Inventario:" not in r and "CAF03" not in r and "stock" not in r, r
+
         # Muro 39: kb.json roto no tumba AXEL. Usa la última copia.
         kb_tmp.write_text("{roto", encoding="utf-8")
         assert kb.buscar_producto("CAF01"), "no usó la última copia"
