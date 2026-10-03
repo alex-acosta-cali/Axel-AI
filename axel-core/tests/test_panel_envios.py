@@ -103,7 +103,10 @@ def main() -> int:
         assert demo._a(rotulo) in reporte, rotulo
     assert "<button" not in reporte, "sin botones nuevos"
     assert "setInterval" in panel and "20000" in panel and "location.reload()" in panel
-    assert demo._a("Día") == "Dí<span class='a'>a</span>"
+    # Muro A: cada a/A de un rótulo fijo se ve como la Λ dorada; la palabra va entera (nowrap) y se lee la letra real.
+    assert demo._a("Día") == "<span class='palabra'>Dí<span class='a' aria-hidden='true'>&Lambda;</span><span class='sr'>a</span></span>"
+    assert demo._a("Pedidos") == "Pedidos" and demo._a("por aprobar").startswith("por <span class='palabra'>")
+    assert demo._a("Aprobaciones").count("&Lambda;") == 2
     assert f"<button data-abre=\"aprobaciones\">{demo._a('Aprobaciones')}" in panel
     # Ladrillo 4: la fila técnica (intent, nivel, hora UTC) sale de Conversaciones y queda en Registro.
     assert "<h2>Últimos</h2>" not in panel.split('id="conversaciones"')[1].split('id="aprobaciones"')[0]

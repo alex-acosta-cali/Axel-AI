@@ -170,9 +170,20 @@ def _tabla_inventario() -> str:
     return f"<table><tr>{cab}</tr>{filas}</table>"
 
 
+_LETRA_A = "aAáÁ"
+
+
 def _a(titulo: str) -> str:
-    """Título fijo con la letra A en dorado. Solo para títulos fijos, nunca para nombres ni mensajes."""
-    return "".join(f"<span class='a'>{ch}</span>" if ch in "aAáÁ" else html.escape(ch) for ch in titulo)
+    """Rótulo fijo: cada a/A se dibuja como la Λ dorada de la marca. La palabra no se parte (nowrap) y el
+    lector de pantalla lee la letra real. Solo para rótulos fijos, nunca para nombres ni mensajes."""
+    def letra(ch: str) -> str:
+        # &Lambda; y no la letra suelta: la consola de Windows (cp1252) no imprime Λ.
+        return f"<span class='a' aria-hidden='true'>&Lambda;</span><span class='sr'>{ch}</span>" if ch in _LETRA_A else html.escape(ch)
+
+    return " ".join(
+        f"<span class='palabra'>{''.join(letra(ch) for ch in p)}</span>" if any(ch in _LETRA_A for ch in p) else html.escape(p)
+        for p in titulo.split(" ")
+    )
 
 
 def _canal_txt(canal: str) -> str:
@@ -395,6 +406,8 @@ main{{max-width:720px;margin:0 auto}}
 .reporte{{grid-template-columns:repeat(4,1fr);margin:0}}
 .reporte b{{font-size:26px;overflow-wrap:anywhere}}
 .a{{color:var(--dorado)}}
+.palabra{{white-space:nowrap}}
+.sr{{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}
 @media (max-width:620px){{.reporte{{grid-template-columns:repeat(2,1fr)}}}}
 .otros{{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 0}}
 .otro{{background:none;border:1px solid var(--borde);border-radius:999px;color:var(--tenue);font:inherit;font-size:14px;padding:10px 18px}}
