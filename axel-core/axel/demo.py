@@ -276,31 +276,24 @@ class Handler(BaseHTTPRequestHandler):
                 "</tr>"
             )
         tabla_citas = "".join(citas) or "<tr><td colspan='3'>Sin citas confirmadas</td></tr>"
+        # Una sola lista de clientes. Canal: WhatsApp o vacío. Sin ID. Última vez = último mensaje por WhatsApp.
+        wa = {str(u.get("customer_id")): u.get("last_in") for u in memory.list_whatsapp_customers(500)}
         cli = []
-        for u in memory.list_customers(15):
+        for u in memory.list_customers(20):
+            cid = str(u.get("customer_id") or "")
+            ult = memory.last_reserva(cid)
+            ult_txt = franja_fila(ult) if ult else "—"
+            escribio = _creada_cali(str(wa[cid])).strftime("%d/%m %H:%M") if wa.get(cid) else "—"
             cli.append(
                 "<tr>"
                 f"<td>{html.escape(str(u.get('name') or '—'))}</td>"
-                f"<td>{html.escape(str(u.get('phone') or '—'))}</td>"
-                f"<td>{html.escape(str(u.get('email') or '—'))}</td>"
-                f"<td>{html.escape(str(u.get('customer_id') or ''))}</td>"
-                "</tr>"
-            )
-        tabla_cli = "".join(cli) or "<tr><td colspan='4'>Sin clientes</td></tr>"
-        wa = []
-        for u in memory.list_whatsapp_customers(20):
-            ult = memory.last_reserva(str(u.get("customer_id") or ""))
-            ult_txt = franja_fila(ult) if ult else "—"
-            escribio = _creada_cali(str(u["last_in"])).strftime("%d/%m %H:%M") if u.get("last_in") else "—"
-            wa.append(
-                "<tr>"
-                f"<td>{html.escape(str(u.get('name') or '—'))}</td>"
+                f"<td>{'WhatsApp' if cid in wa else ''}</td>"
                 f"<td>{html.escape(str(u.get('phone') or '—'))}</td>"
                 f"<td>{html.escape(ult_txt)}</td>"
                 f"<td>{html.escape(escribio)}</td>"
                 "</tr>"
             )
-        tabla_wa = "".join(wa) or "<tr><td colspan='4'>Sin clientes WhatsApp</td></tr>"
+        tabla_cli = "".join(cli) or "<tr><td colspan='5'>Sin clientes</td></tr>"
         n_pend = len(memory.list_pending())
         # Piel del diseño: número grande = citas de hoy; debajo lo anotado hoy, sin cobro (pedido no es cobro).
         ahora = _ahora_cali()
@@ -327,7 +320,7 @@ class Handler(BaseHTTPRequestHandler):
 :root{{--fondo:#0b3d2e;--caja:#134a3b;--borde:#2b5f4e;--texto:#f4efe4;--tenue:#b9c9c0;--dorado:#c9a85c;
 --ok:#a8dcb0;--mal:#f2a08f;--oscuro:#0a2f24}}
 *{{box-sizing:border-box}}
-body{{font-family:"Segoe UI",system-ui,sans-serif;background:var(--fondo);color:var(--texto);margin:0;padding:20px 16px 120px}}
+body{{font-family:"Segoe UI",system-ui,sans-serif;background:var(--fondo);color:var(--texto);margin:0;padding:20px 16px 180px}}
 main{{max-width:720px;margin:0 auto}}
 .arriba{{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}}
 .marca-axel{{display:flex;flex-direction:column;gap:6px}}
@@ -383,7 +376,9 @@ border-radius:0;padding:12px 14px;min-height:44px;width:100%}}
 .msj small{{display:block;margin-top:4px;font-size:12px;opacity:.75;text-align:right}}
 .msj.cliente{{align-self:flex-start;border:1px solid var(--borde)}}
 .msj.axel{{align-self:flex-end;background:var(--texto);color:#13241d}}
-form.escribir{{display:flex;gap:8px;margin:16px 0 0}}
+.lambda{{align-self:center;color:var(--dorado);font-size:20px;padding:0 6px 0 12px}}
+form.escribir{{position:fixed;left:50%;bottom:86px;transform:translateX(-50%);display:flex;gap:8px;margin:0;
+width:min(560px,calc(100% - 32px))}}
 form.escribir input{{flex:1;min-width:0;padding:12px 16px;border-radius:999px;border:1px solid var(--borde);background:var(--caja);color:var(--texto);font:inherit}}
 button{{padding:8px 16px;border-radius:999px;border:1px solid var(--borde);background:var(--caja);color:var(--texto);cursor:pointer;font:inherit}}
 button:hover{{border-color:var(--dorado)}}
@@ -412,6 +407,7 @@ button[value=approved]{{background:var(--dorado);border-color:var(--dorado);colo
 <p class="local">panel local · solo 127.0.0.1</p>
 
 <nav class="puertas" aria-label="Puertas">
+<span class="lambda" aria-hidden="true">Λ</span>
 <button data-abre="dia">Día</button>
 <button data-abre="conversaciones">Conversaciones</button>
 <button data-abre="aprobaciones">Aprobaciones{punto}</button>
@@ -433,17 +429,8 @@ button[value=approved]{{background:var(--dorado);border-color:var(--dorado);colo
 <div class="bloque-cab"><div class="bloque-t">Conversaciones</div>{cerrar}</div>
 <h2>Chats</h2>
 {chats}
-<h2>Últimos</h2>
-<div class="tabla"><table><tr><th>Cuando</th><th>Canal</th><th>Agente</th><th>Nivel</th><th>Aprobación</th><th>Entró</th><th>Respondió</th></tr>{tabla}</table></div>
-<h2>Clientes WhatsApp</h2>
-<div class="tabla"><table><tr><th>Nombre</th><th>Celular</th><th>Última cita</th><th>Última vez que escribió</th></tr>{tabla_wa}</table></div>
 <h2>Clientes</h2>
-<div class="tabla"><table><tr><th>Nombre</th><th>Celular</th><th>Correo</th><th>ID</th></tr>{tabla_cli}</table></div>
-<p class="ficha"><b>Ficha panel:</b> {ficha_html}</p>
-<form class="escribir" method="post" action="/panel">
-<input name="text" placeholder="Escribe a AXEL" />
-<button type="submit">Enviar</button>
-</form>
+<div class="tabla"><table><tr><th>Nombre</th><th>Canal</th><th>Celular</th><th>Última cita</th><th>Última vez</th></tr>{tabla_cli}</table></div>
 </div></dialog>
 {hilos}
 
@@ -469,8 +456,16 @@ button[value=approved]{{background:var(--dorado);border-color:var(--dorado);colo
 <div class="bloque-cab"><div class="bloque-t">Registro</div>{cerrar}</div>
 <h2>Envíos</h2>
 <div class="tabla">{_tabla_envios()}</div>
+<h2>Últimos</h2>
+<div class="tabla"><table><tr><th>Cuando</th><th>Canal</th><th>Agente</th><th>Nivel</th><th>Aprobación</th><th>Entró</th><th>Respondió</th></tr>{tabla}</table></div>
+<p class="ficha"><b>Ficha panel:</b> {ficha_html}</p>
 </div></dialog>
 </main>
+
+<form class="escribir" method="post" action="/panel">
+<input name="text" placeholder="Escribe a AXEL" aria-label="Escribe a AXEL" />
+<button type="submit">Enviar</button>
+</form>
 <script>
 document.querySelectorAll("[data-abre]").forEach(function (b) {{
   b.addEventListener("click", function () {{ document.getElementById(b.dataset.abre).showModal(); }});

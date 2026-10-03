@@ -60,12 +60,15 @@ def main() -> int:
             (gil,),
         )
     panel = demo.Handler.__new__(demo.Handler)._panel()
-    assert panel.index("<h2>Reporte de hoy</h2>") < panel.index("<h2>Clientes WhatsApp</h2>")
-    # Los 7 bloques del dueño siguen en el panel.
-    for titulo in ("Reporte de hoy", "Cupos de la semana", "Citas", "Clientes WhatsApp", "Catálogo", "Pedidos", "Envíos"):
+    assert panel.index("<h2>Reporte de hoy</h2>") < panel.index("<h2>Clientes</h2>")
+    # Los bloques del dueño siguen en el panel. Ladrillo 4: una sola lista "Clientes" (antes dos tablas).
+    for titulo in ("Reporte de hoy", "Cupos de la semana", "Citas", "Clientes", "Catálogo", "Pedidos", "Envíos"):
         assert f"<h2>{titulo}</h2>" in panel, titulo
-    assert "sábado 03/10 11:00" in panel, "Clientes WhatsApp lee cita_at"
-    assert "3001112233" in panel.split("<h2>Clientes WhatsApp</h2>")[1], "el celular sigue en la tabla de clientes"
+    assert "<h2>Clientes WhatsApp</h2>" not in panel and panel.count("<h2>Clientes</h2>") == 1
+    clientes = panel.split("<h2>Clientes</h2>")[1].split("</table>")[0]
+    assert "sábado 03/10 11:00" in clientes, "Clientes lee cita_at"
+    assert "3001112233" in clientes, "el celular sigue en la lista de clientes"
+    assert "<td>WhatsApp</td>" in clientes and "<th>ID</th>" not in clientes and gil not in clientes, "canal sí, ID no"
     assert "3001112233" not in panel.split("<h2>Envíos</h2>")[1].split("<h2>")[0]
 
     # Muro 65: inventario en el panel. 16 productos, salen 15. Disponible descuenta el pedido abierto.
@@ -90,7 +93,13 @@ def main() -> int:
     dia = panel.split('id="dia"')[1].split('id="conversaciones"')[0]
     for titulo in ("Reporte de hoy", "Citas", "Pedidos"):
         assert f"<h2>{titulo}</h2>" in dia, titulo
-    assert "<h2>Últimos</h2>" in panel.split('id="conversaciones"')[1].split('id="aprobaciones"')[0]
+    # Ladrillo 4: la fila técnica (intent, nivel, hora UTC) sale de Conversaciones y queda en Registro.
+    assert "<h2>Últimos</h2>" not in panel.split('id="conversaciones"')[1].split('id="aprobaciones"')[0]
+    assert "<h2>Últimos</h2>" in panel.split('id="registro"')[1]
+    # Una sola barra "Escribe a AXEL", fuera de las ventanas. Λ dorada en la marca y en las puertas.
+    assert panel.count('placeholder="Escribe a AXEL"') == 1
+    assert panel.index("</main>") < panel.index('placeholder="Escribe a AXEL"')
+    assert '<span class="lambda" aria-hidden="true">Λ</span>' in panel.split('class="puertas"')[1].split("</nav>")[0]
     assert "<h2>Pendientes</h2>" in panel.split('id="aprobaciones"')[1].split('id="inventario"')[0]
 
     # Ladrillo 2: Catálogo vive en Mi negocio; Envíos en Registro (operador). Ni uno ni otro en Día ni Conversaciones.
