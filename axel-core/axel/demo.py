@@ -32,7 +32,7 @@ from axel.agents.reservas import (
 from axel.connectors import whatsapp
 from axel.envelope import Envelope
 from axel.memory import Memory
-from axel.orchestrator import _reporte, anotado_hoy, inventario_filas, pedidos_filas, process
+from axel.orchestrator import anotado_hoy, inventario_filas, pedidos_de_hoy, pedidos_filas, process
 
 def _db_path() -> str:
     """Base fija: /opt/Axel-AI/axel-core/axel.db en el VPS; si esa carpeta no existe, junto al código.
@@ -165,6 +165,11 @@ def _tabla_inventario() -> str:
         "<tr>" + "".join(f"<td>{html.escape(str(c))}</td>" for c in fila) + "</tr>" for fila in inventario_filas(memory)
     ) or "<tr><td colspan='4'>No hay productos.</td></tr>"
     return f"<table><tr><th>Código</th><th>Nombre</th><th>Stock</th><th>Disponible</th></tr>{filas}</table>"
+
+
+def _a(titulo: str) -> str:
+    """Título fijo con la letra A en dorado. Solo para títulos fijos, nunca para nombres ni mensajes."""
+    return "".join(f"<span class='a'>{ch}</span>" if ch in "aAáÁ" else html.escape(ch) for ch in titulo)
 
 
 def _canal_txt(canal: str) -> str:
@@ -304,6 +309,7 @@ class Handler(BaseHTTPRequestHandler):
         hoy = ahora.date()
         citas_hoy = sum(1 for c in memory.list_confirmed_reservas(500) if (w := cuando_fila(c)) and w[0] == hoy)
         pedidos = memory.list_pedidos(500)
+        entregados = [p for p in pedidos_de_hoy(pedidos) if p.get("estado") == "entregado"]
         en_curso = sum(1 for p in pedidos if (p.get("estado") or "anotado") not in {"entregado", "rechazado"})
         negocio = html.escape(str(kb.load_kb().get("negocio") or ""))
         punto = "<i class='punto' aria-label='hay por aprobar'></i>" if n_pend else ""
@@ -333,6 +339,10 @@ main{{max-width:720px;margin:0 auto}}
 .tarjetas{{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:24px 0 0}}
 .tarjeta{{background:var(--caja);border:1px solid var(--borde);border-radius:18px;padding:16px 8px;text-align:center;color:var(--tenue);font:inherit;font-size:14px;min-height:44px}}
 .tarjeta b{{display:block;font-size:40px;font-weight:300;color:var(--texto);margin-bottom:4px}}
+.reporte{{grid-template-columns:repeat(4,1fr);margin:0}}
+.reporte b{{font-size:26px;overflow-wrap:anywhere}}
+.a{{color:var(--dorado)}}
+@media (max-width:620px){{.reporte{{grid-template-columns:repeat(2,1fr)}}}}
 .otros{{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 0}}
 .otro{{background:none;border:1px solid var(--borde);border-radius:999px;color:var(--tenue);font:inherit;font-size:14px;padding:10px 18px}}
 .local{{color:var(--tenue);font-size:12px;margin:22px 0 0}}
@@ -408,16 +418,21 @@ button[value=approved]{{background:var(--dorado);border-color:var(--dorado);colo
 
 <nav class="puertas" aria-label="Puertas">
 <span class="lambda" aria-hidden="true">Λ</span>
-<button data-abre="dia">Día</button>
-<button data-abre="conversaciones">Conversaciones</button>
-<button data-abre="aprobaciones">Aprobaciones{punto}</button>
+<button data-abre="dia">{_a("Día")}</button>
+<button data-abre="conversaciones">{_a("Conversaciones")}</button>
+<button data-abre="aprobaciones">{_a("Aprobaciones")}{punto}</button>
 </nav>
 
 <dialog class="bloque" id="dia"><div class="ventana">
-<div class="bloque-cab"><div class="bloque-t">Día</div>{cerrar}</div>
+<div class="bloque-cab"><div class="bloque-t">{_a("Día")}</div>{cerrar}</div>
 <h2>Reporte de hoy</h2>
-<pre>{html.escape(_reporte(memory))}</pre>
-<h2>Citas</h2>
+<div class="tarjetas reporte">
+<div class="tarjeta"><b>{citas_hoy}</b>citas hoy</div>
+<div class="tarjeta"><b>{kb.precio_txt(anotado_hoy(pedidos))}</b>anotado, sin cobro</div>
+<div class="tarjeta"><b>{len(entregados)}</b>entregados · {kb.precio_txt(sum(int(p["precio"]) for p in entregados))}</div>
+<div class="tarjeta"><b>{n_pend}</b>por aprobar</div>
+</div>
+<h2>{_a("Citas")}</h2>
 <div class="tabla"><table><tr><th>Cuando</th><th>Cliente</th><th>Qué dijo</th></tr>{tabla_citas}</table></div>
 <h2>Cupos de la semana</h2>
 <div class="tabla">{_tabla_cupos()}</div>
@@ -426,7 +441,7 @@ button[value=approved]{{background:var(--dorado);border-color:var(--dorado);colo
 </div></dialog>
 
 <dialog class="bloque" id="conversaciones"><div class="ventana">
-<div class="bloque-cab"><div class="bloque-t">Conversaciones</div>{cerrar}</div>
+<div class="bloque-cab"><div class="bloque-t">{_a("Conversaciones")}</div>{cerrar}</div>
 <h2>Chats</h2>
 {chats}
 <h2>Clientes</h2>
@@ -435,13 +450,13 @@ button[value=approved]{{background:var(--dorado);border-color:var(--dorado);colo
 {hilos}
 
 <dialog class="bloque" id="aprobaciones"><div class="ventana">
-<div class="bloque-cab"><div class="bloque-t">Aprobaciones {aviso_pend}</div>{cerrar}</div>
+<div class="bloque-cab"><div class="bloque-t">{_a("Aprobaciones")} {aviso_pend}</div>{cerrar}</div>
 <h2>Pendientes</h2>
 <div class="tabla"><table><tr><th>Evento</th><th>Intent</th><th>Pedido</th><th>Decisión</th></tr>{pendientes}</table></div>
 </div></dialog>
 
 <dialog class="bloque" id="inventario"><div class="ventana">
-<div class="bloque-cab"><div class="bloque-t">Inventario</div>{cerrar}</div>
+<div class="bloque-cab"><div class="bloque-t">{_a("Inventario")}</div>{cerrar}</div>
 <h2>Inventario</h2>
 <div class="tabla">{_tabla_inventario()}</div>
 </div></dialog>
@@ -453,7 +468,7 @@ button[value=approved]{{background:var(--dorado);border-color:var(--dorado);colo
 </div></dialog>
 
 <dialog class="bloque" id="registro"><div class="ventana">
-<div class="bloque-cab"><div class="bloque-t">Registro</div>{cerrar}</div>
+<div class="bloque-cab"><div class="bloque-t">{_a("Registro")}</div>{cerrar}</div>
 <h2>Envíos</h2>
 <div class="tabla">{_tabla_envios()}</div>
 <h2>Últimos</h2>
@@ -465,7 +480,7 @@ button[value=approved]{{background:var(--dorado);border-color:var(--dorado);colo
 <div class="barra">
 <form class="escribir" method="post" action="/panel">
 <input name="text" placeholder="Escribe a AXEL" aria-label="Escribe a AXEL" />
-<button type="submit">Enviar</button>
+<button type="submit">{_a("Enviar")}</button>
 </form>
 <p class="aviso-barra">Un comando de dueño puede avisar al cliente. No le escribe texto libre.</p>
 </div>
@@ -476,6 +491,12 @@ document.querySelectorAll("[data-abre]").forEach(function (b) {{
 document.querySelectorAll("dialog").forEach(function (d) {{
   d.addEventListener("click", function (e) {{ if (e.target === d) d.close(); }});
 }});
+// Recarga cada 20 s. Espera si hay una ventana abierta o si el dueño está escribiendo, para no perderle nada.
+setInterval(function () {{
+  var campo = document.querySelector("form.escribir input");
+  var escribiendo = campo && (campo.value || document.activeElement === campo);
+  if (!document.querySelector("dialog[open]") && !escribiendo) location.reload();
+}}, 20000);
 </script>
 </body></html>"""
 

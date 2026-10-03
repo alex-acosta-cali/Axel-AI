@@ -632,14 +632,15 @@ def _lista_anotados(pedidos: list[dict]) -> str:
     )
 
 
+def pedidos_de_hoy(pedidos: list[dict]) -> list[dict]:
+    """Pedidos creados hoy en Cali. La misma regla para el reporte y el panel."""
+    hoy = reservas._ahora_cali().date()
+    return [p for p in pedidos if reservas._creada_cali(str(p.get("created_at") or "")).date() == hoy]
+
+
 def anotado_hoy(pedidos: list[dict]) -> int:
     """Suma de los pedidos de hoy en Cali, sin rechazados. Es el número del reporte y del dorado del panel. Sin cobro."""
-    hoy = reservas._ahora_cali().date()
-    return sum(
-        int(p["precio"]) for p in pedidos
-        if (p.get("estado") or "anotado") != "rechazado"
-        and reservas._creada_cali(str(p.get("created_at") or "")).date() == hoy
-    )
+    return sum(int(p["precio"]) for p in pedidos_de_hoy(pedidos) if (p.get("estado") or "anotado") != "rechazado")
 
 
 def _reporte(memory: Memory) -> str:

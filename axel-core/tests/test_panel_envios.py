@@ -62,7 +62,8 @@ def main() -> int:
     panel = demo.Handler.__new__(demo.Handler)._panel()
     assert panel.index("<h2>Reporte de hoy</h2>") < panel.index("<h2>Clientes</h2>")
     # Los bloques del dueño siguen en el panel. Ladrillo 4: una sola lista "Clientes" (antes dos tablas).
-    for titulo in ("Reporte de hoy", "Cupos de la semana", "Citas", "Clientes", "Catálogo", "Pedidos", "Envíos"):
+    # Ladrillo 6: "Citas" lleva la A dorada (demo._a); los demás títulos siguen en texto plano.
+    for titulo in ("Reporte de hoy", "Cupos de la semana", demo._a("Citas"), "Clientes", "Catálogo", "Pedidos", "Envíos"):
         assert f"<h2>{titulo}</h2>" in panel, titulo
     assert "<h2>Clientes WhatsApp</h2>" not in panel and panel.count("<h2>Clientes</h2>") == 1
     clientes = panel.split("<h2>Clientes</h2>")[1].split("</table>")[0]
@@ -91,8 +92,17 @@ def main() -> int:
     pos = [panel.index(x) for x in orden]
     assert pos == sorted(pos), pos
     dia = panel.split('id="dia"')[1].split('id="conversaciones"')[0]
-    for titulo in ("Reporte de hoy", "Citas", "Pedidos"):
+    for titulo in ("Reporte de hoy", demo._a("Citas"), "Pedidos"):
         assert f"<h2>{titulo}</h2>" in dia, titulo
+    # Ladrillo 6: el reporte del panel son cuatro tarjetas, sin texto largo ni línea de pagados.
+    reporte = dia.split("<h2>Reporte de hoy</h2>")[1].split("<h2>")[0]
+    assert reporte.count("class=\"tarjeta\"") == 4 and "<pre>" not in reporte and "pagado" not in reporte, reporte
+    for rotulo in ("citas hoy", "anotado, sin cobro", "entregados · ", "por aprobar"):
+        assert rotulo in reporte, rotulo
+    assert "<button" not in reporte, "sin botones nuevos"
+    assert "setInterval" in panel and "20000" in panel and "location.reload()" in panel
+    assert demo._a("Día") == "Dí<span class='a'>a</span>"
+    assert f"<button data-abre=\"aprobaciones\">{demo._a('Aprobaciones')}" in panel
     # Ladrillo 4: la fila técnica (intent, nivel, hora UTC) sale de Conversaciones y queda en Registro.
     assert "<h2>Últimos</h2>" not in panel.split('id="conversaciones"')[1].split('id="aprobaciones"')[0]
     assert "<h2>Últimos</h2>" in panel.split('id="registro"')[1]
