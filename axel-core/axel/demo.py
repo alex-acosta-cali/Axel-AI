@@ -244,21 +244,36 @@ class Handler(BaseHTTPRequestHandler):
                 "</tr>"
             )
         tabla = "".join(items) or "<tr><td colspan='7'>Al día. Nadie espera.</td></tr>"
+        # Ladrillo 7: el nombre y la fila son texto. Solo los botones Aprobar y Rechazar deciden.
+        def _cliente_txt(cid: str) -> str:
+            return html.escape(str((memory.get_customer(cid) or {}).get("name") or "sin nombre"))
+
         pend = []
         for p in memory.list_pending():
             eid = html.escape(str(p.get("event_id") or ""))
             pend.append(
                 "<tr>"
+                f"<td class='nombre'>{_cliente_txt(str(p.get('customer_id') or ''))}</td>"
                 f"<td>{eid}</td>"
                 f"<td>{html.escape(str(p.get('intent') or ''))}</td>"
                 f"<td>{html.escape(str(p.get('requested_action') or ''))}</td>"
                 f"<td><form method='post' action='/decidir' style='display:inline'>"
                 f"<input type='hidden' name='event_id' value='{eid}'/>"
-                f"<button name='decision' value='approved'>Aprobar</button> "
-                f"<button name='decision' value='rejected'>Rechazar</button>"
+                f"<button type='submit' name='decision' value='approved'>Aprobar</button> "
+                f"<button type='submit' name='decision' value='rejected'>Rechazar</button>"
                 f"</form></td></tr>"
             )
-        pendientes = "".join(pend) or "<tr><td colspan='4'>Nada por aprobar.</td></tr>"
+        pendientes = "".join(pend) or "<tr><td colspan='5'>Nada por aprobar.</td></tr>"
+        decididas = "".join(
+            "<tr>"
+            f"<td class='nombre'>{_cliente_txt(str(d.get('customer_id') or ''))}</td>"
+            f"<td>{html.escape(str(d.get('intent') or ''))}</td>"
+            f"<td>{html.escape(str(d.get('requested_action') or ''))}</td>"
+            f"<td>{'aprobada' if d.get('status') == 'approved' else 'rechazada'}</td>"
+            f"<td>{_creada_cali(str(d['decided_at'])).strftime('%d/%m %H:%M') if d.get('decided_at') else '—'}</td>"
+            "</tr>"
+            for d in memory.list_decididas(10)
+        ) or "<tr><td colspan='5'>Nada decidido aún.</td></tr>"
         ficha = memory.find_by_identity("panel", "alex_pc")
         notas = memory.list_notes(str(ficha.get("customer_id") or ""), 3)
         notas_txt = " | ".join(str(n.get("note") or "") for n in notas) or "—"
@@ -452,7 +467,9 @@ button[value=approved]{{background:var(--dorado);border-color:var(--dorado);colo
 <dialog class="bloque" id="aprobaciones"><div class="ventana">
 <div class="bloque-cab"><div class="bloque-t">{_a("Aprobaciones")} {aviso_pend}</div>{cerrar}</div>
 <h2>Pendientes</h2>
-<div class="tabla"><table><tr><th>Evento</th><th>Intent</th><th>Pedido</th><th>Decisión</th></tr>{pendientes}</table></div>
+<div class="tabla"><table><tr><th>Cliente</th><th>Evento</th><th>Intent</th><th>Pedido</th><th>Decisión</th></tr>{pendientes}</table></div>
+<h2>Decididas</h2>
+<div class="tabla"><table><tr><th>Cliente</th><th>Intent</th><th>Pedido</th><th>Quedó</th><th>Hora Cali</th></tr>{decididas}</table></div>
 </div></dialog>
 
 <dialog class="bloque" id="inventario"><div class="ventana">
@@ -567,6 +584,17 @@ setInterval(function () {{
         )
         return process(env, memory).model_dump()
 
+    def _decidir(self, event_id: str, decision: str) -> None:
+        """Solo un botón decide: sin decision válida o sin pendiente, nada cambia. Va por el mismo camino que
+        'aprobar N' / 'rechazar N' del dueño: aviso al cliente (queda en Envíos) y luego se resuelve."""
+        if decision not in {"approved", "rejected"}:
+            return
+        fila = next((p for p in memory.list_pending() if str(p.get("event_id")) == event_id), None)
+        if fila is None:
+            return
+        verbo = "aprobar" if decision == "approved" else "rechazar"
+        self._run({"text": f"{verbo} {fila['n']}", "channel": "panel", "channel_user_id": "alex_pc"})
+
     def do_POST(self) -> None:
         if self._bloqueado("POST"):
             return
@@ -581,7 +609,7 @@ setInterval(function () {{
             return
         if self.path == "/decidir":
             form = parse_qs(raw.decode("utf-8", "replace"))
-            memory.resolve_pending((form.get("event_id") or [""])[0], (form.get("decision") or [""])[0])
+            self._decidir((form.get("event_id") or [""])[0], (form.get("decision") or [""])[0])
             self.send_response(303)
             self.send_header("Location", "/")
             self.end_headers()

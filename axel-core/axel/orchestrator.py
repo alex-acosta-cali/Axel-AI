@@ -651,18 +651,17 @@ def _reporte(memory: Memory) -> str:
         cuando = reservas.cuando_fila(c)
         if cuando and cuando[0] == hoy:
             citas.append((cuando[1], cuando[2], str(c.get("name") or "sin nombre")))
-    pedidos = [
-        p for p in memory.list_pedidos(500)
-        if reservas._creada_cali(str(p.get("created_at") or "")).date() == hoy
-    ]
+    pedidos = pedidos_de_hoy(memory.list_pedidos(500))
+    vivos = [p for p in pedidos if (p.get("estado") or "anotado") != "rechazado"]
+    # Ladrillo 7: "Pedidos hoy" no cuenta rechazados; el total es el del dorado. Líneas: anotados, entregados, rechazados.
     lineas = [
         f"Reporte {hoy.strftime('%d/%m/%Y')} (Cali)",
         f"Citas hoy: {len(citas)}",
         *[f"- {h}:{m:02d} · {quien}" for h, m, quien in sorted(citas)[:8]],
-        f"Pedidos hoy: {len(pedidos)} · total {kb_mod.precio_txt(anotado_hoy(pedidos))}",
+        f"Pedidos hoy: {len(vivos)} · total {kb_mod.precio_txt(anotado_hoy(pedidos))}",
         *[
             f"- {estado}s: {len(grupo)} · {kb_mod.precio_txt(sum(int(p['precio']) for p in grupo))}"
-            for estado in ("anotado", "pagado", "entregado")
+            for estado in ("anotado", "entregado", "rechazado")
             for grupo in [[p for p in pedidos if (p.get("estado") or "anotado") == estado]]
         ],
         f"Pendientes N3: {len(memory.list_pending())}",

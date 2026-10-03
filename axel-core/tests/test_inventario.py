@@ -156,7 +156,8 @@ def main() -> int:
         assert r.startswith("Entregado: CAF01 cafe molido $12.000") and r.endswith("Stock CAF01: 1."), r
         assert memory.list_pedidos()[0]["estado"] == "entregado"
         r = dice("reporte", DUENO)
-        assert "- anotados: 0" in r and "- pagados: 0" in r and "- entregados: 1" in r, r
+        # Ladrillo 7: el reporte ya no lleva línea de pagados.
+        assert "- anotados: 0" in r and "- pagados" not in r and "- entregados: 1" in r and "- rechazados: 0" in r, r
 
         # Muro 45: entregado y pagado baja 1. Si queda 0, el siguiente "no hay".
         assert kb.buscar_producto("CAF01")["stock"] == 1

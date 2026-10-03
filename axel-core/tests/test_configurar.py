@@ -144,7 +144,8 @@ def main() -> int:
         reporte = dice("reporte")
         assert reporte.startswith("Reporte ") and "(Cali)" in reporte, reporte
         assert "Citas hoy: 0" in reporte and "Pedidos hoy: 2 · total $35.000" in reporte and "Pendientes N3: 0" in reporte
-        assert "- anotados: 2 · $35.000\n- pagados: 0 · $0\n- entregados: 0 · $0" in reporte, reporte
+        # Ladrillo 7: líneas solo anotados, entregados y rechazados.
+        assert "- anotados: 2 · $35.000\n- entregados: 0 · $0\n- rechazados: 0 · $0" in reporte, reporte
         # Dos anotados hoy: "pedido listo" lista y pide nombre; con nombre marca el más nuevo de ese cliente.
         assert dice("pedido listo").startswith("Pedidos anotados:\n")
         dice("me llamo Ana", canal="whatsapp")
@@ -153,13 +154,14 @@ def main() -> int:
         assert dice("pedido pagado 2").startswith("Pedido #2 pagado.")
         assert dice("pedido listo ana") == "Entregado: barba $10.000 · Ana. AXEL no cobra."
         reporte = dice("reporte")
-        assert "Pedidos hoy: 2 · total $35.000\n- anotados: 1 · $25.000\n- pagados: 0 · $0\n- entregados: 1 · $10.000" in reporte, reporte
+        assert "Pedidos hoy: 2 · total $35.000\n- anotados: 1 · $25.000\n- entregados: 1 · $10.000\n- rechazados: 0 · $0" in reporte, reporte
         assert "Pedidos hoy" not in dice("reporte", canal="whatsapp"), "el cliente no ve el reporte"
         # Ladrillo 5: el total del reporte no suma rechazados; es el mismo número del dorado del panel.
         with memory._conn() as conn:
             conn.execute("UPDATE pedidos SET estado = 'rechazado' WHERE servicio = 'corte'")
         reporte = dice("reporte")
-        assert "Pedidos hoy: 2 · total $10.000\n- anotados: 0 · $0\n- pagados: 0 · $0\n- entregados: 1 · $10.000" in reporte, reporte
+        # Ladrillo 7: "Pedidos hoy" tampoco cuenta el rechazado; queda en su línea.
+        assert "Pedidos hoy: 1 · total $10.000\n- anotados: 0 · $0\n- entregados: 1 · $10.000\n- rechazados: 1 · $25.000" in reporte, reporte
         from axel.orchestrator import anotado_hoy
         assert anotado_hoy(memory.list_pedidos(500)) == 10000
         with memory._conn() as conn:

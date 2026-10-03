@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import os
+import re
 import sys
 import tempfile
 from pathlib import Path
@@ -158,6 +159,32 @@ def main() -> int:
     assert memory.find_by_identity("panel", "alex_pc").get("customer_id") == alex, "la ficha no se borra"
     barra = panel.split('class="barra"')[1].split("</div>")[0]
     assert "Un comando de dueño puede avisar al cliente. No le escribe texto libre." in barra
+
+    # Ladrillo 7: un clic en el nombre o la fila no decide; solo Aprobar. La fila decidida queda con su hora.
+    memory.save_pending_approval({"event_id": "evt_reem", "customer_id": gil, "intent": "reembolso", "why": "prueba",
+                                  "requested_action": "Quiero un reembolso", "notify_text": "prueba"})
+    estado = lambda: next(p["status"] for p in [dict(r) for r in memory._conn().execute(
+        "SELECT status FROM pending_approvals WHERE event_id = 'evt_reem'")])
+    h = demo.Handler.__new__(demo.Handler)
+    panel = h._panel()
+    nombre = panel.split("id=\"aprobaciones\"")[1].split("<td class='nombre'>")[1].split("</td>")[0]
+    assert nombre == "Gil" and "<form" not in nombre and "<button" not in nombre, "el nombre es texto"
+    for sin_boton in ("", "otra", "pending"):
+        h._decidir("evt_reem", sin_boton)  # clic de nombre o fila: no trae una decisión válida
+        assert estado() == "pending", sin_boton
+    h._decidir("evt_inexistente", "approved")
+    assert estado() == "pending"
+    antes = len(memory.list_envios(500))
+    h._decidir("evt_reem", "approved")
+    assert estado() == "approved", "Aprobar sí decide"
+    ultimo = memory.list_envios(1)[0]
+    assert len(memory.list_envios(500)) == antes + 1 and ultimo["tipo"] == "n3_cliente", ultimo
+    assert ultimo["estado"] in {"fallo", "fuera_24h"}, "sin token el aviso no sale y queda escrito"
+    panel = h._panel()
+    aprob = panel.split('id="aprobaciones"')[1].split('id="inventario"')[0]
+    decididas = aprob.split("<h2>Decididas</h2>")[1]
+    assert "Gil" in decididas and "<td>aprobada</td>" in decididas and "evt_reem" not in aprob.split("<h2>Decididas</h2>")[0]
+    assert re.search(r"<td>\d\d/\d\d \d\d:\d\d</td>", decididas), "con la hora"
 
     print("OK — panel: 8 envíos sin texto ni celular entero; citas con cita_at; inventario 15; hilo solo lectura")
     return 0

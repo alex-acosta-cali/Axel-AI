@@ -141,6 +141,8 @@ class Memory:
                 # Muro 34: citas y pedidos llevan negocio. Las filas viejas se leen como biz_default.
                 ("conversation_summaries", "business_id", "TEXT NOT NULL DEFAULT 'biz_default'"),
                 ("pedidos", "business_id", "TEXT NOT NULL DEFAULT 'biz_default'"),
+                # Hora en que el dueño decidió (UTC). Las viejas quedan NULL.
+                ("pending_approvals", "decided_at", "TEXT"),
             ):
                 try:
                     conn.execute(f"ALTER TABLE {tabla} ADD COLUMN {col} {typ}")
@@ -413,6 +415,16 @@ class Memory:
         with self._conn() as conn:
             rows = conn.execute(
                 "SELECT rowid AS n, * FROM pending_approvals WHERE status = 'pending' ORDER BY created_at DESC, rowid DESC"
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def list_decididas(self, limit: int = 10) -> list[dict[str, Any]]:
+        """Últimas aprobaciones ya decididas, las más nuevas primero. Solo lectura, para el panel."""
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT * FROM pending_approvals WHERE status IN ('approved', 'rejected')"
+                " ORDER BY COALESCE(decided_at, created_at) DESC, rowid DESC LIMIT ?",
+                (limit,),
             ).fetchall()
         return [dict(r) for r in rows]
 
@@ -835,7 +847,7 @@ class Memory:
                 (event_id,),
             ).fetchone()
             conn.execute(
-                "UPDATE pending_approvals SET status = ? WHERE event_id = ?",
+                "UPDATE pending_approvals SET status = ?, decided_at = datetime('now') WHERE event_id = ?",
                 (status, event_id),
             )
             # Borrado aprobado: fuera nombre, correo y notas. El celular sigue en la identidad para no duplicar
