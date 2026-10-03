@@ -306,9 +306,30 @@ def set_producto(codigo: str, nombre: str, precio: int, stock: int) -> dict:
     kb = load_kb()
     lista = list(kb.get("productos") or [])
     pos = next((i for i, p in enumerate(lista) if str(p.get("codigo") or "").upper() == codigo), len(lista))
+    if pos < len(lista) and "disponible" in lista[pos]:
+        item["disponible"] = lista[pos]["disponible"]  # Muro J: el sí/no del panel no se pierde al actualizar
     kb["productos"] = lista[:pos] + [item] + [p for p in lista[pos + 1:] if str(p.get("codigo") or "").upper() != codigo]
     _guardar(kb)
     return item
+
+
+def a_la_venta(p: dict) -> bool:
+    """Muro J: productos[].disponible. Sin el campo, sí. Con 'no', AXEL no lo vende aunque haya stock."""
+    return p.get("disponible", True) is not False
+
+
+def set_producto_panel(codigo: str, precio: int | None, disponible: bool) -> dict:
+    """Muro J: precio y sí/no desde el panel. El stock no se toca. {} si el código no existe."""
+    codigo = " ".join((codigo or "").split()).upper()
+    kb = load_kb()
+    for p in kb.get("productos") or []:
+        if str(p.get("codigo") or "").upper() == codigo:
+            if precio is not None:
+                p["precio"] = int(precio)
+            p["disponible"] = bool(disponible)
+            _guardar(kb)
+            return p
+    return {}
 
 
 def remove_producto(codigo: str) -> bool:
@@ -397,6 +418,24 @@ def add_servicio(nombre: str, precio: int) -> str:
     kb.setdefault("servicios", []).append({"nombre": nombre, "precio": int(precio)})
     _guardar(kb)
     return nombre
+
+
+def rename_servicio(actual: str, nuevo: str) -> str:
+    """Muro J: cambia el nombre de un servicio; precio y lo demás se quedan. '' si no existe, si el nombre
+    nuevo no sirve o si ya hay otro servicio con ese nombre. Los pedidos viejos guardan el nombre de antes."""
+    s = buscar_servicio(actual)
+    nuevo = nombre_servicio(nuevo)
+    if not s or len(re.findall(r"[a-záéíóúüñ]", nuevo)) < 2:
+        return ""
+    otro = buscar_servicio(nuevo)
+    if otro and otro["nombre"] != s["nombre"]:
+        return ""
+    kb = load_kb()
+    for x in kb.get("servicios") or []:
+        if x.get("nombre") == s["nombre"]:
+            x["nombre"] = nuevo
+    _guardar(kb)
+    return nuevo
 
 
 def vaciar_servicios() -> None:

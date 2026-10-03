@@ -217,10 +217,11 @@ def proxima_viva(memory, customer_id: str, ahora: datetime | None = None) -> str
 
 
 def cupos_de(memory, fecha: date, excepto: str = "") -> dict[tuple[int, int], dict]:
-    """Franjas válidas de 'fecha' ya confirmadas, con su fila. Las citas fuera de franja no ocupan cupo."""
+    """Franjas válidas de 'fecha' ya tomadas, con su fila. Las citas fuera de franja no ocupan cupo.
+    Muro J: una cita anotada por el dueño y sin confirmar ('por_confirmar') también ocupa el cupo."""
     validas = franjas_validas()
     tomadas: dict[tuple[int, int], dict] = {}
-    for fila in memory.list_confirmed_reservas(500):
+    for fila in memory.list_confirmed_reservas(500) + memory.list_reservas_por_resultado("por_confirmar", 500):
         if excepto and fila.get("customer_id") == excepto:
             continue
         otra = cuando_fila(fila)

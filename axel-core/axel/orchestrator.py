@@ -1025,7 +1025,7 @@ def _referencia(env: Envelope, memory: Memory, codigo: str) -> None:
     env.agent = "atencion"
     p = kb_mod.buscar_producto(codigo)
     if p:
-        stock = int(p.get("stock") or 0)
+        stock = int(p.get("stock") or 0) if kb_mod.a_la_venta(p) else 0
         env.reply_text = f"{p['codigo']} {p['nombre']}: {kb_mod.precio_txt(p['precio'])}. " + (
             f"Stock {stock}." if stock > 0 else "Agotado."
         )
@@ -1087,9 +1087,10 @@ def _pedido_codigo(env: Envelope, memory: Memory, codigo: str) -> None:
     env.approval_status = "na"
     # Muro 47: disponible = stock menos pedidos abiertos de ese código. La última unidad no se vende dos veces.
     stock = int(p.get("stock") or 0) - memory.pedidos_abiertos(str(p["codigo"]))
-    if stock <= 0:
+    if stock <= 0 or not kb_mod.a_la_venta(p):
+        # Muro J: el dueño puede ponerlo en "no" desde el panel: no se vende aunque haya stock.
         env.reply_text = f"No hay {codigo} ahora."
-        env.why = "referencia sin stock disponible"
+        env.why = "referencia sin stock disponible" if stock <= 0 else "referencia no está a la venta"
         return
     pedido = f"{p['codigo']} {p['nombre']} {kb_mod.precio_txt(p['precio'])}"
     memory.add_pedido(env.customer_id, f"{p['codigo']} {p['nombre']}", int(p["precio"]))
@@ -1115,6 +1116,8 @@ def _tienen(env: Envelope, memory: Memory, buscado: str) -> None:
     if len(hallados) == 1:
         p = hallados[0]
         disponible = max(int(p.get("stock") or 0) - memory.pedidos_abiertos(str(p["codigo"])), 0)
+        if not kb_mod.a_la_venta(p):
+            disponible = 0
         env.reply_text = f"{p['codigo']} {p['nombre']}: {kb_mod.precio_txt(p['precio'])}. Disponible {disponible}."
     elif hallados:
         lineas = [f"- {p['codigo']} {p['nombre']} {kb_mod.precio_txt(p['precio'])}" for p in hallados[:5]]

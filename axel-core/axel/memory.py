@@ -271,6 +271,37 @@ class Memory:
             ).fetchall()
         return [dict(r) for r in rows]
 
+    def list_reservas_por_resultado(self, result: str, limit: int = 500,
+                                    business_id: str = "biz_default") -> list[dict[str, Any]]:
+        """Muro J: reservas con ese resultado ('por_confirmar', 'cancelled'), con las mismas columnas que las
+        confirmadas más 'result'. Solo lectura."""
+        with self._conn() as conn:
+            rows = conn.execute(
+                """
+                SELECT s.event_id, s.customer_id, s.channel, s.summary, s.created_at, s.cita_at, s.result, c.name
+                FROM conversation_summaries s
+                LEFT JOIN customers c ON c.customer_id = s.customer_id
+                WHERE s.intent = 'reserva' AND s.result = ?
+                  AND COALESCE(s.business_id, 'biz_default') = ?
+                ORDER BY summary_id DESC
+                LIMIT ?
+                """,
+                (result, business_id, limit),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def anotar_reserva(self, customer_id: str, cita_at: str, summary: str, business_id: str = "biz_default") -> str:
+        """Muro J: el dueño anota un cupo desde el panel. Queda 'por_confirmar' (nivel 2: falta el sí del cliente).
+        Ocupa el cupo. Devuelve el event_id."""
+        event_id = f"evt_{uuid4().hex[:12]}"
+        with self._conn() as conn:
+            conn.execute(
+                "INSERT INTO conversation_summaries(customer_id, event_id, channel, intent, summary, result, created_at,"
+                " cita_at, business_id) VALUES (?, ?, 'panel', 'reserva', ?, 'por_confirmar', datetime('now'), ?, ?)",
+                (customer_id, event_id, summary[:240], cita_at, business_id),
+            )
+        return event_id
+
     def last_reserva(self, customer_id: str) -> dict[str, Any] | None:
         with self._conn() as conn:
             row = conn.execute(

@@ -90,31 +90,90 @@ def _fuera_de_franja() -> list[str]:
     return lineas
 
 
+SEMANAS_CUPOS = 4  # esta semana y las 3 siguientes
+
+
+def _anotar_dialogo() -> str:
+    """Muro J: ventana que abre un clic en un cupo verde. El dueño elige cliente y, si quiere, servicio."""
+    internos = memory.clientes_de_canal("panel")
+    clientes = "".join(
+        f"<option value='{html.escape(str(c['customer_id']))}'>{_quien_txt(c)}</option>"
+        for c in memory.list_customers(200) if str(c.get("customer_id")) not in internos
+    )
+    servicios = "".join(f"<option value='{html.escape(str(s['nombre']))}'>{html.escape(str(s['nombre']))}</option>"
+                        for s in kb.servicios())
+    return (
+        "<dialog class='bloque' id='anotar-cupo'><div class='ventana'>"
+        f"<div class='bloque-cab'><div class='bloque-t'>{_a('Anotar cupo')}</div>{_CERRAR}</div>"
+        "<p class='ficha'><span id='anotar-cuando'></span></p>"
+        "<form class='editar' method='post' action='/cupo'>"
+        "<input type='hidden' name='fecha' id='anotar-fecha'/><input type='hidden' name='hora' id='anotar-hora'/>"
+        f"<label for='anotar-cliente'>{_a('Cliente')}</label>"
+        f"<select id='anotar-cliente' name='cliente'><option value=''>—</option>{clientes}</select>"
+        f"<label for='anotar-servicio'>{_a('Servicio (opcional)')}</label>"
+        f"<select id='anotar-servicio' name='servicio'><option value=''>sin servicio</option>{servicios}</select>"
+        f"<button type='submit'>{_a('Anotar')}</button></form>"
+        f"<p class='ficha'>{_a('Queda sin confirmar. AXEL no le escribe al cliente.')}</p>"
+        "</div></dialog>"
+    )
+
+
+def _canceladas_de(fecha) -> dict[tuple[int, int], dict]:
+    """Franjas de 'fecha' donde hubo una cita cancelada. Solo lectura."""
+    validas = franjas_validas()
+    out: dict[tuple[int, int], dict] = {}
+    for fila in memory.list_reservas_por_resultado("cancelled", 500):
+        c = cuando_fila(fila)
+        if c and c[0] == fecha and c[1:] in validas:
+            out.setdefault(c[1:], fila)
+    return out
+
+
 def _tabla_cupos() -> str:
-    """Franjas de los próximos 7 días (sin domingo): LIBRE, TOMADA o PASÓ. Solo lectura."""
+    """Muro J: cupos por semana (lunes a sábado), con color. Verde libre (clic: anotarla), amarillo sin confirmar,
+    hueso confirmada, rojo cancelada (el cupo queda libre para WhatsApp), gris pasó. Mismas franjas que WhatsApp."""
     franjas = franjas_validas()
     if not franjas:
         return "<p>Ninguna franja cabe en el horario de la KB.</p>"
     hoy = _ahora_cali().date()
-    filas = []
-    for i in range(7):
-        dia = hoy + timedelta(days=i)
-        if dia.weekday() == 6:
-            continue
-        tomadas = cupos_de(memory, dia)
-        celdas = []
-        for f in franjas:
-            fila = tomadas.get(f)
-            if fila is not None:
-                celdas.append(f"<td class='tomada'>TOMADA · {html.escape(_quien(fila))}</td>")
-            elif paso(dia, f):
-                celdas.append("<td class='paso'>PASÓ</td>")
-            else:
-                celdas.append("<td class='ok'>LIBRE</td>")
-        filas.append(f"<tr><td>{DIAS_ES[dia.weekday()]} {dia.strftime('%d/%m')}</td>{''.join(celdas)}</tr>")
+    lunes = hoy - timedelta(days=hoy.weekday())
     cab = "".join(f"<th>{_hhmm(f)}</th>" for f in franjas)
+    semanas = []
+    for s in range(SEMANAS_CUPOS):
+        inicio = lunes + timedelta(weeks=s)
+        filas = []
+        for i in range(6):
+            dia = inicio + timedelta(days=i)
+            tomadas, canceladas = cupos_de(memory, dia), _canceladas_de(dia)
+            celdas = []
+            for f in franjas:
+                fila = tomadas.get(f)
+                if fila is not None:
+                    quien = html.escape(_quien(fila))
+                    if fila.get("result") == "por_confirmar":
+                        celdas.append(f"<td class='cupo sin-confirmar'>sin confirmar · {quien}</td>")
+                    else:
+                        celdas.append(f"<td class='cupo confirmada'>confirmada · {quien}</td>")
+                elif paso(dia, f):
+                    celdas.append("<td class='cupo paso'>pasó</td>")
+                elif f in canceladas:
+                    celdas.append(f"<td class='cupo cancelada'>cancelada · {html.escape(_quien(canceladas[f]))}</td>")
+                else:
+                    celdas.append(
+                        f"<td class='cupo libre'><button type='button' class='anotar' data-fecha='{dia.isoformat()}'"
+                        f" data-hora='{_hhmm(f)}' aria-label='Anotar {DIAS_ES[dia.weekday()]} {dia:%d/%m} {_hhmm(f)}'>"
+                        "libre</button></td>"
+                    )
+            filas.append(f"<tr><th>{_a(DIAS_ES[dia.weekday()])} {dia:%d/%m}</th>{''.join(celdas)}</tr>")
+        oculto = "" if s == 0 else " hidden"
+        semanas.append(
+            f"<div class='semana' data-semana='{s}'{oculto}><p class='ficha'>{_a('Semana del')} {inicio:%d/%m}</p>"
+            f"<div class='cupos'><table><tr><th>{_a('Día')}</th>{cab}</tr>{''.join(filas)}</table></div></div>"
+        )
+    nav = (f"<div class='semanas-nav'><button type='button' data-semana-paso='-1'>{_a('Semana anterior')}</button>"
+           f"<button type='button' data-semana-paso='1'>{_a('Semana siguiente')}</button></div>")
     fuera = "".join(f"<p>{html.escape(l)}</p>" for l in _fuera_de_franja())
-    return f"<table><tr><th>{_a('Día')}</th>{cab}</tr>{''.join(filas)}</table>{fuera}"
+    return nav + "".join(semanas) + fuera
 
 
 def _tabla_catalogo() -> str:
@@ -138,73 +197,131 @@ def _tabla_catalogo() -> str:
     return f"<table>{datos_html}</table>"
 
 
-def _stock_txt(s: dict) -> str:
-    valor = s.get("stock")
-    return str(valor) if isinstance(valor, int) and not isinstance(valor, bool) else ""
-
 
 def _tabla_servicios() -> str:
-    """Servicios de la KB: nombre, precio, stock e imagen. Muro C: el dueño edita precio y stock aquí; se guardan
-    en servicios[] de kb.json, el mismo campo que cambia WhatsApp. Sin stock: sin tope. No sube fotos."""
+    """Servicios de la KB. Muro J: el dueño edita nombre y precio; sin stock en el panel. Se guardan en servicios[]
+    de kb.json (mismo campo que WhatsApp). Imagen: solo dice si hay; no sube archivo. Abajo, agregar servicio."""
     filas = []
     for i, s in enumerate(kb.servicios()):
         nombre = html.escape(str(s["nombre"]))
         fid = f"srv-{i}"
         filas.append(
             "<tr>"
-            f"<td>{nombre}</td>"
+            f"<td><input form='{fid}' name='nuevo' value='{nombre}' aria-label='Nombre de {nombre}'/></td>"
             f"<td><input form='{fid}' name='precio' inputmode='numeric' value='{int(s.get('precio') or 0)}'"
             f" aria-label='Precio de {nombre}'/></td>"
-            f"<td><input form='{fid}' name='stock' inputmode='numeric' value='{_stock_txt(s)}' placeholder='sin tope'"
-            f" aria-label='Stock de {nombre}'/></td>"
             f"<td>{'con imagen' if s.get('imagen') else 'sin imagen'}</td>"
             f"<td><form id='{fid}' method='post' action='/servicio'><input type='hidden' name='nombre' value='{nombre}'/>"
             f"<button type='submit'>{_a('Guardar')}</button></form></td>"
             "</tr>"
         )
-    cuerpo = "".join(filas) or "<tr><td colspan='5'>Sin servicios</td></tr>"
-    cab = "".join(f"<th>{_a(c)}</th>" for c in ("Servicio", "Precio", "Stock", "Imagen", ""))
-    return f"<table><tr>{cab}</tr>{cuerpo}</table>"
+    cuerpo = "".join(filas) or "<tr><td colspan='4'>Sin servicios</td></tr>"
+    cab = "".join(f"<th>{_a(c)}</th>" for c in ("Servicio", "Precio", "Imagen", ""))
+    agregar = (
+        "<form class='editar' method='post' action='/servicio_nuevo'>"
+        f"<label for='srv-nuevo'>{_a('Agregar servicio')}</label>"
+        "<input id='srv-nuevo' name='nombre' placeholder='nombre'/>"
+        "<input name='precio' inputmode='numeric' placeholder='precio' aria-label='Precio del servicio nuevo'/>"
+        f"<button type='submit'>{_a('Agregar')}</button></form>"
+    )
+    return f"<table><tr>{cab}</tr>{cuerpo}</table>{agregar}"
 
 
 # Muro C: avisos fijos tras guardar desde el panel. Solo códigos conocidos: nada del formulario se refleja.
 AVISOS = {
     "servicio_ok": "Servicio guardado.",
-    "servicio_agotado": "Servicio guardado. Stock 0: no se vende.",
     "precio_vacio": "Precio vacío: el precio no se guardó.",
     "precio_mal": "Precio no válido. No se guardó nada.",
-    "stock_mal": "Stock no válido. No se guardó nada.",
     "servicio_no": "No existe ese servicio.",
+    "nombre_mal": "Nombre no válido o repetido. No se guardó nada.",
+    "servicio_nuevo_ok": "Servicio agregado.",
+    "servicio_nuevo_mal": "No se agregó: falta nombre o precio, o ya existe.",
+    "producto_ok": "Producto guardado.",
+    "producto_no": "No existe ese producto.",
+    "producto_mal": "Precio no válido. No se guardó nada.",
     "franjas_ok": "Franjas guardadas. Una cita ya confirmada no se borra: si no cae en una franja, queda fuera de franja.",
     "franjas_fuera": "Franjas guardadas. Alguna queda fuera del horario y no se ofrece. Las citas confirmadas no se borran.",
     "franjas_mal": "Franja no válida: horas de 0 a 23, separadas por coma. No se guardó.",
+    "cupo_ok": "Cupo anotado. Queda sin confirmar hasta que el cliente confirme.",
+    "cupo_tomado": "Ese cupo ya está tomado. No se anotó.",
+    "cupo_mal": "Ese cupo no se puede anotar (pasó, domingo o fuera de franja).",
+    "cliente_mal": "Elige un cliente. No se anotó.",
 }
 
 
-def guardar_servicio(nombre: str, precio_raw: str, stock_raw: str) -> str:
-    """Precio y stock de un servicio desde el panel. Mismo campo que WhatsApp (kb.set_price / kb.set_stock).
-    Precio vacío no se guarda. Algo inválido: no se guarda nada. Devuelve un código de AVISOS."""
+def _precio_de(raw: str) -> int | None:
+    """'25000', '25.000' o '$25.000' → 25000. None si no es un precio mayor que 0."""
+    raw = (raw or "").strip()
+    if not re.fullmatch(r"\$?\s*\d[\d.]*", raw):
+        return None
+    valor = int(raw.strip("$ ").replace(".", ""))
+    return valor if valor > 0 else None
+
+
+def guardar_servicio(nombre: str, nuevo: str, precio_raw: str) -> str:
+    """Muro J: nombre y precio de un servicio desde el panel. Mismo campo que WhatsApp (servicios[]). Precio vacío
+    no se guarda. Algo inválido: no se guarda nada. Sin stock en el panel. Devuelve un código de AVISOS."""
     s = kb.buscar_servicio(nombre)
     if not s:
         return "servicio_no"
-    precio_raw, stock_raw = (precio_raw or "").strip(), (stock_raw or "").strip()
     precio = None
-    if precio_raw:
-        if not re.fullmatch(r"\$?\s*\d[\d.]*", precio_raw) or int(precio_raw.strip("$ ").replace(".", "")) <= 0:
+    if (precio_raw or "").strip():
+        precio = _precio_de(precio_raw)
+        if precio is None:
             return "precio_mal"
-        precio = int(precio_raw.strip("$ ").replace(".", ""))
-    stock = None
-    if stock_raw:
-        if not stock_raw.isdigit():
-            return "stock_mal"
-        stock = int(stock_raw)
+    nuevo = (nuevo or "").strip()
+    cambia = bool(nuevo) and kb.nombre_servicio(nuevo) != kb.nombre_servicio(str(s["nombre"]))
+    if cambia:
+        otro = kb.buscar_servicio(nuevo)
+        if (otro and otro["nombre"] != s["nombre"]) or len(re.findall(r"[a-záéíóúüñ]", kb.nombre_servicio(nuevo))) < 2:
+            return "nombre_mal"
     if precio is not None:
         kb.set_price(str(s["nombre"]), str(precio))
-    if stock is not None:
-        kb.set_stock(str(s["nombre"]), stock)
-    if precio is None:
-        return "precio_vacio"
-    return "servicio_agotado" if stock == 0 else "servicio_ok"
+    if cambia and not kb.rename_servicio(str(s["nombre"]), nuevo):
+        return "nombre_mal"
+    return "servicio_ok" if precio is not None or cambia else "precio_vacio"
+
+
+def agregar_servicio(nombre: str, precio_raw: str) -> str:
+    """Muro J: agrega un servicio (mismo camino que 'agrega servicio X a N' por WhatsApp)."""
+    precio = _precio_de(precio_raw)
+    if precio is None or not kb.add_servicio(nombre, precio):
+        return "servicio_nuevo_mal"
+    return "servicio_nuevo_ok"
+
+
+def guardar_producto(codigo: str, precio_raw: str, venta: str) -> str:
+    """Muro J: precio y sí/no de un producto. El stock no se toca. No hay compra a un tercero."""
+    if not kb.buscar_producto(codigo):
+        return "producto_no"
+    precio = None
+    if (precio_raw or "").strip():
+        precio = _precio_de(precio_raw)
+        if precio is None:
+            return "producto_mal"
+    kb.set_producto_panel(codigo, precio, venta != "no")
+    return "producto_ok"
+
+
+def anotar_cupo(fecha_raw: str, hora_raw: str, customer_id: str, servicio: str) -> str:
+    """Muro J: el dueño anota una franja libre para un cliente. Queda 'sin confirmar' (nivel 2) y ocupa el cupo
+    también para WhatsApp. No avisa al cliente. Devuelve un código de AVISOS."""
+    try:
+        fecha = datetime.strptime(fecha_raw or "", "%Y-%m-%d").date()
+        h, m = (int(x) for x in (hora_raw or "").split(":"))
+    except ValueError:
+        return "cupo_mal"
+    if fecha.weekday() == 6 or (h, m) not in franjas_validas() or paso(fecha, (h, m)):
+        return "cupo_mal"
+    cli = memory.get_customer(customer_id or "")
+    if not cli or customer_id in memory.clientes_de_canal("panel"):
+        return "cliente_mal"
+    if (h, m) in cupos_de(memory, fecha):
+        return "cupo_tomado"
+    s = kb.buscar_servicio(servicio) if servicio else None
+    resumen = "Anotada por el dueño" + (f": {s['nombre']}" if s else "")
+    memory.anotar_reserva(customer_id, f"{fecha.isoformat()} {h:02d}:{m:02d}", resumen)
+    return "cupo_ok"
 
 
 def guardar_franjas(raw: str) -> str:
@@ -252,12 +369,26 @@ def _tabla_pedidos() -> str:
 
 
 def _tabla_inventario() -> str:
-    """Muro 65: máximo 15 productos, igual que el comando inventario. Solo lectura, solo local."""
-    filas = "".join(
-        "<tr>" + "".join(f"<td>{html.escape(str(c))}</td>" for c in fila) + "</tr>" for fila in inventario_filas(memory)
-    ) or "<tr><td colspan='4'>No hay productos.</td></tr>"
-    cab = "".join(f"<th>{_a(c)}</th>" for c in ("Código", "Nombre", "Stock", "Disponible"))
-    return f"<table><tr>{cab}</tr>{filas}</table>"
+    """Muro 65: máximo 15 productos, igual que el comando inventario. Muro J: el dueño edita precio y si está a la
+    venta (sí/no), aunque el stock sea 0. El stock no se edita aquí. No hay compra a un tercero."""
+    filas = []
+    for i, (fila, p) in enumerate(zip(inventario_filas(memory), kb.productos()[:15])):
+        fid = f"prd-{i}"
+        codigo = html.escape(str(p["codigo"]))
+        venta = kb.a_la_venta(p)
+        filas.append(
+            "<tr>" + "".join(f"<td>{html.escape(str(c))}</td>" for c in fila)
+            + f"<td><input form='{fid}' name='precio' inputmode='numeric' value='{int(p.get('precio') or 0)}'"
+            f" aria-label='Precio de {codigo}'/></td>"
+            f"<td><select form='{fid}' name='venta' aria-label='{codigo} a la venta'>"
+            f"<option value='si'{' selected' if venta else ''}>sí</option>"
+            f"<option value='no'{'' if venta else ' selected'}>no</option></select></td>"
+            f"<td><form id='{fid}' method='post' action='/producto'><input type='hidden' name='codigo' value='{codigo}'/>"
+            f"<button type='submit'>{_a('Guardar')}</button></form></td></tr>"
+        )
+    cuerpo = "".join(filas) or "<tr><td colspan='7'>No hay productos.</td></tr>"
+    cab = "".join(f"<th>{_a(c)}</th>" for c in ("Código", "Nombre", "Stock", "Disponible", "Precio", "A la venta", ""))
+    return f"<table><tr>{cab}</tr>{cuerpo}</table>"
 
 
 _LETRA_A = "aAáÁ"
@@ -719,6 +850,16 @@ border:1px solid var(--borde);border-radius:18px;padding:16px;color:var(--tenue)
 .casilla:hover,.casilla:focus-visible{{border-color:var(--dorado)}}
 .a{{color:var(--dorado)}}
 .palabra{{white-space:nowrap}}
+.semanas-nav{{display:flex;gap:8px;margin:0 0 8px}}
+.cupos{{overflow:auto;height:300px;background:var(--caja);border-radius:16px}}
+.cupos table{{min-width:640px}}
+.cupos th{{position:sticky;left:0;background:var(--caja);white-space:nowrap}}
+.cupo{{text-align:center;border:2px solid var(--caja);border-radius:10px;font-size:13px;white-space:nowrap}}
+.cupo.libre{{background:#2f7a52}} .cupo.libre button{{background:none;border:0;color:#fff;width:100%;min-height:36px}}
+.cupo.sin-confirmar{{background:#e6c35c;color:#2a2205}}
+.cupo.confirmada{{background:#efe6d2;color:#1c1606}}
+.cupo.cancelada{{background:#b5483b;color:#fff}}
+.cupo.paso{{color:var(--tenue)}}
 .atrasado{{display:inline-block;border:1px solid var(--mal);color:var(--mal);border-radius:999px;padding:1px 10px;font-size:12px}}
 .aviso{{border:1px solid var(--dorado);color:var(--texto);border-radius:14px;padding:10px 14px;margin:12px 0}}
 form.editar{{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:14px 0 0}}
@@ -803,7 +944,9 @@ button[value=approved]{{background:var(--dorado);border-color:var(--dorado);colo
 <div class="bloque-cab"><div class="bloque-t">{_a("Día")}</div>{cerrar}</div>
 <h2>{_a("Citas")}</h2>
 <div class="tabla"><table>{_cab("Cuando", "Cliente", "Qué dijo")}{tabla_citas}</table></div>
-{f'<h2>{_a("Cupos de la semana")}</h2><div class="tabla">{_tabla_cupos()}</div>' if kb.agenda() else ""}
+{f'<h2>{_a("Cupos de la semana")}</h2>' if kb.agenda() else ""}
+{f'<p class="aviso" role="status">{AVISOS[aviso]}</p>' if kb.agenda() and aviso.startswith(("cupo", "cliente")) and aviso in AVISOS else ""}
+{_tabla_cupos() + _anotar_dialogo() if kb.agenda() else ""}
 <h2>Pedidos</h2>
 <div class="tabla">{_tabla_pedidos()}</div>
 </div></dialog>
@@ -830,7 +973,7 @@ button[value=approved]{{background:var(--dorado);border-color:var(--dorado);colo
 <dialog class="bloque" id="inventario"><div class="ventana">
 <div class="bloque-cab"><div class="bloque-t">{_a("Inventario")}</div>{cerrar}</div>
 <h2>{_a("Servicios")}</h2>
-{f'<p class="aviso" role="status">{AVISOS[aviso]}</p>' if aviso.startswith(("servicio", "precio", "stock")) and aviso in AVISOS else ""}
+{f'<p class="aviso" role="status">{AVISOS[aviso]}</p>' if aviso.startswith(("servicio", "precio", "nombre", "producto")) and aviso in AVISOS else ""}
 <div class="tabla">{_tabla_servicios()}</div>
 <h2>{_a("Inventario")}</h2>
 <div class="tabla">{_tabla_inventario()}</div>
@@ -849,6 +992,7 @@ button[value=approved]{{background:var(--dorado);border-color:var(--dorado);colo
 <p class="ficha">{_a("Redes: aún no")}</p>
 <p class="ficha">{_a("Publicar: aún no")}</p>
 <p class="ficha">{_a("Otro WhatsApp: aún no")}</p>
+<p class="ficha">{_a("Tercero de compra: aún no")}</p>
 </div></dialog>
 
 <dialog class="bloque" id="registro"><div class="ventana">
@@ -876,6 +1020,22 @@ document.querySelectorAll("[data-abre]").forEach(function (b) {{
 }});
 document.querySelectorAll("dialog").forEach(function (d) {{
   d.addEventListener("click", function (e) {{ if (e.target === d) d.close(); }});
+}});
+// Muro J: cupos por semana (una a la vista) y clic en un cupo verde para anotarlo.
+var semanas = document.querySelectorAll(".semana"), semana = 0;
+document.querySelectorAll("[data-semana-paso]").forEach(function (b) {{
+  b.addEventListener("click", function () {{
+    semana = Math.min(Math.max(semana + Number(b.dataset.semanaPaso), 0), semanas.length - 1);
+    semanas.forEach(function (s) {{ s.hidden = Number(s.dataset.semana) !== semana; }});
+  }});
+}});
+document.querySelectorAll("button.anotar").forEach(function (b) {{
+  b.addEventListener("click", function () {{
+    document.getElementById("anotar-fecha").value = b.dataset.fecha;
+    document.getElementById("anotar-hora").value = b.dataset.hora;
+    document.getElementById("anotar-cuando").textContent = b.getAttribute("aria-label");
+    document.getElementById("anotar-cupo").showModal();
+  }});
 }});
 // Después de guardar, vuelve a la ventana donde estaba (#inventario, #mi-negocio) y limpia la dirección.
 var volver = location.hash && document.getElementById(location.hash.slice(1));
@@ -988,12 +1148,19 @@ setInterval(function () {{
             self.send_header("Location", "/")
             self.end_headers()
             return
-        if self.path in ("/servicio", "/franjas"):
-            # Muro C: el dueño edita desde el panel. Vuelve a la misma ventana con un aviso fijo.
+        if self.path in ("/servicio", "/servicio_nuevo", "/producto", "/franjas", "/cupo"):
+            # Muro C y J: el dueño edita desde el panel. Vuelve a la misma ventana con un aviso fijo.
             form = parse_qs(raw.decode("utf-8", "replace"), keep_blank_values=True)
             campo = lambda k: (form.get(k) or [""])[0]
             if self.path == "/servicio":
-                codigo, ventana = guardar_servicio(campo("nombre"), campo("precio"), campo("stock")), "inventario"
+                codigo, ventana = guardar_servicio(campo("nombre"), campo("nuevo"), campo("precio")), "inventario"
+            elif self.path == "/servicio_nuevo":
+                codigo, ventana = agregar_servicio(campo("nombre"), campo("precio")), "inventario"
+            elif self.path == "/producto":
+                codigo, ventana = guardar_producto(campo("codigo"), campo("precio"), campo("venta")), "inventario"
+            elif self.path == "/cupo":
+                codigo = anotar_cupo(campo("fecha"), campo("hora"), campo("cliente"), campo("servicio"))
+                ventana = "dia"
             else:
                 codigo, ventana = guardar_franjas(campo("franjas")), "mi-negocio"
             self.send_response(303)

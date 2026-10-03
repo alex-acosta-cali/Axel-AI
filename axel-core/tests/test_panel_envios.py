@@ -150,10 +150,11 @@ def main() -> int:
         serv = demo._tabla_servicios()
     finally:
         demo.kb.servicios = original
-    # Muro C: precio y stock son campos editables; sin stock el campo queda vacío con "sin tope".
-    assert "name='precio' inputmode='numeric' value='25000'" in serv and "name='stock' inputmode='numeric' value='5'" in serv, serv
-    assert "value='' placeholder='sin tope'" in serv and "<td>sin imagen</td>" in serv and "<td>con imagen</td>" in serv, serv
-    assert "<img" not in serv
+    # Muro J: nombre y precio editables; sin stock en el panel; imagen solo dice si hay. Botón para agregar.
+    assert "name='nuevo' value='corte'" in serv and "name='precio' inputmode='numeric' value='25000'" in serv, serv
+    assert "name='stock'" not in serv and "sin tope" not in serv, "el servicio no lleva stock en el panel"
+    assert "<td>sin imagen</td>" in serv and "<td>con imagen</td>" in serv and "<img" not in serv, serv
+    assert "action='/servicio_nuevo'" in serv and "type='file'" not in serv
     assert avisos_h2 in panel.split('id="registro"')[1]
 
     # Ladrillo 3: hilo de solo lectura. Sin mensajes, "Al día. Nadie espera." Sin caja de enviar.
@@ -276,24 +277,52 @@ def main() -> int:
     kb_original = demo.kb._kb_path
     demo.kb._kb_path = lambda: kb_tmp
     try:
+        # Muro J (antes Muro C): el servicio edita nombre y precio. Sin stock en el panel.
         g = demo.guardar_servicio
-        assert g("corte", "30.000", "") == "servicio_ok", "stock vacío no cambia el stock"
-        assert demo.kb.buscar_servicio("corte")["precio"] == 30000 and "stock" not in demo.kb.buscar_servicio("corte")
-        assert g("corte", "", "7") == "precio_vacio", "precio vacío no se guarda"
-        assert demo.kb.buscar_servicio("corte")["precio"] == 30000 and demo.kb.buscar_servicio("corte")["stock"] == 7
-        assert g("corte", "abc", "3") == "precio_mal" and demo.kb.buscar_servicio("corte")["stock"] == 7, "inválido: nada"
-        assert g("corte", "0", "3") == "precio_mal"
-        assert g("corte", "25000", "-1") == "stock_mal" and demo.kb.buscar_servicio("corte")["precio"] == 30000
-        assert g("nada", "1000", "1") == "servicio_no"
-        assert g("corte", "25000", "0") == "servicio_agotado"
-        assert demo.kb.agotado(demo.kb.buscar_servicio("corte")), "stock 0 no se vende"
+        servicio = demo.kb.buscar_servicio
+        assert g("corte", "", "30.000") == "servicio_ok" and servicio("corte")["precio"] == 30000
+        assert g("corte", "corte", "") == "precio_vacio" and servicio("corte")["precio"] == 30000, "precio vacío no se guarda"
+        assert g("corte", "", "abc") == "precio_mal" and g("corte", "", "0") == "precio_mal"
+        assert g("nada", "", "1000") == "servicio_no"
+        assert g("corte", "barba", "99999") == "nombre_mal" and servicio("corte")["precio"] == 30000, "repetido: nada"
+        assert g("corte", "x", "") == "nombre_mal"
+        assert g("corte", "corte de pelo", "25000") == "servicio_ok"
+        assert servicio("corte") is None and servicio("corte de pelo")["precio"] == 25000
+        assert g("corte de pelo", "corte", "") == "servicio_ok" and servicio("corte")["precio"] == 25000
+        # Agregar servicio: mismo campo que "agrega servicio X a N" por WhatsApp.
+        assert demo.agregar_servicio("tinte", "40.000") == "servicio_nuevo_ok" and servicio("tinte")["precio"] == 40000
+        assert demo.agregar_servicio("tinte", "1000") == "servicio_nuevo_mal" and demo.agregar_servicio("cera", "") == "servicio_nuevo_mal"
+        demo.kb.remove_servicio("tinte")
+        # El stock del servicio sigue en WhatsApp: stock 0 no se vende.
+        h._run({"text": "stock corte 0", "channel": "panel", "channel_user_id": "alex_pc"})
         venta = h._run({"text": "me lo llevo el corte", "channel": "whatsapp", "channel_user_id": "573001112233",
                         "phone": "3001112233"})
         assert venta["reply_text"].startswith("No hay corte ahora."), venta["reply_text"]
-        # WhatsApp (dueño) sigue cambiando el mismo campo.
         h._run({"text": "stock corte 4", "channel": "panel", "channel_user_id": "alex_pc"})
-        assert demo.kb.buscar_servicio("corte")["stock"] == 4
-        assert "value='4'" in demo._tabla_servicios()
+        assert servicio("corte")["stock"] == 4 and "name='stock'" not in demo._tabla_servicios()
+
+        # Muro J: producto con precio editable y a la venta sí/no, aunque el stock sea 0. El stock no se toca aquí.
+        demo.kb.set_producto("CAF01", "cafe molido", 12000, 0)
+        gp = demo.guardar_producto
+        assert gp("CAF01", "13.000", "si") == "producto_ok"
+        caf = demo.kb.buscar_producto("CAF01")
+        assert caf["precio"] == 13000 and caf["stock"] == 0 and demo.kb.a_la_venta(caf)
+        assert gp("ZZZ", "1000", "si") == "producto_no" and gp("CAF01", "abc", "si") == "producto_mal"
+        h._run({"text": "producto CAF01 | cafe molido | 13000 | 5", "channel": "panel", "channel_user_id": "alex_pc"})
+        assert gp("CAF01", "", "no") == "producto_ok" and demo.kb.buscar_producto("CAF01")["precio"] == 13000
+        h._run({"text": "producto CAF01 | cafe molido | 13000 | 6", "channel": "panel", "channel_user_id": "alex_pc"})
+        assert demo.kb.buscar_producto("CAF01")["disponible"] is False, "WhatsApp no borra el no del panel"
+        cliente = {"channel": "whatsapp", "channel_user_id": "573001112233", "phone": "3001112233"}
+        assert h._run({**cliente, "text": "me lo llevo CAF01"})["reply_text"].startswith("No hay CAF01 ahora."), "no: no se vende"
+        assert "Disponible 0." in h._run({**cliente, "text": "tienen cafe molido"})["reply_text"]
+        inv = demo._tabla_inventario()
+        assert "<td>CAF01</td><td>cafe molido</td><td>6</td><td>6</td>" in inv and "value='13000'" in inv, inv
+        assert "<option value='no' selected>no</option>" in inv and "action='/producto'" in inv
+        assert gp("CAF01", "", "si") == "producto_ok"
+        assert h._run({**cliente, "text": "me lo llevo CAF01"})["reply_text"].startswith("Pedido anotado: CAF01")
+        with memory._conn() as conn:
+            conn.execute("DELETE FROM pedidos WHERE servicio LIKE 'CAF01%'")
+        assert demo._a("Tercero de compra: aún no") in h._panel().split('id="mi-negocio"')[1]
 
         # Franjas: repetidas se ignoran; una inválida no guarda nada; la cita confirmada no se borra.
         dia = demo._ahora_cali().date() + timedelta(days=1)
@@ -314,11 +343,47 @@ def main() -> int:
         assert any("Fuera de franja" in l and "10" in l for l in demo._fuera_de_franja()), "queda fuera de franja"
         assert gf("6, 8:30") == "franjas_fuera" and demo.kb.load_kb()["franjas"] == [6, "8:30"]
 
+        # Muro J: cupos de color por semana. Clic en verde = anotar (queda sin confirmar y ocupa el cupo).
+        assert gf("9, 10, 11") == "franjas_ok"
+        with memory._conn() as conn:
+            conn.execute(
+                "INSERT INTO conversation_summaries(customer_id, event_id, channel, intent, summary, result, created_at, cita_at)"
+                " VALUES (?, 'evt_cancelada', 'whatsapp', 'reserva', 'cancelada', 'cancelled', datetime('now'), ?)",
+                (gil, f"{dia.isoformat()} 09:00"),
+            )
+        ac = demo.anotar_cupo
+        assert ac(dia.isoformat(), "11:00", gil, "corte") == "cupo_ok"
+        assert ac(dia.isoformat(), "11:00", gil, "") == "cupo_tomado", "el mismo cupo no se anota dos veces"
+        assert ac(dia.isoformat(), "10:00", gil, "") == "cupo_tomado", "la cita confirmada ocupa"
+        ayer = demo._ahora_cali().date() - timedelta(days=1)
+        domingo = demo._ahora_cali().date() + timedelta(days=6 - demo._ahora_cali().date().weekday() + 7)
+        assert ac(ayer.isoformat(), "11:00", gil, "") == "cupo_mal" and ac(domingo.isoformat(), "11:00", gil, "") == "cupo_mal"
+        assert ac(dia.isoformat(), "12:00", gil, "") == "cupo_mal" and ac("x", "11:00", gil, "") == "cupo_mal"
+        assert ac(dia.isoformat(), "9:00", "", "") == "cliente_mal" and ac(dia.isoformat(), "9:00", alex, "") == "cliente_mal"
+        anotada = demo.memory.list_reservas_por_resultado("por_confirmar")
+        assert len(anotada) == 1 and anotada[0]["summary"] == "Anotada por el dueño: corte" and anotada[0]["channel"] == "panel"
+        # WhatsApp usa las mismas franjas y ve el cupo ocupado.
+        assert (11, 0) in demo.cupos_de(memory, dia) and (9, 0) not in demo.cupos_de(memory, dia), "cancelada libera"
+        # Sin confirmar no cuenta como cita confirmada.
+        assert all(c["event_id"] != anotada[0]["event_id"] for c in memory.list_confirmed_reservas(50))
+        dia_html = h._panel("cupo_ok").split('id="dia"')[1].split('id="conversaciones"')[0]
+        assert demo.AVISOS["cupo_ok"] in dia_html
+        assert dia_html.count("class='semana'") == demo.SEMANAS_CUPOS and dia_html.count(" hidden>") == demo.SEMANAS_CUPOS - 1
+        assert "data-semana-paso='-1'" in dia_html and "data-semana-paso='1'" in dia_html
+        assert "class='cupo sin-confirmar'>sin confirmar · Gil</td>" in dia_html
+        assert "class='cupo confirmada'>confirmada · Gil</td>" in dia_html
+        assert "class='cupo cancelada'>cancelada · Gil</td>" in dia_html
+        assert f"data-fecha='{dia.isoformat()}' data-hora='9:00'" not in dia_html, "cancelada se ve roja, no verde"
+        assert "class='cupo libre'><button type='button' class='anotar'" in dia_html and "id='anotar-cupo'" in dia_html
+        anotar = dia_html.split("id='anotar-cupo'")[1].split("</dialog>")[0]
+        assert f"value='{gil}'" in anotar and f"value='{alex}'" not in anotar, "el dueño no es cliente"
+        assert ".cupos{overflow:auto;height:300px" in h._panel(), "alto fijo y scroll"
+
         # El panel muestra el aviso fijo y el formulario de franjas con lo guardado.
         panel = h._panel("franjas_mal")
         mi_negocio = panel.split('id="mi-negocio"')[1].split('id="registro"')[0]
         assert demo.AVISOS["franjas_mal"] in mi_negocio and 'action="/franjas"' in mi_negocio
-        assert 'value="6:00, 8:30"' in mi_negocio, "el campo trae las franjas guardadas"
+        assert 'value="9:00, 10:00, 11:00"' in mi_negocio, "el campo trae las franjas guardadas"
         assert demo.AVISOS["franjas_mal"] not in h._panel("<script>"), "solo códigos conocidos"
         assert "<script>alert" not in h._panel("<script>alert(1)</script>")
 
