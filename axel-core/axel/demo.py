@@ -6,6 +6,7 @@ import hmac
 import html
 import json
 import os
+import re
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -131,23 +132,90 @@ def _tabla_catalogo() -> str:
     return f"<table>{datos_html}</table>"
 
 
-def _tabla_servicios() -> str:
-    """Servicios de la KB: nombre, precio, stock e imagen. Sin stock: sin tope. Solo lectura; no sube fotos."""
-    def stock_txt(s: dict) -> str:
-        valor = s.get("stock")
-        return str(valor) if isinstance(valor, int) and not isinstance(valor, bool) else "sin tope"
+def _stock_txt(s: dict) -> str:
+    valor = s.get("stock")
+    return str(valor) if isinstance(valor, int) and not isinstance(valor, bool) else ""
 
-    filas = "".join(
-        "<tr>"
-        f"<td>{html.escape(str(s['nombre']))}</td>"
-        f"<td>{kb.precio_txt(s.get('precio') or 0)}</td>"
-        f"<td>{stock_txt(s)}</td>"
-        f"<td>{'con imagen' if s.get('imagen') else 'sin imagen'}</td>"
-        "</tr>"
-        for s in kb.servicios()
-    ) or "<tr><td colspan='4'>Sin servicios</td></tr>"
-    cab = "".join(f"<th>{_a(c)}</th>" for c in ("Servicio", "Precio", "Stock", "Imagen"))
-    return f"<table><tr>{cab}</tr>{filas}</table>"
+
+def _tabla_servicios() -> str:
+    """Servicios de la KB: nombre, precio, stock e imagen. Muro C: el dueño edita precio y stock aquí; se guardan
+    en servicios[] de kb.json, el mismo campo que cambia WhatsApp. Sin stock: sin tope. No sube fotos."""
+    filas = []
+    for i, s in enumerate(kb.servicios()):
+        nombre = html.escape(str(s["nombre"]))
+        fid = f"srv-{i}"
+        filas.append(
+            "<tr>"
+            f"<td>{nombre}</td>"
+            f"<td><input form='{fid}' name='precio' inputmode='numeric' value='{int(s.get('precio') or 0)}'"
+            f" aria-label='Precio de {nombre}'/></td>"
+            f"<td><input form='{fid}' name='stock' inputmode='numeric' value='{_stock_txt(s)}' placeholder='sin tope'"
+            f" aria-label='Stock de {nombre}'/></td>"
+            f"<td>{'con imagen' if s.get('imagen') else 'sin imagen'}</td>"
+            f"<td><form id='{fid}' method='post' action='/servicio'><input type='hidden' name='nombre' value='{nombre}'/>"
+            f"<button type='submit'>{_a('Guardar')}</button></form></td>"
+            "</tr>"
+        )
+    cuerpo = "".join(filas) or "<tr><td colspan='5'>Sin servicios</td></tr>"
+    cab = "".join(f"<th>{_a(c)}</th>" for c in ("Servicio", "Precio", "Stock", "Imagen", ""))
+    return f"<table><tr>{cab}</tr>{cuerpo}</table>"
+
+
+# Muro C: avisos fijos tras guardar desde el panel. Solo códigos conocidos: nada del formulario se refleja.
+AVISOS = {
+    "servicio_ok": "Servicio guardado.",
+    "servicio_agotado": "Servicio guardado. Stock 0: no se vende.",
+    "precio_vacio": "Precio vacío: el precio no se guardó.",
+    "precio_mal": "Precio no válido. No se guardó nada.",
+    "stock_mal": "Stock no válido. No se guardó nada.",
+    "servicio_no": "No existe ese servicio.",
+    "franjas_ok": "Franjas guardadas. Una cita ya confirmada no se borra: si no cae en una franja, queda fuera de franja.",
+    "franjas_fuera": "Franjas guardadas. Alguna queda fuera del horario y no se ofrece. Las citas confirmadas no se borran.",
+    "franjas_mal": "Franja no válida: horas de 0 a 23, separadas por coma. No se guardó.",
+}
+
+
+def guardar_servicio(nombre: str, precio_raw: str, stock_raw: str) -> str:
+    """Precio y stock de un servicio desde el panel. Mismo campo que WhatsApp (kb.set_price / kb.set_stock).
+    Precio vacío no se guarda. Algo inválido: no se guarda nada. Devuelve un código de AVISOS."""
+    s = kb.buscar_servicio(nombre)
+    if not s:
+        return "servicio_no"
+    precio_raw, stock_raw = (precio_raw or "").strip(), (stock_raw or "").strip()
+    precio = None
+    if precio_raw:
+        if not re.fullmatch(r"\$?\s*\d[\d.]*", precio_raw) or int(precio_raw.strip("$ ").replace(".", "")) <= 0:
+            return "precio_mal"
+        precio = int(precio_raw.strip("$ ").replace(".", ""))
+    stock = None
+    if stock_raw:
+        if not stock_raw.isdigit():
+            return "stock_mal"
+        stock = int(stock_raw)
+    if precio is not None:
+        kb.set_price(str(s["nombre"]), str(precio))
+    if stock is not None:
+        kb.set_stock(str(s["nombre"]), stock)
+    if precio is None:
+        return "precio_vacio"
+    return "servicio_agotado" if stock == 0 else "servicio_ok"
+
+
+def guardar_franjas(raw: str) -> str:
+    """Franjas desde Mi negocio: '8, 12, 16' (o 8:30). Horas 0 a 23. Repetidas se ignoran. Una inválida: no se
+    guarda nada. Las citas confirmadas no se tocan. Devuelve un código de AVISOS."""
+    horas = []
+    partes = [p.strip() for p in (raw or "").split(",") if p.strip()]
+    for p in partes:
+        m = re.fullmatch(r"(\d{1,2})(?::(\d{2}))?", p)
+        if not m or int(m.group(1)) > 23 or int(m.group(2) or 0) > 59:
+            return "franjas_mal"
+        horas.append((int(m.group(1)), int(m.group(2) or 0)))
+    if not horas:
+        return "franjas_mal"
+    kb.set_franjas(horas)
+    abre, cierra = kb.get_hours()
+    return "franjas_fuera" if any(not abre <= h < cierra for h in set(horas)) else "franjas_ok"
 
 
 def _tabla_envios() -> str:
@@ -280,7 +348,7 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(raw)
 
-    def _panel(self) -> str:
+    def _panel(self, aviso: str = "") -> str:
         rows = memory.list_audit(8)
         items = []
         for r in rows:
@@ -423,6 +491,11 @@ main{{max-width:720px;margin:0 auto}}
 .reporte b{{font-size:26px;overflow-wrap:anywhere}}
 .a{{color:var(--dorado)}}
 .palabra{{white-space:nowrap}}
+.aviso{{border:1px solid var(--dorado);color:var(--texto);border-radius:14px;padding:10px 14px;margin:12px 0}}
+form.editar{{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:14px 0 0}}
+form.editar label{{width:100%;color:var(--tenue);font-size:14px}}
+form.editar input,.tabla input{{min-width:0;padding:8px 12px;border-radius:10px;border:1px solid var(--borde);background:var(--fondo);color:var(--texto);font:inherit}}
+form.editar input{{flex:1}} .tabla input{{width:7.5em}}
 .sr{{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}
 @media (max-width:620px){{.reporte{{grid-template-columns:repeat(2,1fr)}}}}
 .otros{{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 0}}
@@ -542,6 +615,7 @@ button[value=approved]{{background:var(--dorado);border-color:var(--dorado);colo
 <dialog class="bloque" id="inventario"><div class="ventana">
 <div class="bloque-cab"><div class="bloque-t">{_a("Inventario")}</div>{cerrar}</div>
 <h2>{_a("Servicios")}</h2>
+{f'<p class="aviso" role="status">{AVISOS[aviso]}</p>' if aviso.startswith(("servicio", "precio", "stock")) and aviso in AVISOS else ""}
 <div class="tabla">{_tabla_servicios()}</div>
 <h2>{_a("Inventario")}</h2>
 <div class="tabla">{_tabla_inventario()}</div>
@@ -551,6 +625,12 @@ button[value=approved]{{background:var(--dorado);border-color:var(--dorado);colo
 <div class="bloque-cab"><div class="bloque-t">Mi negocio</div>{cerrar}</div>
 <h2>{_a("Datos del negocio")}</h2>
 <div class="tabla">{_tabla_catalogo()}</div>
+{f'<p class="aviso" role="status">{AVISOS[aviso]}</p>' if aviso.startswith("franjas") and aviso in AVISOS else ""}
+<form class="editar" method="post" action="/franjas">
+<label for="franjas">{_a("Franjas: horas de 0 a 23, separadas por coma")}</label>
+<input id="franjas" name="franjas" value="{html.escape(", ".join(_hhmm(f) for f in _franjas_kb()))}" inputmode="numeric"/>
+<button type="submit">{_a("Guardar")}</button>
+</form>
 <p class="ficha">{_a("Redes: aún no")}</p>
 <p class="ficha">{_a("Publicar: aún no")}</p>
 <p class="ficha">{_a("Otro WhatsApp: aún no")}</p>
@@ -580,6 +660,10 @@ document.querySelectorAll("[data-abre]").forEach(function (b) {{
 document.querySelectorAll("dialog").forEach(function (d) {{
   d.addEventListener("click", function (e) {{ if (e.target === d) d.close(); }});
 }});
+// Después de guardar, vuelve a la ventana donde estaba (#inventario, #mi-negocio) y limpia la dirección.
+var volver = location.hash && document.getElementById(location.hash.slice(1));
+if (volver && volver.tagName === "DIALOG") volver.showModal();
+if (location.search || location.hash) history.replaceState(null, "", "/");
 // Recarga cada 20 s. Espera si hay una ventana abierta o si el dueño está escribiendo, para no perderle nada.
 setInterval(function () {{
   var campo = document.querySelector("form.escribir input");
@@ -611,8 +695,9 @@ setInterval(function () {{
     def do_GET(self) -> None:
         if self._bloqueado("GET"):
             return
-        if self.path in ("/", "/index.html"):
-            self._html(200, self._panel())
+        if urlparse(self.path).path in ("/", "/index.html"):
+            aviso = (parse_qs(urlparse(self.path).query).get("aviso") or [""])[0]
+            self._html(200, self._panel(aviso))
             return
         if self.path == "/health":
             self._json(200, {"ok": True, "service": "axel-core-demo", **_salud_kb()})
@@ -684,6 +769,18 @@ setInterval(function () {{
             self._decidir((form.get("event_id") or [""])[0], (form.get("decision") or [""])[0])
             self.send_response(303)
             self.send_header("Location", "/")
+            self.end_headers()
+            return
+        if self.path in ("/servicio", "/franjas"):
+            # Muro C: el dueño edita desde el panel. Vuelve a la misma ventana con un aviso fijo.
+            form = parse_qs(raw.decode("utf-8", "replace"), keep_blank_values=True)
+            campo = lambda k: (form.get(k) or [""])[0]
+            if self.path == "/servicio":
+                codigo, ventana = guardar_servicio(campo("nombre"), campo("precio"), campo("stock")), "inventario"
+            else:
+                codigo, ventana = guardar_franjas(campo("franjas")), "mi-negocio"
+            self.send_response(303)
+            self.send_header("Location", f"/?aviso={codigo}#{ventana}")
             self.end_headers()
             return
         if self.path == "/webhooks/whatsapp":

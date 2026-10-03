@@ -132,7 +132,8 @@ def main() -> int:
         assert f"<th>{demo._a(campo)}</th>" in mi_negocio, campo
     for linea in ("Redes: aún no", "Publicar: aún no", "Otro WhatsApp: aún no"):
         assert f"<p class=\"ficha\">{demo._a(linea)}</p>" in mi_negocio, linea
-    final = mi_negocio.split("</table>")[1]
+    # Muro C: el formulario de franjas va antes; las tres líneas finales siguen sin enlace ni botón.
+    final = mi_negocio.split(f"<p class=\"ficha\">{demo._a('Redes: aún no')}</p>")[1]
     assert "<a " not in final and "<button" not in final, "las tres líneas van sin enlace ni botón"
     inventario = panel.split('id="inventario"')[1].split('id="mi-negocio"')[0]
     assert "<h2>" + demo._a("Servicios") + "</h2>" in inventario
@@ -145,8 +146,9 @@ def main() -> int:
         serv = demo._tabla_servicios()
     finally:
         demo.kb.servicios = original
-    assert "<td>corte</td><td>$25.000</td><td>5</td><td>sin imagen</td>" in serv, serv
-    assert "<td>barba</td><td>$10.000</td><td>sin tope</td><td>con imagen</td>" in serv, serv
+    # Muro C: precio y stock son campos editables; sin stock el campo queda vacío con "sin tope".
+    assert "name='precio' inputmode='numeric' value='25000'" in serv and "name='stock' inputmode='numeric' value='5'" in serv, serv
+    assert "value='' placeholder='sin tope'" in serv and "<td>sin imagen</td>" in serv and "<td>con imagen</td>" in serv, serv
     assert "<img" not in serv
     assert "<h2>Envíos</h2>" in panel.split('id="registro"')[1]
 
@@ -234,6 +236,64 @@ def main() -> int:
     assert f">{demo._a('Aprobar')}</button>" in fila_gil and f">{demo._a('Rechazar')}</button>" in fila_gil
     assert "<td class='nombre'>Gil</td>" in pend, "el nombre no lleva A dorada ni decide"
     assert f"<button class=\"otro\" data-abre=\"registro\">{demo._a('Registro · operador')}</button>" in panel
+
+    # Muro C: el dueño edita precio, stock y franjas en el panel. kb temporal: el real no se toca.
+    import json
+    from datetime import timedelta
+    kb_tmp = TMP / "kb_muro_c.json"
+    kb_tmp.write_text(json.dumps({"negocio": "Prueba", "servicios": [{"nombre": "corte", "precio": 25000},
+                                                                     {"nombre": "barba", "precio": 10000}],
+                                  "franjas": [9, 10, 11]}), encoding="utf-8")
+    kb_original = demo.kb._kb_path
+    demo.kb._kb_path = lambda: kb_tmp
+    try:
+        g = demo.guardar_servicio
+        assert g("corte", "30.000", "") == "servicio_ok", "stock vacío no cambia el stock"
+        assert demo.kb.buscar_servicio("corte")["precio"] == 30000 and "stock" not in demo.kb.buscar_servicio("corte")
+        assert g("corte", "", "7") == "precio_vacio", "precio vacío no se guarda"
+        assert demo.kb.buscar_servicio("corte")["precio"] == 30000 and demo.kb.buscar_servicio("corte")["stock"] == 7
+        assert g("corte", "abc", "3") == "precio_mal" and demo.kb.buscar_servicio("corte")["stock"] == 7, "inválido: nada"
+        assert g("corte", "0", "3") == "precio_mal"
+        assert g("corte", "25000", "-1") == "stock_mal" and demo.kb.buscar_servicio("corte")["precio"] == 30000
+        assert g("nada", "1000", "1") == "servicio_no"
+        assert g("corte", "25000", "0") == "servicio_agotado"
+        assert demo.kb.agotado(demo.kb.buscar_servicio("corte")), "stock 0 no se vende"
+        venta = h._run({"text": "me lo llevo el corte", "channel": "whatsapp", "channel_user_id": "573001112233",
+                        "phone": "3001112233"})
+        assert venta["reply_text"].startswith("No hay corte ahora."), venta["reply_text"]
+        # WhatsApp (dueño) sigue cambiando el mismo campo.
+        h._run({"text": "stock corte 4", "channel": "panel", "channel_user_id": "alex_pc"})
+        assert demo.kb.buscar_servicio("corte")["stock"] == 4
+        assert "value='4'" in demo._tabla_servicios()
+
+        # Franjas: repetidas se ignoran; una inválida no guarda nada; la cita confirmada no se borra.
+        dia = demo._ahora_cali().date() + timedelta(days=1)
+        if dia.weekday() == 6:
+            dia += timedelta(days=1)
+        with memory._conn() as conn:
+            conn.execute(
+                "INSERT INTO conversation_summaries(customer_id, event_id, channel, intent, summary, result, created_at, cita_at)"
+                " VALUES (?, 'evt_franja', 'whatsapp', 'reserva', 'mañana 10', 'ok', datetime('now'), ?)",
+                (gil, f"{dia.isoformat()} 10:00"),
+            )
+        gf = demo.guardar_franjas
+        assert gf("8, 25") == "franjas_mal" and demo.kb.load_kb()["franjas"] == [9, 10, 11], "inválida: no se guarda"
+        assert gf("8, x") == "franjas_mal" and gf("") == "franjas_mal" and gf("8:75") == "franjas_mal"
+        assert gf("14, 8, 14, 16") == "franjas_ok"
+        assert demo.kb.load_kb()["franjas"] == [8, 14, 16], "repetida ignorada, en orden"
+        assert any(c["event_id"] == "evt_franja" for c in memory.list_confirmed_reservas(50)), "la cita no se borra"
+        assert any("Fuera de franja" in l and "10" in l for l in demo._fuera_de_franja()), "queda fuera de franja"
+        assert gf("6, 8:30") == "franjas_fuera" and demo.kb.load_kb()["franjas"] == [6, "8:30"]
+
+        # El panel muestra el aviso fijo y el formulario de franjas con lo guardado.
+        panel = h._panel("franjas_mal")
+        mi_negocio = panel.split('id="mi-negocio"')[1].split('id="registro"')[0]
+        assert demo.AVISOS["franjas_mal"] in mi_negocio and 'action="/franjas"' in mi_negocio
+        assert 'value="6:00, 8:30"' in mi_negocio, "el campo trae las franjas guardadas"
+        assert demo.AVISOS["franjas_mal"] not in h._panel("<script>"), "solo códigos conocidos"
+        assert "<script>alert" not in h._panel("<script>alert(1)</script>")
+    finally:
+        demo.kb._kb_path = kb_original
 
     print("OK — panel: 8 envíos sin texto ni celular entero; citas con cita_at; inventario 15; hilo solo lectura")
     return 0
