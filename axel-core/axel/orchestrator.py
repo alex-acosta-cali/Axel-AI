@@ -142,6 +142,14 @@ PREGUNTA_NOMBRE_FORMAL = "¿Cómo quiere que le llame?"
 AVISO_DATOS = "Tus datos (nombre y celular) quedan en la ficha de este negocio. Escribe borrar mis datos y el dueño lo revisa."
 AVISO_DATOS_FORMAL = "Sus datos (nombre y celular) quedan en la ficha de este negocio. Escriba borrar mis datos y el dueño lo revisa."
 PREGUNTAS_NOMBRE = (PREGUNTA_NOMBRE, PREGUNTA_NOMBRE_VIEJA, PREGUNTA_NOMBRE_FORMAL)
+# Muro K: sin nombre, AXEL pregunta hasta tres veces. A la tercera sin respuesta, el nombre queda "omitido".
+MAX_PREGUNTAS_NOMBRE = 3
+
+
+def nombre_omitido(memory: Memory, customer_id: str) -> bool:
+    """True si AXEL ya preguntó el nombre tres veces y el cliente sigue sin nombre."""
+    cli = memory.get_customer(customer_id or "") or {}
+    return not cli.get("name") and memory.veces_respondio(customer_id, PREGUNTAS_NOMBRE) >= MAX_PREGUNTAS_NOMBRE
 NOMBRE_CORTO = re.compile(r"[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ ]{2,40}")
 NO_ES_NOMBRE = {"si", "no", "ok", "okay", "dale", "bien", "nada", "claro", "vale"}
 # Si la respuesta empieza así, es una pregunta, un comando o una acción de agenda, no un nombre.
@@ -1386,7 +1394,7 @@ def process(env: Envelope, memory: Memory) -> Envelope:
         pedir_nombre
         and not env.name
         and env.intent in {"saludo", "pregunta"}
-        and not any(memory.replied_with(env.customer_id, p) for p in PREGUNTAS_NOMBRE)
+        and memory.veces_respondio(env.customer_id, PREGUNTAS_NOMBRE) < MAX_PREGUNTAS_NOMBRE
     ):
         pregunta = PREGUNTA_NOMBRE_FORMAL if kb_mod.tono() == "formal" else PREGUNTA_NOMBRE
         env.reply_text = f"{env.reply_text or ''} {pregunta}".strip()

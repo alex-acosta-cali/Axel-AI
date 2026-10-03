@@ -35,6 +35,7 @@ from axel.envelope import Envelope
 from axel.memory import Memory
 from axel.orchestrator import (
     enviar_alerta_cierre,
+    nombre_omitido,
     inventario_filas,
     pedidos_de_hoy,
     pedidos_filas,
@@ -470,6 +471,30 @@ def _chats() -> tuple[str, str]:
 
 _CERRAR = "<form method='dialog'><button class='cerrar' aria-label='Cerrar'>×</button></form>"
 
+# Muro K: puerta Quiénes somos. Texto fijo; el sello es la Λ.
+_QUIENES = (
+    "<dialog class='bloque' id='quienes-somos'><div class='ventana'>"
+    f"<div class='bloque-cab'><div class='bloque-t'>{_a('Quiénes somos')}</div>{_CERRAR}</div>"
+    "<div class='sello' aria-hidden='true'>Λ</div>"
+    "<p>AXEL atiende este comercio: responde, anota pedidos y agenda citas. Lo importante lo decide el dueño.</p>"
+    "<p>AXEL no cobra ni mueve dinero.</p>"
+    "<p>Guarda solo lo que el cliente dio para su cita o su pedido: nombre, celular y lo que escribió.</p>"
+    "<p>Ley 1581 de 2012: los datos no se venden. El cliente puede pedir que se borren escribiendo "
+    "«borrar mis datos»; el dueño lo revisa.</p>"
+    "</div></dialog>"
+)
+
+# Muro K: primera visita en este navegador: el clip y un clic para entrar al home. El video no está en el repo:
+# se ve desde YouTube (dominio sin cookies). Se recuerda con localStorage; sin él, el clip vuelve a salir.
+CLIP_YOUTUBE = "s7zg6v035PQ"
+_INTRO = (
+    "<div class='intro' id='intro' hidden>"
+    f"<iframe data-src='https://www.youtube-nocookie.com/embed/{CLIP_YOUTUBE}?autoplay=1&amp;mute=1&amp;rel=0'"
+    " title='AXEL, presentación' allow='autoplay; encrypted-media' allowfullscreen></iframe>"
+    f"<button type='button' id='entrar'>{_a('Entrar')}</button>"
+    "</div>"
+)
+
 
 # Muro E: lo que pide el cliente, en palabras del dueño. Intent desconocido: se nombra tal cual.
 _PIDE = {"reembolso": "reembolso", "descuento": "descuento", "borrar_datos": "borrar sus datos",
@@ -795,26 +820,28 @@ class Handler(BaseHTTPRequestHandler):
         tabla_citas = "".join(citas) or "<tr><td colspan='3'>Sin citas confirmadas</td></tr>"
         # Una sola lista de clientes. Canal: WhatsApp o vacío. Sin ID. Última vez = último mensaje por WhatsApp.
         # La ficha del panel (alex_pc, canal panel) es el dueño: no sale en la lista. La ficha no se borra.
+        # Muro K: recuadro con scroll. Nombre (u "omitido" tras tres preguntas), canal, celular, correo, última vez.
+        # Dirección: la base no la guarda todavía, así que queda "—". Redes: "aún no".
         wa = {str(u.get("customer_id")): u.get("last_in") for u in memory.list_whatsapp_customers(500)}
         internos = memory.clientes_de_canal("panel")
         cli = []
-        for u in memory.list_customers(20 + len(internos)):
+        for u in memory.list_customers(200 + len(internos)):
             cid = str(u.get("customer_id") or "")
             if cid in internos:
                 continue
-            ult = memory.last_reserva(cid)
-            ult_txt = franja_fila(ult) if ult else "—"
             escribio = _creada_cali(str(wa[cid])).strftime("%d/%m %H:%M") if wa.get(cid) else "—"
+            nombre = u.get("name") or ("omitido" if nombre_omitido(memory, cid) else "—")
             cli.append(
                 "<tr>"
-                f"<td>{html.escape(str(u.get('name') or '—'))}</td>"
+                f"<td>{html.escape(str(nombre))}</td>"
                 f"<td>{'WhatsApp' if cid in wa else ''}</td>"
                 f"<td>{html.escape(str(u.get('phone') or '—'))}</td>"
-                f"<td>{html.escape(ult_txt)}</td>"
+                f"<td>{html.escape(str(u.get('email') or '—'))}</td>"
                 f"<td>{html.escape(escribio)}</td>"
+                "<td>—</td><td>aún no</td>"
                 "</tr>"
             )
-        tabla_cli = "".join(cli) or "<tr><td colspan='5'>Sin clientes</td></tr>"
+        tabla_cli = "".join(cli) or "<tr><td colspan='7'>Sin clientes</td></tr>"
         n_pend = len(memory.list_pending())
         ahora = _ahora_cali()
         hoy = ahora.date()
@@ -872,7 +899,17 @@ form.editar input{{flex:1}} .tabla input{{width:7.5em}}
 .local{{color:var(--tenue);font-size:12px;margin:22px 0 0}}
 .puertas{{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);display:flex;gap:4px;background:var(--oscuro);
 border:1px solid var(--borde);border-radius:999px;padding:6px;width:min(560px,calc(100% - 32px))}}
-.puertas button{{flex:1;background:none;border:0;border-radius:999px;color:var(--texto);font:inherit;font-size:15px;padding:12px 6px;min-height:44px;cursor:pointer}}
+.puertas button{{flex:1 0 auto;background:none;border:0;border-radius:999px;color:var(--texto);font:inherit;font-size:13px;padding:12px 8px;min-height:44px;cursor:pointer;
+font-weight:300;letter-spacing:.12em;text-transform:uppercase;white-space:nowrap}}
+.puertas{{overflow-x:auto}}
+.recuadro{{max-height:360px;overflow:auto}}
+.sello{{width:96px;height:96px;margin:8px auto 16px;border:2px solid var(--dorado);border-radius:50%;display:flex;
+align-items:center;justify-content:center;color:var(--dorado);font-size:48px;font-weight:300}}
+.intro{{position:fixed;inset:0;z-index:10;background:var(--fondo);display:flex;flex-direction:column;align-items:center;
+justify-content:center;gap:20px;padding:16px}}
+.intro[hidden]{{display:none}}
+.intro iframe{{width:min(880px,100%);aspect-ratio:16/9;border:0;border-radius:16px}}
+.intro button{{background:var(--dorado);border-color:var(--dorado);color:#1c1606;font-weight:600;padding:12px 28px}}
 .puertas button:hover,.puertas button:focus-visible,.otro:hover{{background:var(--caja);border-color:var(--dorado)}}
 .punto{{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--dorado);margin-left:6px;vertical-align:middle}}
 dialog.bloque{{background:var(--fondo);color:var(--texto);border:1px solid var(--borde);border-radius:22px;padding:0;
@@ -918,7 +955,7 @@ button{{padding:8px 16px;border-radius:999px;border:1px solid var(--borde);backg
 button:hover{{border-color:var(--dorado)}}
 button[value=approved]{{background:var(--dorado);border-color:var(--dorado);color:#1c1606;font-weight:600}}
 @media (max-width:520px){{.casilla b{{font-size:24px}} dialog.bloque{{width:100%;max-height:100vh;border-radius:0}}}}
-</style></head><body><main>
+</style></head><body>{_INTRO}<main>
 <header class="arriba">
 <div class="marca-axel"><h1>ΛXEL</h1><span class="negocio">{negocio}</span></div>
 <span class="hora">Cali {ahora.strftime('%H:%M')}</span>
@@ -927,11 +964,14 @@ button[value=approved]{{background:var(--dorado);border-color:var(--dorado);colo
 {casillas}
 <p class="ficha">{_a("Envíos de producto, repartidor y contra entrega: aún no")}</p>
 <div class="otros">
+<button class="otro" data-abre="quienes-somos">{_a("Quiénes somos")}</button>
 <button class="otro" data-abre="mi-negocio">{_a("Mi negocio")}</button>
 <button class="otro" data-abre="inventario">{_a("Inventario")}</button>
 <button class="otro" data-abre="registro">{_a("Registro · operador")}</button>
 </div>
 <p class="local">panel local · solo 127.0.0.1</p>
+
+{_QUIENES}
 
 <nav class="puertas" aria-label="Puertas">
 <span class="lambda" aria-hidden="true">Λ</span>
@@ -957,7 +997,7 @@ button[value=approved]{{background:var(--dorado);border-color:var(--dorado);colo
 <h2>{_a("Chats")}</h2>
 {chats}
 <h2>Clientes</h2>
-<div class="tabla"><table>{_cab("Nombre", "Canal", "Celular", "Última cita", "Última vez")}{tabla_cli}</table></div>
+<div class="tabla recuadro"><table>{_cab("Nombre", "Canal", "Celular", "Correo", "Última vez", "Dirección", "Redes")}{tabla_cli}</table></div>
 </div></dialog>
 {hilos}
 
@@ -1021,6 +1061,18 @@ document.querySelectorAll("[data-abre]").forEach(function (b) {{
 document.querySelectorAll("dialog").forEach(function (d) {{
   d.addEventListener("click", function (e) {{ if (e.target === d) d.close(); }});
 }});
+// Muro K: primera visita en este navegador: el clip; un clic en Entrar va al home.
+var intro = document.getElementById("intro"), visto = "";
+try {{ visto = localStorage.getItem("axel_intro_visto") || ""; }} catch (e) {{}}
+if (!visto) {{  // el video solo se pide a YouTube cuando se muestra
+  intro.querySelector("iframe").src = intro.querySelector("iframe").dataset.src;
+  intro.hidden = false;
+}}
+document.getElementById("entrar").addEventListener("click", function () {{
+  intro.hidden = true;
+  intro.querySelector("iframe").src = "about:blank";
+  try {{ localStorage.setItem("axel_intro_visto", "1"); }} catch (e) {{}}
+}});
 // Muro J: cupos por semana (una a la vista) y clic en un cupo verde para anotarlo.
 var semanas = document.querySelectorAll(".semana"), semana = 0;
 document.querySelectorAll("[data-semana-paso]").forEach(function (b) {{
@@ -1045,7 +1097,7 @@ if (location.search || location.hash) history.replaceState(null, "", "/");
 setInterval(function () {{
   var campo = document.querySelector("form.escribir input");
   var escribiendo = campo && (campo.value || document.activeElement === campo);
-  if (!document.querySelector("dialog[open]") && !escribiendo) location.reload();
+  if (!document.querySelector("dialog[open]") && !escribiendo && intro.hidden) location.reload();
 }}, 20000);
 </script>
 </body></html>"""

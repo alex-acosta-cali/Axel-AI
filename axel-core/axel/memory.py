@@ -495,6 +495,18 @@ class Memory:
             ).fetchone()
         return bool(row)
 
+    def veces_respondio(self, customer_id: str, fragmentos: tuple[str, ...]) -> int:
+        """Muro K: cuántas respuestas de AXEL a ese cliente llevan alguno de esos textos. Solo lectura."""
+        if not customer_id or not fragmentos:
+            return 0
+        donde = " OR ".join("instr(text, ?) > 0" for _ in fragmentos)
+        with self._conn() as conn:
+            row = conn.execute(
+                f"SELECT COUNT(*) AS n FROM messages WHERE customer_id = ? AND direction = 'out' AND ({donde})",
+                (customer_id, *fragmentos),
+            ).fetchone()
+        return int(row["n"]) if row else 0
+
     def add_note(self, customer_id: str, note: str) -> None:
         note = (note or "").strip()[:240]
         if not customer_id or not note:

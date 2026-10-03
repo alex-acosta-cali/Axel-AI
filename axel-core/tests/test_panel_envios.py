@@ -74,7 +74,12 @@ def main() -> int:
         assert f"<h2>{titulo}</h2>" in panel, titulo
     assert "<h2>Clientes WhatsApp</h2>" not in panel and panel.count("<h2>Clientes</h2>") == 1
     clientes = panel.split("<h2>Clientes</h2>")[1].split("</table>")[0]
-    assert cita_txt in clientes, ("Clientes lee cita_at", cita_txt, clientes)
+    # Muro K: Clientes en recuadro con scroll: nombre, canal, celular, correo, última vez, dirección, redes.
+    # Ya no lleva la última cita (antes probaba que leía cita_at).
+    assert "".join(f"<th>{demo._a(c)}</th>" for c in
+                   ("Nombre", "Canal", "Celular", "Correo", "Última vez", "Dirección", "Redes")) in clientes, clientes
+    assert cita_txt not in clientes and "<td>—</td><td>aún no</td>" in clientes
+    assert '<div class="tabla recuadro">' in panel.split("<h2>Clientes</h2>")[1][:40]
     assert "3001112233" in clientes, "el celular sigue en la lista de clientes"
     assert "<td>WhatsApp</td>" in clientes and "<th>ID</th>" not in clientes and gil not in clientes, "canal sí, ID no"
     # Muro F: "Envíos" pasa a llamarse "Avisos"; sigue sin texto ni celular entero.
@@ -514,6 +519,31 @@ def main() -> int:
     assert "· sin vínculo</td>" in fila_h2 and "fallo" not in fila_h2 and "fuera de 24 h" not in fila_h2, fila_h2
     assert "reporte interno" not in eventos and "despacho" not in registro.lower()
     assert demo._corto("x" * 80).endswith("…") and len(demo._corto("x" * 80)) == 60
+
+    # Muro K: puerta Quiénes somos (texto fijo, sello Λ) y clip de primera visita (solo enlace, no archivo).
+    panel = h._panel()
+    quienes = panel.split("id='quienes-somos'")[1].split("</dialog>")[0]
+    for frase in ("no cobra", "Ley 1581", "no se venden", "borrar mis datos", "Guarda solo lo que el cliente dio"):
+        assert frase in quienes, frase
+    assert "<div class='sello' aria-hidden='true'>Λ</div>" in quienes and "data-abre=\"quienes-somos\"" in panel
+    intro = panel.split("id='intro'")[1].split("</div>")[0]
+    assert " hidden>" in panel.split("id='intro'")[1][:10] and "data-src='https://www.youtube-nocookie.com/embed/s7zg6v035PQ" in intro
+    assert " src='" not in intro, "el video solo se pide al mostrarse"
+    assert "localStorage" in panel and "intro.hidden) location.reload()" in panel
+    assert not list(Path(ROOT).rglob("*.mp4")), "el clip no se guarda en el repo"
+    # Las tres puertas: letra de la marca, palabras enteras.
+    css = panel.split("<style>")[1].split("</style>")[0]
+    assert "text-transform:uppercase;white-space:nowrap" in css.split(".puertas button{")[1].split("}")[0]
+
+    # Muro K: sin nombre, AXEL pregunta hasta tres veces; a la tercera, "omitido".
+    from axel.orchestrator import PREGUNTA_NOMBRE, nombre_omitido
+    nuevo = {"channel": "whatsapp", "channel_user_id": "573005550000", "phone": "3005550000"}
+    preguntas = [PREGUNTA_NOMBRE in (h._run({**nuevo, "text": t})["reply_text"] or "") for t in ("hola", "hola", "hola", "hola")]
+    assert preguntas == [True, True, True, False], preguntas
+    sin_nombre = memory.find_by_identity("whatsapp", "573005550000")["customer_id"]
+    assert nombre_omitido(memory, sin_nombre)
+    clientes = h._panel().split("<h2>Clientes</h2>")[1].split("</table>")[0]
+    assert "<td>omitido</td>" in clientes and memory.get_customer(sin_nombre)["name"] is None, "omitido solo se muestra"
 
     print("OK — panel: 8 envíos sin texto ni celular entero; citas con cita_at; inventario 15; hilo solo lectura")
     return 0
