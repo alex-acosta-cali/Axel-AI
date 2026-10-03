@@ -167,6 +167,42 @@ def _tabla_inventario() -> str:
     return f"<table><tr><th>Código</th><th>Nombre</th><th>Stock</th><th>Disponible</th></tr>{filas}</table>"
 
 
+def _canal_txt(canal: str) -> str:
+    """Solo WhatsApp es canal vivo. Panel y prueba son internos. Sin canal guardado, nada."""
+    canal = str(canal or "")
+    return "WhatsApp" if canal == "whatsapp" else ("interno" if canal else "")
+
+
+def _chats() -> tuple[str, str]:
+    """Lista de clientes con su último mensaje, y un hilo de solo lectura por cliente. Sin caja de enviar."""
+    filas, hilos = [], []
+    for i, c in enumerate(memory.list_conversaciones(20)):
+        cel = "".join(ch for ch in str(c.get("phone") or "") if ch.isdigit())
+        quien = html.escape(str(c.get("name") or (f"…{cel[-4:]}" if cel else "sin nombre")))
+        hora = _creada_cali(str(c.get("created_at") or "")).strftime("%d/%m %H:%M")
+        filas.append(
+            f"<button class='chat' data-abre='hilo-{i}'>"
+            f"<span class='chat-1'><b>{quien}</b><span>{hora}</span></span>"
+            f"<span class='chat-2'>{html.escape(str(c.get('text') or '')[:90])}</span>"
+            f"<span class='chat-3'>{_canal_txt(c.get('channel'))}</span></button>"
+        )
+        burbujas = "".join(
+            f"<div class='msj {'axel' if m.get('direction') == 'out' else 'cliente'}'>"
+            f"{html.escape(str(m.get('text') or ''))}"
+            f"<small>{'AXEL · ' if m.get('direction') == 'out' else ''}"
+            f"{_creada_cali(str(m.get('created_at') or '')).strftime('%d/%m %H:%M')}</small></div>"
+            for m in memory.list_mensajes(str(c.get("customer_id") or ""), 20)
+        )
+        hilos.append(
+            f"<dialog class='bloque' id='hilo-{i}'><div class='ventana'>"
+            f"<div class='bloque-cab'><div class='bloque-t'>{quien} <i>{_canal_txt(c.get('channel'))}</i></div>"
+            "<form method='dialog'><button class='cerrar' aria-label='Cerrar'>×</button></form></div>"
+            f"<div class='hilo'>{burbujas}</div><p class='ficha'>Solo lectura.</p></div></dialog>"
+        )
+    lista = "".join(filas) or "<p class='vacio'>Al día. Nadie espera.</p>"
+    return f"<div class='chats'>{lista}</div>", "".join(hilos)
+
+
 class Handler(BaseHTTPRequestHandler):
     def _json(self, code: int, payload: dict) -> None:
         raw = json.dumps(payload, ensure_ascii=False).encode()
@@ -280,6 +316,7 @@ class Handler(BaseHTTPRequestHandler):
         # Catálogo vive en Mi negocio; Envíos en Registro, la puerta del operador.
         aviso_pend = f"<span class='marca'>{n_pend}</span>" if n_pend else "<span class='marca cero'>0</span>"
         cerrar = "<form method='dialog'><button class='cerrar' aria-label='Cerrar'>×</button></form>"
+        chats, hilos = _chats()
         return f"""<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ΛXEL panel</title>
@@ -328,6 +365,21 @@ pre{{background:var(--caja);border-radius:16px;padding:14px;white-space:pre-wrap
 .marca{{background:var(--dorado);color:#1c1606;border-radius:999px;padding:1px 10px;font-size:13px}}
 .marca.cero{{background:var(--borde);color:var(--tenue)}}
 .ficha{{color:var(--tenue);font-size:14px;margin:18px 0 0}}
+.bloque-t i{{font-style:normal;font-size:14px;font-weight:400;color:var(--tenue)}}
+.chats{{display:flex;flex-direction:column;background:var(--caja);border-radius:16px;overflow:hidden}}
+.chat{{display:flex;flex-direction:column;gap:3px;text-align:left;background:none;border:0;border-bottom:1px solid var(--borde);
+border-radius:0;padding:12px 14px;min-height:44px;width:100%}}
+.chat:last-child{{border-bottom:0}}
+.chat:hover,.chat:focus-visible{{background:var(--fondo)}}
+.chat-1{{display:flex;justify-content:space-between;gap:10px}} .chat-1 span{{color:var(--tenue);font-size:13px}}
+.chat-2{{color:var(--tenue);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+.chat-3{{color:var(--tenue);font-size:12px}}
+.vacio{{color:var(--tenue);padding:14px;margin:0}}
+.hilo{{display:flex;flex-direction:column;gap:10px;margin:14px 0 0}}
+.msj{{max-width:78%;padding:10px 14px;border-radius:18px;white-space:pre-wrap;font-size:15px;line-height:1.4}}
+.msj small{{display:block;margin-top:4px;font-size:12px;opacity:.75;text-align:right}}
+.msj.cliente{{align-self:flex-start;border:1px solid var(--borde)}}
+.msj.axel{{align-self:flex-end;background:var(--texto);color:#13241d}}
 form.escribir{{display:flex;gap:8px;margin:16px 0 0}}
 form.escribir input{{flex:1;min-width:0;padding:12px 16px;border-radius:999px;border:1px solid var(--borde);background:var(--caja);color:var(--texto);font:inherit}}
 button{{padding:8px 16px;border-radius:999px;border:1px solid var(--borde);background:var(--caja);color:var(--texto);cursor:pointer;font:inherit}}
@@ -376,6 +428,8 @@ button[value=approved]{{background:var(--dorado);border-color:var(--dorado);colo
 
 <dialog class="bloque" id="conversaciones"><div class="ventana">
 <div class="bloque-cab"><div class="bloque-t">Conversaciones</div>{cerrar}</div>
+<h2>Chats</h2>
+{chats}
 <h2>Últimos</h2>
 <div class="tabla"><table><tr><th>Cuando</th><th>Canal</th><th>Agente</th><th>Nivel</th><th>Aprobación</th><th>Entró</th><th>Respondió</th></tr>{tabla}</table></div>
 <h2>Clientes WhatsApp</h2>
@@ -388,6 +442,7 @@ button[value=approved]{{background:var(--dorado);border-color:var(--dorado);colo
 <button type="submit">Enviar</button>
 </form>
 </div></dialog>
+{hilos}
 
 <dialog class="bloque" id="aprobaciones"><div class="ventana">
 <div class="bloque-cab"><div class="bloque-t">Aprobaciones {aviso_pend}</div>{cerrar}</div>

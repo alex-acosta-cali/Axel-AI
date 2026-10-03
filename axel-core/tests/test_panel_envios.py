@@ -102,7 +102,20 @@ def main() -> int:
     assert "<h2>Catálogo</h2>" in panel.split('id="mi-negocio"')[1].split('id="registro"')[0]
     assert "<h2>Envíos</h2>" in panel.split('id="registro"')[1]
 
-    print("OK — panel: 8 envíos sin texto ni celular entero; citas con cita_at; inventario 15")
+    # Ladrillo 3: hilo de solo lectura. Sin mensajes, "Al día. Nadie espera." Sin caja de enviar.
+    assert "Al día. Nadie espera." in demo._chats()[0]
+    memory.save_turn(customer_id=gil, event_id="evt_hilo", channel="whatsapp", intent="consulta",
+                     text="¿Tienen cupo mañana?", reply="Sí, a las 10:00.", result="ok")
+    panel = demo.Handler.__new__(demo.Handler)._panel()
+    conversaciones = panel.split('id="conversaciones"')[1].split('id="aprobaciones"')[0]
+    assert "<h2>Chats</h2>" in conversaciones and "Gil" in conversaciones and "WhatsApp" in conversaciones
+    assert "Sí, a las 10:00." in conversaciones, "la lista muestra el último texto"
+    hilo = panel.split("id='hilo-0'")[1].split("</dialog>")[0]
+    assert hilo.index("¿Tienen cupo mañana?") < hilo.index("Sí, a las 10:00."), "del más viejo al más nuevo"
+    assert "<form method='post'" not in hilo and "Enviar" not in hilo, "el hilo no envía"
+    assert "Instagram" not in panel and "Web" not in panel
+
+    print("OK — panel: 8 envíos sin texto ni celular entero; citas con cita_at; inventario 15; hilo solo lectura")
     return 0
 
 
