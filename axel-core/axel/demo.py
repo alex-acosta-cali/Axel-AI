@@ -107,7 +107,7 @@ def _tabla_cupos() -> str:
         filas.append(f"<tr><td>{DIAS_ES[dia.weekday()]} {dia.strftime('%d/%m')}</td>{''.join(celdas)}</tr>")
     cab = "".join(f"<th>{_hhmm(f)}</th>" for f in franjas)
     fuera = "".join(f"<p>{html.escape(l)}</p>" for l in _fuera_de_franja())
-    return f"<table><tr><th>Día</th>{cab}</tr>{''.join(filas)}</table>{fuera}"
+    return f"<table><tr><th>{_a('Día')}</th>{cab}</tr>{''.join(filas)}</table>{fuera}"
 
 
 def _tabla_catalogo() -> str:
@@ -123,7 +123,7 @@ def _tabla_catalogo() -> str:
         ("Franjas", franjas),
         ("Ubicación", datos.get("ubicacion") or "—"),
     ]
-    datos_html = "".join(f"<tr><th>{k}</th><td>{html.escape(str(v))}</td></tr>" for k, v in filas)
+    datos_html = "".join(f"<tr><th>{_a(k)}</th><td>{html.escape(str(v))}</td></tr>" for k, v in filas)
     servicios = "".join(
         f"<tr><td>{html.escape(str(s['nombre']))}</td><td>{kb.precio_txt(s.get('precio') or 0)}</td></tr>"
         for s in kb.servicios()
@@ -148,7 +148,8 @@ def _tabla_envios() -> str:
             "<tr>" + "".join(f"<td>{html.escape(str(c))}</td>" for c in (hora, e["tipo"], e["estado"], quien)) + "</tr>"
         )
     cuerpo = "".join(filas) or "<tr><td colspan='4'>Sin envíos.</td></tr>"
-    return f"<table><tr><th>Hora Cali</th><th>Para qué</th><th>Estado</th><th>A quién</th></tr>{cuerpo}</table>"
+    cab = "".join(f"<th>{_a(c)}</th>" for c in ("Hora Cali", "Para qué", "Estado", "A quién"))
+    return f"<table><tr>{cab}</tr>{cuerpo}</table>"
 
 
 def _tabla_pedidos() -> str:
@@ -156,7 +157,8 @@ def _tabla_pedidos() -> str:
     filas = "".join(
         "<tr>" + "".join(f"<td>{html.escape(c)}</td>" for c in fila) + "</tr>" for fila in pedidos_filas(memory)
     ) or "<tr><td colspan='4'>Hoy no hay pedidos.</td></tr>"
-    return f"<table><tr><th>Hora Cali</th><th>Cliente</th><th>Pedido</th><th>Estado</th></tr>{filas}</table>"
+    cab = "".join(f"<th>{_a(c)}</th>" for c in ("Hora Cali", "Cliente", "Pedido", "Estado"))
+    return f"<table><tr>{cab}</tr>{filas}</table>"
 
 
 def _tabla_inventario() -> str:
@@ -164,7 +166,8 @@ def _tabla_inventario() -> str:
     filas = "".join(
         "<tr>" + "".join(f"<td>{html.escape(str(c))}</td>" for c in fila) + "</tr>" for fila in inventario_filas(memory)
     ) or "<tr><td colspan='4'>No hay productos.</td></tr>"
-    return f"<table><tr><th>Código</th><th>Nombre</th><th>Stock</th><th>Disponible</th></tr>{filas}</table>"
+    cab = "".join(f"<th>{_a(c)}</th>" for c in ("Código", "Nombre", "Stock", "Disponible"))
+    return f"<table><tr>{cab}</tr>{filas}</table>"
 
 
 def _a(titulo: str) -> str:
@@ -178,14 +181,37 @@ def _canal_txt(canal: str) -> str:
     return "WhatsApp" if canal == "whatsapp" else ("interno" if canal else "")
 
 
-def _chats() -> tuple[str, str]:
-    """Lista de clientes con su último mensaje, y un hilo de solo lectura por cliente. Sin caja de enviar."""
-    filas, hilos = [], []
+def _quien_txt(c: dict) -> str:
+    cel = "".join(ch for ch in str(c.get("phone") or "") if ch.isdigit())
+    return html.escape(str(c.get("name") or (f"…{cel[-4:]}" if cel else "sin nombre")))
+
+
+def _hilo(hid: str, cid: str, quien: str, canal: str, borrado: bool) -> str:
+    """Hilo de solo lectura de un cliente. Datos borrados: los mensajes siguen en la base, pero el panel no los lee."""
+    burbujas = "<p class='vacio'>Datos borrados</p>" if borrado else "".join(
+        f"<div class='msj {'axel' if m.get('direction') == 'out' else 'cliente'}'>"
+        f"{html.escape(str(m.get('text') or ''))}"
+        f"<small>{'AXEL · ' if m.get('direction') == 'out' else ''}"
+        f"{_creada_cali(str(m.get('created_at') or '')).strftime('%d/%m %H:%M')}</small></div>"
+        for m in memory.list_mensajes(cid, 20)
+    ) or "<p class='vacio'>Al día. Nadie espera.</p>"
+    return (
+        f"<dialog class='bloque' id='{hid}'><div class='ventana'>"
+        f"<div class='bloque-cab'><div class='bloque-t'>{quien} <i>{_canal_txt(canal)}</i></div>"
+        "<form method='dialog'><button class='cerrar' aria-label='Cerrar'>×</button></form></div>"
+        f"<div class='hilo'>{burbujas}</div><p class='ficha'>Solo lectura.</p></div></dialog>"
+    )
+
+
+def _chats_y_hilos(extra: list[str] = ()) -> tuple[str, str, dict[str, str]]:
+    """Lista de clientes con su último mensaje y un hilo de solo lectura por cliente. Sin caja de enviar.
+    'extra': clientes (p. ej. con aprobación pendiente) que necesitan hilo aunque no estén en la lista.
+    Devuelve también customer_id -> id del hilo."""
+    filas, hilos, mapa = [], [], {}
     for i, c in enumerate(memory.list_conversaciones(20)):
-        cel = "".join(ch for ch in str(c.get("phone") or "") if ch.isdigit())
-        quien = html.escape(str(c.get("name") or (f"…{cel[-4:]}" if cel else "sin nombre")))
+        cid = str(c.get("customer_id") or "")
+        quien = _quien_txt(c)
         hora = _creada_cali(str(c.get("created_at") or "")).strftime("%d/%m %H:%M")
-        # Datos borrados: los mensajes siguen en la base, pero el panel no los lee.
         borrado = bool(c.get("datos_borrados"))
         ultimo = "Datos borrados" if borrado else html.escape(str(c.get("text") or ""))
         filas.append(
@@ -194,21 +220,20 @@ def _chats() -> tuple[str, str]:
             f"<span class='chat-2'>{ultimo}</span>"
             f"<span class='chat-3'>{_canal_txt(c.get('channel'))}</span></button>"
         )
-        burbujas = "<p class='vacio'>Datos borrados</p>" if borrado else "".join(
-            f"<div class='msj {'axel' if m.get('direction') == 'out' else 'cliente'}'>"
-            f"{html.escape(str(m.get('text') or ''))}"
-            f"<small>{'AXEL · ' if m.get('direction') == 'out' else ''}"
-            f"{_creada_cali(str(m.get('created_at') or '')).strftime('%d/%m %H:%M')}</small></div>"
-            for m in memory.list_mensajes(str(c.get("customer_id") or ""), 20)
-        )
-        hilos.append(
-            f"<dialog class='bloque' id='hilo-{i}'><div class='ventana'>"
-            f"<div class='bloque-cab'><div class='bloque-t'>{quien} <i>{_canal_txt(c.get('channel'))}</i></div>"
-            "<form method='dialog'><button class='cerrar' aria-label='Cerrar'>×</button></form></div>"
-            f"<div class='hilo'>{burbujas}</div><p class='ficha'>Solo lectura.</p></div></dialog>"
-        )
+        hilos.append(_hilo(f"hilo-{i}", cid, quien, str(c.get("channel") or ""), borrado))
+        mapa[cid] = f"hilo-{i}"
+    for j, cid in enumerate(x for x in dict.fromkeys(extra) if x and x not in mapa):
+        c = memory.get_customer(cid) or {}
+        canal = "whatsapp" if cid in memory.clientes_de_canal("whatsapp") else ""
+        hilos.append(_hilo(f"hilo-x{j}", cid, _quien_txt(c), canal, bool(c.get("datos_borrados"))))
+        mapa[cid] = f"hilo-x{j}"
     lista = "".join(filas) or "<p class='vacio'>Al día. Nadie espera.</p>"
-    return f"<div class='chats'>{lista}</div>", "".join(hilos)
+    return f"<div class='chats'>{lista}</div>", "".join(hilos), mapa
+
+
+def _chats() -> tuple[str, str]:
+    lista, hilos, _ = _chats_y_hilos()
+    return lista, hilos
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -248,22 +273,33 @@ class Handler(BaseHTTPRequestHandler):
         def _cliente_txt(cid: str) -> str:
             return html.escape(str((memory.get_customer(cid) or {}).get("name") or "sin nombre"))
 
+        # Ladrillo 8: Pedido = el último pedido real del cliente (servicio y precio) o "sin pedido".
+        # "Dijo" = el texto del cliente tal cual; no se inventa motivo. Chat abre su hilo de solo lectura.
+        pend_filas = memory.list_pending()
+        chats, hilos, hilo_de = _chats_y_hilos([str(p.get("customer_id") or "") for p in pend_filas])
         pend = []
-        for p in memory.list_pending():
+        for p in pend_filas:
             eid = html.escape(str(p.get("event_id") or ""))
+            cid = str(p.get("customer_id") or "")
+            ped = memory.last_pedido(cid)
+            ped_txt = f"{html.escape(str(ped['servicio']))} {kb.precio_txt(ped['precio'])}" if ped else "sin pedido"
+            chat = (f"<button type='button' class='ir-chat' data-abre='{hilo_de[cid]}'>{_a('Chat')}</button>"
+                    if cid in hilo_de else "")
             pend.append(
                 "<tr>"
-                f"<td class='nombre'>{_cliente_txt(str(p.get('customer_id') or ''))}</td>"
+                f"<td class='nombre'>{_cliente_txt(cid)}</td>"
                 f"<td>{eid}</td>"
                 f"<td>{html.escape(str(p.get('intent') or ''))}</td>"
-                f"<td>{html.escape(str(p.get('requested_action') or ''))}</td>"
+                f"<td class='pedido'>{ped_txt}</td>"
+                f"<td class='dijo'>{html.escape(str(p.get('requested_action') or ''))}</td>"
+                f"<td>{chat}</td>"
                 f"<td><form method='post' action='/decidir' style='display:inline'>"
                 f"<input type='hidden' name='event_id' value='{eid}'/>"
-                f"<button type='submit' name='decision' value='approved'>Aprobar</button> "
-                f"<button type='submit' name='decision' value='rejected'>Rechazar</button>"
+                f"<button type='submit' name='decision' value='approved'>{_a('Aprobar')}</button> "
+                f"<button type='submit' name='decision' value='rejected'>{_a('Rechazar')}</button>"
                 f"</form></td></tr>"
             )
-        pendientes = "".join(pend) or "<tr><td colspan='5'>Nada por aprobar.</td></tr>"
+        pendientes = "".join(pend) or "<tr><td colspan='7'>Nada por aprobar.</td></tr>"
         decididas = "".join(
             "<tr>"
             f"<td class='nombre'>{_cliente_txt(str(d.get('customer_id') or ''))}</td>"
@@ -274,6 +310,9 @@ class Handler(BaseHTTPRequestHandler):
             "</tr>"
             for d in memory.list_decididas(10)
         ) or "<tr><td colspan='5'>Nada decidido aún.</td></tr>"
+        def _cab(*cols: str) -> str:
+            return "<tr>" + "".join(f"<th>{_a(c)}</th>" for c in cols) + "</tr>"
+
         ficha = memory.find_by_identity("panel", "alex_pc")
         notas = memory.list_notes(str(ficha.get("customer_id") or ""), 3)
         notas_txt = " | ".join(str(n.get("note") or "") for n in notas) or "—"
@@ -332,7 +371,6 @@ class Handler(BaseHTTPRequestHandler):
         # Catálogo vive en Mi negocio; Envíos en Registro, la puerta del operador.
         aviso_pend = f"<span class='marca'>{n_pend}</span>" if n_pend else "<span class='marca cero'>0</span>"
         cerrar = "<form method='dialog'><button class='cerrar' aria-label='Cerrar'>×</button></form>"
-        chats, hilos = _chats()
         return f"""<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ΛXEL panel</title>
@@ -416,18 +454,18 @@ button[value=approved]{{background:var(--dorado);border-color:var(--dorado);colo
 </header>
 
 <p class="grande">{citas_hoy}</p>
-<p class="grande-t">citas hoy</p>
-<p class="anotado">Anotado hoy, sin cobro · {kb.precio_txt(anotado_hoy(pedidos))}</p>
+<p class="grande-t">{_a("citas hoy")}</p>
+<p class="anotado">{_a("Anotado hoy, sin cobro")} · {kb.precio_txt(anotado_hoy(pedidos))}</p>
 
 <div class="tarjetas">
-<button class="tarjeta" data-abre="dia"><b>{citas_hoy}</b>citas hoy</button>
-<button class="tarjeta" data-abre="dia"><b>{en_curso}</b>pedidos en curso</button>
-<button class="tarjeta" data-abre="aprobaciones"><b>{n_pend}{punto}</b>por aprobar</button>
+<button class="tarjeta" data-abre="dia"><b>{citas_hoy}</b>{_a("citas hoy")}</button>
+<button class="tarjeta" data-abre="dia"><b>{en_curso}</b>{_a("pedidos en curso")}</button>
+<button class="tarjeta" data-abre="aprobaciones"><b>{n_pend}{punto}</b>{_a("por aprobar")}</button>
 </div>
 <div class="otros">
-<button class="otro" data-abre="mi-negocio">Mi negocio</button>
-<button class="otro" data-abre="inventario">Inventario</button>
-<button class="otro" data-abre="registro">Registro · operador</button>
+<button class="otro" data-abre="mi-negocio">{_a("Mi negocio")}</button>
+<button class="otro" data-abre="inventario">{_a("Inventario")}</button>
+<button class="otro" data-abre="registro">{_a("Registro · operador")}</button>
 </div>
 <p class="local">panel local · solo 127.0.0.1</p>
 
@@ -442,14 +480,14 @@ button[value=approved]{{background:var(--dorado);border-color:var(--dorado);colo
 <div class="bloque-cab"><div class="bloque-t">{_a("Día")}</div>{cerrar}</div>
 <h2>Reporte de hoy</h2>
 <div class="tarjetas reporte">
-<div class="tarjeta"><b>{citas_hoy}</b>citas hoy</div>
-<div class="tarjeta"><b>{kb.precio_txt(anotado_hoy(pedidos))}</b>anotado, sin cobro</div>
-<div class="tarjeta"><b>{len(entregados)}</b>entregados · {kb.precio_txt(sum(int(p["precio"]) for p in entregados))}</div>
-<div class="tarjeta"><b>{n_pend}</b>por aprobar</div>
+<div class="tarjeta"><b>{citas_hoy}</b>{_a("citas hoy")}</div>
+<div class="tarjeta"><b>{kb.precio_txt(anotado_hoy(pedidos))}</b>{_a("anotado, sin cobro")}</div>
+<div class="tarjeta"><b>{len(entregados)}</b>{_a("entregados")} · {kb.precio_txt(sum(int(p["precio"]) for p in entregados))}</div>
+<div class="tarjeta"><b>{n_pend}</b>{_a("por aprobar")}</div>
 </div>
 <h2>{_a("Citas")}</h2>
-<div class="tabla"><table><tr><th>Cuando</th><th>Cliente</th><th>Qué dijo</th></tr>{tabla_citas}</table></div>
-<h2>Cupos de la semana</h2>
+<div class="tabla"><table>{_cab("Cuando", "Cliente", "Qué dijo")}{tabla_citas}</table></div>
+<h2>{_a("Cupos de la semana")}</h2>
 <div class="tabla">{_tabla_cupos()}</div>
 <h2>Pedidos</h2>
 <div class="tabla">{_tabla_pedidos()}</div>
@@ -457,30 +495,30 @@ button[value=approved]{{background:var(--dorado);border-color:var(--dorado);colo
 
 <dialog class="bloque" id="conversaciones"><div class="ventana">
 <div class="bloque-cab"><div class="bloque-t">{_a("Conversaciones")}</div>{cerrar}</div>
-<h2>Chats</h2>
+<h2>{_a("Chats")}</h2>
 {chats}
 <h2>Clientes</h2>
-<div class="tabla"><table><tr><th>Nombre</th><th>Canal</th><th>Celular</th><th>Última cita</th><th>Última vez</th></tr>{tabla_cli}</table></div>
+<div class="tabla"><table>{_cab("Nombre", "Canal", "Celular", "Última cita", "Última vez")}{tabla_cli}</table></div>
 </div></dialog>
 {hilos}
 
 <dialog class="bloque" id="aprobaciones"><div class="ventana">
 <div class="bloque-cab"><div class="bloque-t">{_a("Aprobaciones")} {aviso_pend}</div>{cerrar}</div>
 <h2>Pendientes</h2>
-<div class="tabla"><table><tr><th>Cliente</th><th>Evento</th><th>Intent</th><th>Pedido</th><th>Decisión</th></tr>{pendientes}</table></div>
-<h2>Decididas</h2>
-<div class="tabla"><table><tr><th>Cliente</th><th>Intent</th><th>Pedido</th><th>Quedó</th><th>Hora Cali</th></tr>{decididas}</table></div>
+<div class="tabla"><table>{_cab("Cliente", "Evento", "Intent", "Pedido", "Dijo", "Chat", "Decisión")}{pendientes}</table></div>
+<h2>{_a("Decididas")}</h2>
+<div class="tabla"><table>{_cab("Cliente", "Intent", "Dijo", "Quedó", "Hora Cali")}{decididas}</table></div>
 </div></dialog>
 
 <dialog class="bloque" id="inventario"><div class="ventana">
 <div class="bloque-cab"><div class="bloque-t">{_a("Inventario")}</div>{cerrar}</div>
-<h2>Inventario</h2>
+<h2>{_a("Inventario")}</h2>
 <div class="tabla">{_tabla_inventario()}</div>
 </div></dialog>
 
 <dialog class="bloque" id="mi-negocio"><div class="ventana">
 <div class="bloque-cab"><div class="bloque-t">Mi negocio</div>{cerrar}</div>
-<h2>Catálogo</h2>
+<h2>{_a("Catálogo")}</h2>
 <div class="tabla">{_tabla_catalogo()}</div>
 </div></dialog>
 
@@ -489,7 +527,7 @@ button[value=approved]{{background:var(--dorado);border-color:var(--dorado);colo
 <h2>Envíos</h2>
 <div class="tabla">{_tabla_envios()}</div>
 <h2>Últimos</h2>
-<div class="tabla"><table><tr><th>Cuando</th><th>Canal</th><th>Agente</th><th>Nivel</th><th>Aprobación</th><th>Entró</th><th>Respondió</th></tr>{tabla}</table></div>
+<div class="tabla"><table>{_cab("Cuando", "Canal", "Agente", "Nivel", "Aprobación", "Entró", "Respondió")}{tabla}</table></div>
 <p class="ficha"><b>Ficha panel:</b> {ficha_html}</p>
 </div></dialog>
 </main>

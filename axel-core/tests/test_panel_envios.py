@@ -64,7 +64,8 @@ def main() -> int:
     assert panel.index("<h2>Reporte de hoy</h2>") < panel.index("<h2>Clientes</h2>")
     # Los bloques del dueño siguen en el panel. Ladrillo 4: una sola lista "Clientes" (antes dos tablas).
     # Ladrillo 6: "Citas" lleva la A dorada (demo._a); los demás títulos siguen en texto plano.
-    for titulo in ("Reporte de hoy", "Cupos de la semana", demo._a("Citas"), "Clientes", "Catálogo", "Pedidos", "Envíos"):
+    # Ladrillo 8: todo título fijo con "a" la lleva dorada (demo._a). Los que no tienen "a" quedan igual.
+    for titulo in ("Reporte de hoy", demo._a("Cupos de la semana"), demo._a("Citas"), "Clientes", demo._a("Catálogo"), "Pedidos", "Envíos"):
         assert f"<h2>{titulo}</h2>" in panel, titulo
     assert "<h2>Clientes WhatsApp</h2>" not in panel and panel.count("<h2>Clientes</h2>") == 1
     clientes = panel.split("<h2>Clientes</h2>")[1].split("</table>")[0]
@@ -86,7 +87,7 @@ def main() -> int:
     assert tabla.count("<tr>") == 16, "cabecera + 15 filas"
     assert "<td>P00</td><td>cosa 0</td><td>3</td><td>2</td>" in tabla, tabla
     assert "P15" not in tabla, "máximo 15"
-    assert "<h2>Inventario</h2>" in panel
+    assert f"<h2>{demo._a('Inventario')}</h2>" in panel
 
     # Muro 72: ΛXEL arriba; Día, Conversaciones, Aprobaciones; inventario abajo.
     orden = ["<h1>ΛXEL</h1>", 'id="dia"', 'id="conversaciones"', 'id="aprobaciones"', 'id="inventario"']
@@ -98,8 +99,8 @@ def main() -> int:
     # Ladrillo 6: el reporte del panel son cuatro tarjetas, sin texto largo ni línea de pagados.
     reporte = dia.split("<h2>Reporte de hoy</h2>")[1].split("<h2>")[0]
     assert reporte.count("class=\"tarjeta\"") == 4 and "<pre>" not in reporte and "pagado" not in reporte, reporte
-    for rotulo in ("citas hoy", "anotado, sin cobro", "entregados · ", "por aprobar"):
-        assert rotulo in reporte, rotulo
+    for rotulo in ("citas hoy", "anotado, sin cobro", "entregados", "por aprobar"):
+        assert demo._a(rotulo) in reporte, rotulo
     assert "<button" not in reporte, "sin botones nuevos"
     assert "setInterval" in panel and "20000" in panel and "location.reload()" in panel
     assert demo._a("Día") == "Dí<span class='a'>a</span>"
@@ -118,8 +119,9 @@ def main() -> int:
     pos = [panel.index(x) for x in orden]
     assert pos == sorted(pos), pos
     conversaciones = panel.split('id="conversaciones"')[1].split('id="aprobaciones"')[0]
-    assert "<h2>Catálogo</h2>" not in dia and "<h2>Envíos</h2>" not in conversaciones
-    assert "<h2>Catálogo</h2>" in panel.split('id="mi-negocio"')[1].split('id="registro"')[0]
+    catalogo = f"<h2>{demo._a('Catálogo')}</h2>"
+    assert catalogo not in dia and "<h2>Envíos</h2>" not in conversaciones
+    assert catalogo in panel.split('id="mi-negocio"')[1].split('id="registro"')[0]
     assert "<h2>Envíos</h2>" in panel.split('id="registro"')[1]
 
     # Ladrillo 3: hilo de solo lectura. Sin mensajes, "Al día. Nadie espera." Sin caja de enviar.
@@ -128,7 +130,7 @@ def main() -> int:
                      text="¿Tienen cupo mañana?", reply="Sí, a las 10:00.", result="ok")
     panel = demo.Handler.__new__(demo.Handler)._panel()
     conversaciones = panel.split('id="conversaciones"')[1].split('id="aprobaciones"')[0]
-    assert "<h2>Chats</h2>" in conversaciones and "Gil" in conversaciones and "WhatsApp" in conversaciones
+    assert f"<h2>{demo._a('Chats')}</h2>" in conversaciones and "Gil" in conversaciones and "WhatsApp" in conversaciones
     assert "Sí, a las 10:00." in conversaciones, "la lista muestra el último texto"
     hilo = panel.split("id='hilo-0'")[1].split("</dialog>")[0]
     assert hilo.index("¿Tienen cupo mañana?") < hilo.index("Sí, a las 10:00."), "del más viejo al más nuevo"
@@ -182,9 +184,30 @@ def main() -> int:
     assert ultimo["estado"] in {"fallo", "fuera_24h"}, "sin token el aviso no sale y queda escrito"
     panel = h._panel()
     aprob = panel.split('id="aprobaciones"')[1].split('id="inventario"')[0]
-    decididas = aprob.split("<h2>Decididas</h2>")[1]
-    assert "Gil" in decididas and "<td>aprobada</td>" in decididas and "evt_reem" not in aprob.split("<h2>Decididas</h2>")[0]
+    h2_dec = f"<h2>{demo._a('Decididas')}</h2>"
+    decididas = aprob.split(h2_dec)[1]
+    assert "Gil" in decididas and "<td>aprobada</td>" in decididas and "evt_reem" not in aprob.split(h2_dec)[0]
     assert re.search(r"<td>\d\d/\d\d \d\d:\d\d</td>", decididas), "con la hora"
+
+    # Ladrillo 8: Pedido real o "sin pedido"; el texto del cliente tal cual; Chat abre su hilo; A dorada en los botones.
+    for eid, cid, txt in (("evt_p8", gil, "Quiero devolver la cosa"), ("evt_p8b", ana, "Quiero un reembolso")):
+        memory.save_pending_approval({"event_id": eid, "customer_id": cid, "intent": "reembolso", "why": "nivel 3",
+                                      "requested_action": txt, "notify_text": "x"})
+    panel = h._panel()
+    pend = panel.split('id="aprobaciones"')[1].split(f"<h2>{demo._a('Decididas')}</h2>")[0]
+    fila_gil = pend.split("<td>evt_p8</td>")[1].split("</tr>")[0]
+    fila_ana = pend.split("<td>evt_p8b</td>")[1].split("</tr>")[0]
+    assert "<td class='pedido'>P00 cosa 0 $1.000</td>" in fila_gil, fila_gil
+    assert "<td class='pedido'>sin pedido</td>" in fila_ana, fila_ana
+    assert "<td class='dijo'>Quiero devolver la cosa</td>" in fila_gil and "nivel 3" not in pend, "sin motivo inventado"
+    for fila in (fila_gil, fila_ana):
+        hid = re.search(r"class='ir-chat' data-abre='(hilo-[\w]+)'", fila).group(1)
+        assert f"id='{hid}'" in panel, hid
+        hilo = panel.split(f"id='{hid}'")[1].split("</dialog>")[0]
+        assert "<form method='post'" not in hilo, "el hilo no envía"
+    assert f">{demo._a('Aprobar')}</button>" in fila_gil and f">{demo._a('Rechazar')}</button>" in fila_gil
+    assert "<td class='nombre'>Gil</td>" in pend, "el nombre no lleva A dorada ni decide"
+    assert f"<button class=\"otro\" data-abre=\"registro\">{demo._a('Registro · operador')}</button>" in panel
 
     print("OK — panel: 8 envíos sin texto ni celular entero; citas con cita_at; inventario 15; hilo solo lectura")
     return 0
