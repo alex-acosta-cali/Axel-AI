@@ -632,6 +632,16 @@ def _lista_anotados(pedidos: list[dict]) -> str:
     )
 
 
+def anotado_hoy(pedidos: list[dict]) -> int:
+    """Suma de los pedidos de hoy en Cali, sin rechazados. Es el número del reporte y del dorado del panel. Sin cobro."""
+    hoy = reservas._ahora_cali().date()
+    return sum(
+        int(p["precio"]) for p in pedidos
+        if (p.get("estado") or "anotado") != "rechazado"
+        and reservas._creada_cali(str(p.get("created_at") or "")).date() == hoy
+    )
+
+
 def _reporte(memory: Memory) -> str:
     """Resumen de hoy en Cali: citas, pedidos y pendientes N3. Solo para el dueño."""
     hoy = reservas._ahora_cali().date()
@@ -648,7 +658,7 @@ def _reporte(memory: Memory) -> str:
         f"Reporte {hoy.strftime('%d/%m/%Y')} (Cali)",
         f"Citas hoy: {len(citas)}",
         *[f"- {h}:{m:02d} · {quien}" for h, m, quien in sorted(citas)[:8]],
-        f"Pedidos hoy: {len(pedidos)} · total {kb_mod.precio_txt(sum(int(p['precio']) for p in pedidos))}",
+        f"Pedidos hoy: {len(pedidos)} · total {kb_mod.precio_txt(anotado_hoy(pedidos))}",
         *[
             f"- {estado}s: {len(grupo)} · {kb_mod.precio_txt(sum(int(p['precio']) for p in grupo))}"
             for estado in ("anotado", "pagado", "entregado")

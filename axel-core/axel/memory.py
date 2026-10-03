@@ -719,6 +719,12 @@ class Memory:
             ).fetchall()
         return [dict(r) for r in rows]
 
+    def clientes_de_canal(self, channel: str) -> set[str]:
+        """customer_id con identidad en ese canal. Solo lectura."""
+        with self._conn() as conn:
+            rows = conn.execute("SELECT DISTINCT customer_id FROM identities WHERE channel = ?", (channel,)).fetchall()
+        return {str(r["customer_id"]) for r in rows}
+
     def list_conversaciones(self, limit: int = 20) -> list[dict[str, Any]]:
         """Último mensaje vivo de cada cliente, los más nuevos primero. Sin internos (panel, prueba). Solo lectura."""
         with self._conn() as conn:

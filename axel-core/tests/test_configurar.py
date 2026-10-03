@@ -155,6 +155,15 @@ def main() -> int:
         reporte = dice("reporte")
         assert "Pedidos hoy: 2 · total $35.000\n- anotados: 1 · $25.000\n- pagados: 0 · $0\n- entregados: 1 · $10.000" in reporte, reporte
         assert "Pedidos hoy" not in dice("reporte", canal="whatsapp"), "el cliente no ve el reporte"
+        # Ladrillo 5: el total del reporte no suma rechazados; es el mismo número del dorado del panel.
+        with memory._conn() as conn:
+            conn.execute("UPDATE pedidos SET estado = 'rechazado' WHERE servicio = 'corte'")
+        reporte = dice("reporte")
+        assert "Pedidos hoy: 2 · total $10.000\n- anotados: 0 · $0\n- pagados: 0 · $0\n- entregados: 1 · $10.000" in reporte, reporte
+        from axel.orchestrator import anotado_hoy
+        assert anotado_hoy(memory.list_pedidos(500)) == 10000
+        with memory._conn() as conn:
+            conn.execute("UPDATE pedidos SET estado = 'anotado' WHERE servicio = 'corte'")
         assert re.search(r"Último pedido: barba \$10\.000, \d\d/\d\d \d\d:\d\d\.$", dice("mi ficha", canal="whatsapp"))
 
         kb_tmp.write_text(json.dumps({**KB_VIEJA, "servicios": []}), encoding="utf-8")

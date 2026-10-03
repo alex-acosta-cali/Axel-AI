@@ -141,6 +141,14 @@ def main() -> int:
     assert largo in chats and largo in hilos, "texto completo"
     assert memory.list_mensajes(ana), "la base no se borra"
 
+    # Ladrillo 5: la ficha del panel no sale en la lista de clientes, pero sigue en la base. Aviso bajo la barra.
+    panel = demo.Handler.__new__(demo.Handler)._panel()
+    clientes = panel.split("<h2>Clientes</h2>")[1].split("</table>")[0]
+    assert clientes.count("<tr>") == 3, "cabecera + Gil + Ana, sin alex_pc"
+    assert memory.find_by_identity("panel", "alex_pc").get("customer_id") == alex, "la ficha no se borra"
+    barra = panel.split('class="barra"')[1].split("</div>")[0]
+    assert "Un comando de dueño puede avisar al cliente. No le escribe texto libre." in barra
+
     print("OK — panel: 8 envíos sin texto ni celular entero; citas con cita_at; inventario 15; hilo solo lectura")
     return 0
 

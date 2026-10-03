@@ -32,7 +32,7 @@ from axel.agents.reservas import (
 from axel.connectors import whatsapp
 from axel.envelope import Envelope
 from axel.memory import Memory
-from axel.orchestrator import _reporte, inventario_filas, pedidos_filas, process
+from axel.orchestrator import _reporte, anotado_hoy, inventario_filas, pedidos_filas, process
 
 def _db_path() -> str:
     """Base fija: /opt/Axel-AI/axel-core/axel.db en el VPS; si esa carpeta no existe, junto al código.
@@ -277,10 +277,14 @@ class Handler(BaseHTTPRequestHandler):
             )
         tabla_citas = "".join(citas) or "<tr><td colspan='3'>Sin citas confirmadas</td></tr>"
         # Una sola lista de clientes. Canal: WhatsApp o vacío. Sin ID. Última vez = último mensaje por WhatsApp.
+        # La ficha del panel (alex_pc, canal panel) es el dueño: no sale en la lista. La ficha no se borra.
         wa = {str(u.get("customer_id")): u.get("last_in") for u in memory.list_whatsapp_customers(500)}
+        internos = memory.clientes_de_canal("panel")
         cli = []
-        for u in memory.list_customers(20):
+        for u in memory.list_customers(20 + len(internos)):
             cid = str(u.get("customer_id") or "")
+            if cid in internos:
+                continue
             ult = memory.last_reserva(cid)
             ult_txt = franja_fila(ult) if ult else "—"
             escribio = _creada_cali(str(wa[cid])).strftime("%d/%m %H:%M") if wa.get(cid) else "—"
@@ -300,11 +304,6 @@ class Handler(BaseHTTPRequestHandler):
         hoy = ahora.date()
         citas_hoy = sum(1 for c in memory.list_confirmed_reservas(500) if (w := cuando_fila(c)) and w[0] == hoy)
         pedidos = memory.list_pedidos(500)
-        anotado_hoy = sum(
-            int(p["precio"]) for p in pedidos
-            if (p.get("estado") or "anotado") != "rechazado"
-            and _creada_cali(str(p.get("created_at") or "")).date() == hoy
-        )
         en_curso = sum(1 for p in pedidos if (p.get("estado") or "anotado") not in {"entregado", "rechazado"})
         negocio = html.escape(str(kb.load_kb().get("negocio") or ""))
         punto = "<i class='punto' aria-label='hay por aprobar'></i>" if n_pend else ""
@@ -320,7 +319,7 @@ class Handler(BaseHTTPRequestHandler):
 :root{{--fondo:#0b3d2e;--caja:#134a3b;--borde:#2b5f4e;--texto:#f4efe4;--tenue:#b9c9c0;--dorado:#c9a85c;
 --ok:#a8dcb0;--mal:#f2a08f;--oscuro:#0a2f24}}
 *{{box-sizing:border-box}}
-body{{font-family:"Segoe UI",system-ui,sans-serif;background:var(--fondo);color:var(--texto);margin:0;padding:20px 16px 180px}}
+body{{font-family:"Segoe UI",system-ui,sans-serif;background:var(--fondo);color:var(--texto);margin:0;padding:20px 16px 200px}}
 main{{max-width:720px;margin:0 auto}}
 .arriba{{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}}
 .marca-axel{{display:flex;flex-direction:column;gap:6px}}
@@ -377,8 +376,9 @@ border-radius:0;padding:12px 14px;min-height:44px;width:100%}}
 .msj.cliente{{align-self:flex-start;border:1px solid var(--borde)}}
 .msj.axel{{align-self:flex-end;background:var(--texto);color:#13241d}}
 .lambda{{align-self:center;color:var(--dorado);font-size:20px;padding:0 6px 0 12px}}
-form.escribir{{position:fixed;left:50%;bottom:86px;transform:translateX(-50%);display:flex;gap:8px;margin:0;
-width:min(560px,calc(100% - 32px))}}
+.barra{{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);width:min(560px,calc(100% - 32px))}}
+form.escribir{{display:flex;gap:8px;margin:0}}
+.aviso-barra{{margin:4px 0 0;color:var(--tenue);font-size:12px;text-align:center}}
 form.escribir input{{flex:1;min-width:0;padding:12px 16px;border-radius:999px;border:1px solid var(--borde);background:var(--caja);color:var(--texto);font:inherit}}
 button{{padding:8px 16px;border-radius:999px;border:1px solid var(--borde);background:var(--caja);color:var(--texto);cursor:pointer;font:inherit}}
 button:hover{{border-color:var(--dorado)}}
@@ -392,7 +392,7 @@ button[value=approved]{{background:var(--dorado);border-color:var(--dorado);colo
 
 <p class="grande">{citas_hoy}</p>
 <p class="grande-t">citas hoy</p>
-<p class="anotado">Anotado hoy, sin cobro · {kb.precio_txt(anotado_hoy)}</p>
+<p class="anotado">Anotado hoy, sin cobro · {kb.precio_txt(anotado_hoy(pedidos))}</p>
 
 <div class="tarjetas">
 <button class="tarjeta" data-abre="dia"><b>{citas_hoy}</b>citas hoy</button>
@@ -462,10 +462,13 @@ button[value=approved]{{background:var(--dorado);border-color:var(--dorado);colo
 </div></dialog>
 </main>
 
+<div class="barra">
 <form class="escribir" method="post" action="/panel">
 <input name="text" placeholder="Escribe a AXEL" aria-label="Escribe a AXEL" />
 <button type="submit">Enviar</button>
 </form>
+<p class="aviso-barra">Un comando de dueño puede avisar al cliente. No le escribe texto libre.</p>
+</div>
 <script>
 document.querySelectorAll("[data-abre]").forEach(function (b) {{
   b.addEventListener("click", function () {{ document.getElementById(b.dataset.abre).showModal(); }});
