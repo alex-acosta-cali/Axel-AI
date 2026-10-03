@@ -277,6 +277,7 @@ class Handler(BaseHTTPRequestHandler):
         negocio = html.escape(str(kb.load_kb().get("negocio") or ""))
         punto = "<i class='punto' aria-label='hay por aprobar'></i>" if n_pend else ""
         # Muro 72: tres bloques (Día, Conversaciones, Aprobaciones), inventario abajo. Cada uno es una ventana (dialog).
+        # Catálogo vive en Mi negocio; Envíos en Registro, la puerta del operador.
         aviso_pend = f"<span class='marca'>{n_pend}</span>" if n_pend else "<span class='marca cero'>0</span>"
         cerrar = "<form method='dialog'><button class='cerrar' aria-label='Cerrar'>×</button></form>"
         return f"""<!doctype html>
@@ -300,7 +301,8 @@ main{{max-width:720px;margin:0 auto}}
 .tarjetas{{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:24px 0 0}}
 .tarjeta{{background:var(--caja);border:1px solid var(--borde);border-radius:18px;padding:16px 8px;text-align:center;color:var(--tenue);font:inherit;font-size:14px;min-height:44px}}
 .tarjeta b{{display:block;font-size:40px;font-weight:300;color:var(--texto);margin-bottom:4px}}
-.otro{{margin:18px 0 0;background:none;border:1px solid var(--borde);border-radius:999px;color:var(--tenue);font:inherit;font-size:14px;padding:10px 18px}}
+.otros{{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 0}}
+.otro{{background:none;border:1px solid var(--borde);border-radius:999px;color:var(--tenue);font:inherit;font-size:14px;padding:10px 18px}}
 .local{{color:var(--tenue);font-size:12px;margin:22px 0 0}}
 .puertas{{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);display:flex;gap:4px;background:var(--oscuro);
 border:1px solid var(--borde);border-radius:999px;padding:6px;width:min(560px,calc(100% - 32px))}}
@@ -347,7 +349,11 @@ button[value=approved]{{background:var(--dorado);border-color:var(--dorado);colo
 <button class="tarjeta" data-abre="dia"><b>{en_curso}</b>pedidos en curso</button>
 <button class="tarjeta" data-abre="aprobaciones"><b>{n_pend}{punto}</b>por aprobar</button>
 </div>
+<div class="otros">
+<button class="otro" data-abre="mi-negocio">Mi negocio</button>
 <button class="otro" data-abre="inventario">Inventario</button>
+<button class="otro" data-abre="registro">Registro · operador</button>
+</div>
 <p class="local">panel local · solo 127.0.0.1</p>
 
 <nav class="puertas" aria-label="Puertas">
@@ -366,16 +372,12 @@ button[value=approved]{{background:var(--dorado);border-color:var(--dorado);colo
 <div class="tabla">{_tabla_cupos()}</div>
 <h2>Pedidos</h2>
 <div class="tabla">{_tabla_pedidos()}</div>
-<h2>Catálogo</h2>
-<div class="tabla">{_tabla_catalogo()}</div>
 </div></dialog>
 
 <dialog class="bloque" id="conversaciones"><div class="ventana">
 <div class="bloque-cab"><div class="bloque-t">Conversaciones</div>{cerrar}</div>
 <h2>Últimos</h2>
 <div class="tabla"><table><tr><th>Cuando</th><th>Canal</th><th>Agente</th><th>Nivel</th><th>Aprobación</th><th>Entró</th><th>Respondió</th></tr>{tabla}</table></div>
-<h2>Envíos</h2>
-<div class="tabla">{_tabla_envios()}</div>
 <h2>Clientes WhatsApp</h2>
 <div class="tabla"><table><tr><th>Nombre</th><th>Celular</th><th>Última cita</th><th>Última vez que escribió</th></tr>{tabla_wa}</table></div>
 <h2>Clientes</h2>
@@ -397,6 +399,18 @@ button[value=approved]{{background:var(--dorado);border-color:var(--dorado);colo
 <div class="bloque-cab"><div class="bloque-t">Inventario</div>{cerrar}</div>
 <h2>Inventario</h2>
 <div class="tabla">{_tabla_inventario()}</div>
+</div></dialog>
+
+<dialog class="bloque" id="mi-negocio"><div class="ventana">
+<div class="bloque-cab"><div class="bloque-t">Mi negocio</div>{cerrar}</div>
+<h2>Catálogo</h2>
+<div class="tabla">{_tabla_catalogo()}</div>
+</div></dialog>
+
+<dialog class="bloque" id="registro"><div class="ventana">
+<div class="bloque-cab"><div class="bloque-t">Registro</div>{cerrar}</div>
+<h2>Envíos</h2>
+<div class="tabla">{_tabla_envios()}</div>
 </div></dialog>
 </main>
 <script>

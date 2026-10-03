@@ -60,7 +60,7 @@ def main() -> int:
             (gil,),
         )
     panel = demo.Handler.__new__(demo.Handler)._panel()
-    assert panel.index("<h2>Reporte de hoy</h2>") < panel.index("<h2>Envíos</h2>") < panel.index("<h2>Clientes WhatsApp</h2>")
+    assert panel.index("<h2>Reporte de hoy</h2>") < panel.index("<h2>Clientes WhatsApp</h2>")
     # Los 7 bloques del dueño siguen en el panel.
     for titulo in ("Reporte de hoy", "Cupos de la semana", "Citas", "Clientes WhatsApp", "Catálogo", "Pedidos", "Envíos"):
         assert f"<h2>{titulo}</h2>" in panel, titulo
@@ -92,6 +92,15 @@ def main() -> int:
         assert f"<h2>{titulo}</h2>" in dia, titulo
     assert "<h2>Últimos</h2>" in panel.split('id="conversaciones"')[1].split('id="aprobaciones"')[0]
     assert "<h2>Pendientes</h2>" in panel.split('id="aprobaciones"')[1].split('id="inventario"')[0]
+
+    # Ladrillo 2: Catálogo vive en Mi negocio; Envíos en Registro (operador). Ni uno ni otro en Día ni Conversaciones.
+    orden = ['id="inventario"', 'id="mi-negocio"', 'id="registro"']
+    pos = [panel.index(x) for x in orden]
+    assert pos == sorted(pos), pos
+    conversaciones = panel.split('id="conversaciones"')[1].split('id="aprobaciones"')[0]
+    assert "<h2>Catálogo</h2>" not in dia and "<h2>Envíos</h2>" not in conversaciones
+    assert "<h2>Catálogo</h2>" in panel.split('id="mi-negocio"')[1].split('id="registro"')[0]
+    assert "<h2>Envíos</h2>" in panel.split('id="registro"')[1]
 
     print("OK — panel: 8 envíos sin texto ni celular entero; citas con cita_at; inventario 15")
     return 0
