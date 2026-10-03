@@ -71,7 +71,7 @@ def main() -> int:
             "channel": "test",
             "channel_user_id": "ana",
         }
-        res = httpx.post(f"{base}/webhooks/test", json=payload, timeout=10)
+        res = httpx.post(f"{base}/webhooks/test", json=payload, headers={"Origin": "http://127.0.0.1:8090"}, timeout=10)
         res.raise_for_status()
         body = res.json()
         print("PROCESS")

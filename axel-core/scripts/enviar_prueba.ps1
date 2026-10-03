@@ -6,5 +6,5 @@ Write-Host "GET /health"
 curl.exe -s http://127.0.0.1:8090/health
 Write-Host ""
 Write-Host "POST /webhooks/test"
-curl.exe -s http://127.0.0.1:8090/webhooks/test -H "Content-Type: application/json" --data-binary "@$path"
+curl.exe -s http://127.0.0.1:8090/webhooks/test -H "Content-Type: application/json" -H "Origin: http://127.0.0.1:8090" --data-binary "@$path"
 Write-Host ""

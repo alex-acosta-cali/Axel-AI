@@ -30,6 +30,9 @@ from axel import demo  # noqa: E402
 from axel.memory import Memory  # noqa: E402
 
 
+LOCAL = {"Origin": "http://127.0.0.1:8090"}
+
+
 def main() -> int:
     db = TMP / "webhook.db"
     if db.exists():
@@ -102,12 +105,22 @@ def main() -> int:
         largo = "hola" + " " * 3000 + "x"
         for quien in ("tester", "573000000001"):
             cuerpo = json.dumps({"channel_user_id": quien, "phone": quien, "text": largo}).encode()
-            estado, resp = pide("POST", "/webhooks/test", body=cuerpo, extra={"Content-Type": "application/json"})
+            estado, resp = pide("POST", "/webhooks/test", body=cuerpo, extra={"Content-Type": "application/json", **LOCAL})
             assert estado == 200 and json.loads(resp)["reply_text"] == "Mensaje muy largo.", resp
         normal = json.dumps({"text": "a" * 500}).encode()
-        estado, resp = pide("POST", "/webhooks/test", body=normal, extra={"Content-Type": "application/json"})
+        estado, resp = pide("POST", "/webhooks/test", body=normal, extra={"Content-Type": "application/json", **LOCAL})
         assert estado == 200 and json.loads(resp)["reply_text"] != "Mensaje muy largo.", resp
         assert pide("GET", "/health")[0] == 200
+
+        # Muro L: POST sin Origin/Referer del panel, 403 origen. Con Origin o Referer local, pasa.
+        for extra in (None, {"Origin": "http://malo.ejemplo.com"}, {"Origin": "null"},
+                      {"Referer": "http://127.0.0.1:8090.malo.com/"}, {"Origin": "https://127.0.0.1:8090"}):
+            for ruta in ("/panel", "/decidir", "/servicio", "/webhooks/test"):
+                estado, cuerpo = pide("POST", ruta, extra=extra)
+                assert estado == 403 and "origen" in cuerpo, (ruta, extra, estado)
+        assert pide("POST", "/decidir", extra=LOCAL)[0] == 303
+        assert pide("POST", "/decidir", extra={"Origin": "http://localhost:8090"})[0] == 303
+        assert pide("POST", "/decidir", extra={"Referer": "http://127.0.0.1:8090/#aprobaciones"})[0] == 303
     finally:
         server.shutdown()
         server.server_close()

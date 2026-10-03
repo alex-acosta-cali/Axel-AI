@@ -7,7 +7,7 @@ import html
 import json
 import os
 import re
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
@@ -1121,6 +1121,17 @@ setInterval(function () {{
         self._json(403, {"error": "solo_local"})
         return True
 
+    def _origen_ajeno(self) -> bool:
+        """Muro L: un POST del navegador trae Origin o Referer del panel. Otro sitio, o ninguno: 403 origen.
+        /webhooks/whatsapp no: Meta no manda Origin; la firma HMAC lo cubre."""
+        if urlparse(self.path).path == "/webhooks/whatsapp":
+            return False
+        desde = urlparse(self.headers.get("Origin") or self.headers.get("Referer") or "")
+        if f"{desde.scheme}://{desde.netloc}" in ("http://127.0.0.1:8090", "http://localhost:8090"):
+            return False
+        self._json(403, {"error": "origen"})
+        return True
+
     def do_GET(self) -> None:
         if self._bloqueado("GET"):
             return
@@ -1182,7 +1193,7 @@ setInterval(function () {{
         self._run({"text": f"{verbo} {fila['n']}", "channel": "panel", "channel_user_id": "alex_pc"})
 
     def do_POST(self) -> None:
-        if self._bloqueado("POST"):
+        if self._bloqueado("POST") or self._origen_ajeno():
             return
         length = int(self.headers.get("Content-Length", "0"))
         raw = self.rfile.read(length) or b""
@@ -1333,7 +1344,8 @@ def main() -> None:
     import threading
 
     threading.Thread(target=_recordatorio_loop, daemon=True).start()
-    server = HTTPServer(("127.0.0.1", 8090), Handler)
+    # Muro L: un hilo por pedido. Un pedido lento no deja colgados el panel ni /health.
+    server = ThreadingHTTPServer(("127.0.0.1", 8090), Handler)
     print("AXEL demo en http://127.0.0.1:8090")
     print("Webhook WhatsApp: POST /webhooks/whatsapp")
     server.serve_forever()
