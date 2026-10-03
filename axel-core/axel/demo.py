@@ -331,6 +331,66 @@ def _chats() -> tuple[str, str]:
     return lista, hilos
 
 
+_CERRAR = "<form method='dialog'><button class='cerrar' aria-label='Cerrar'>×</button></form>"
+
+
+def _casillas(citas_hoy: list[dict], pedidos: list[dict], pendientes: list[dict]) -> tuple[str, str]:
+    """Muro D: cuatro casillas del home y una ventana por casilla con sus clientes y canal.
+    Reserva/Pedido = citas confirmadas de hoy / pedidos anotados hoy (sin rechazados). Gestionado = lo anotado hoy.
+    En proceso = pendientes del dueño + pedidos abiertos (no entregados ni rechazados). Cerrado = entregados de hoy:
+    no es un pago verificado. Canal: WhatsApp si tiene esa identidad; si no, vacío."""
+    wa = memory.clientes_de_canal("whatsapp")
+    hoy_vivos = [p for p in pedidos_de_hoy(pedidos) if (p.get("estado") or "anotado") != "rechazado"]
+    abiertos = [p for p in pedidos if (p.get("estado") or "anotado") not in {"entregado", "rechazado"}]
+    cerrados = [p for p in pedidos_de_hoy(pedidos) if p.get("estado") == "entregado"]
+    suma = lambda filas: kb.precio_txt(sum(int(p["precio"]) for p in filas))
+
+    def nombre(fila: dict) -> str:
+        cid = str(fila.get("customer_id") or "")
+        return html.escape(str(fila.get("name") or (memory.get_customer(cid) or {}).get("name") or "sin nombre"))
+
+    def canal(fila: dict) -> str:
+        return "WhatsApp" if str(fila.get("customer_id") or "") in wa else ""
+
+    def pedido(p: dict) -> list[str]:
+        return [nombre(p), canal(p), html.escape(f"{p['servicio']} {kb.precio_txt(p['precio'])}"),
+                html.escape(str(p.get("estado") or "anotado"))]
+
+    def cita(c: dict) -> list[str]:
+        h, m = cuando_fila(c)[1:]
+        return [nombre(c), canal(c), f"cita {h}:{m:02d}", "confirmada"]
+
+    def pendiente(p: dict) -> list[str]:
+        return [nombre(p), canal(p), html.escape(str(p.get("requested_action") or "")), "espera tu sí"]
+
+    def ventana(vid: str, titulo: str, filas: list[list[str]], nota: str = "") -> str:
+        cuerpo = "".join("<tr>" + "".join(f"<td>{c}</td>" for c in f) + "</tr>" for f in filas) \
+            or "<tr><td colspan='4'>Al día. Nadie espera.</td></tr>"
+        cab = "".join(f"<th>{_a(c)}</th>" for c in ("Cliente", "Canal", "Qué", "Estado"))
+        return (f"<dialog class='bloque' id='{vid}'><div class='ventana'>"
+                f"<div class='bloque-cab'><div class='bloque-t'>{_a(titulo)}</div>{_CERRAR}</div>"
+                f"{f'<p class=ficha>{_a(nota)}</p>' if nota else ''}"
+                f"<div class='tabla'><table><tr>{cab}</tr>{cuerpo}</table></div></div></dialog>")
+
+    casillas = [
+        ("casilla-reserva", "Reserva/Pedido", f"{len(citas_hoy)}/{len(hoy_vivos)}", "citas / pedidos de hoy",
+         [cita(c) for c in citas_hoy] + [pedido(p) for p in hoy_vivos], ""),
+        ("casilla-gestionado", "Gestionado", f"{len(hoy_vivos)} · {suma(hoy_vivos)}", "anotado hoy, sin rechazados",
+         [pedido(p) for p in hoy_vivos], ""),
+        ("casilla-proceso", "En proceso", f"{len(pendientes) + len(abiertos)} · {suma(abiertos)}",
+         "por aprobar y pedidos sin entregar", [pendiente(p) for p in pendientes] + [pedido(p) for p in abiertos], ""),
+        ("casilla-cerrado", "Cerrado", f"{len(cerrados)} · {suma(cerrados)}", "entregados hoy",
+         [pedido(p) for p in cerrados], "No es un pago verificado."),
+    ]
+    botones = "".join(
+        f"<button class='casilla' data-abre='{vid}'><span class='casilla-t'>{_a(titulo)}</span>"
+        f"<b>{html.escape(cifra)}</b><span>{_a(sub)}</span></button>"
+        for vid, titulo, cifra, sub, _, _ in casillas
+    )
+    ventanas = "".join(ventana(vid, titulo, filas, nota) for vid, titulo, _, _, filas, nota in casillas)
+    return f"<div class='casillas'>{botones}</div>", ventanas
+
+
 class Handler(BaseHTTPRequestHandler):
     def _json(self, code: int, payload: dict) -> None:
         raw = json.dumps(payload, ensure_ascii=False).encode()
@@ -453,13 +513,13 @@ class Handler(BaseHTTPRequestHandler):
             )
         tabla_cli = "".join(cli) or "<tr><td colspan='5'>Sin clientes</td></tr>"
         n_pend = len(memory.list_pending())
-        # Piel del diseño: número grande = citas de hoy; debajo lo anotado hoy, sin cobro (pedido no es cobro).
         ahora = _ahora_cali()
         hoy = ahora.date()
-        citas_hoy = sum(1 for c in memory.list_confirmed_reservas(500) if (w := cuando_fila(c)) and w[0] == hoy)
+        citas_de_hoy = [c for c in memory.list_confirmed_reservas(500) if (w := cuando_fila(c)) and w[0] == hoy]
+        citas_hoy = len(citas_de_hoy)
         pedidos = memory.list_pedidos(500)
         entregados = [p for p in pedidos_de_hoy(pedidos) if p.get("estado") == "entregado"]
-        en_curso = sum(1 for p in pedidos if (p.get("estado") or "anotado") not in {"entregado", "rechazado"})
+        casillas, ventanas_casilla = _casillas(citas_de_hoy, pedidos, pend_filas)
         negocio = html.escape(str(kb.load_kb().get("negocio") or ""))
         punto = "<i class='punto' aria-label='hay por aprobar'></i>" if n_pend else ""
         # Muro 72: tres bloques (Día, Conversaciones, Aprobaciones), inventario abajo. Cada uno es una ventana (dialog).
@@ -481,9 +541,12 @@ main{{max-width:720px;margin:0 auto}}
 .marca-axel h1::first-letter{{color:var(--dorado)}}
 .negocio{{font-size:17px}}
 .hora{{color:var(--tenue);font-size:14px;padding-top:6px}}
-.grande{{margin:28px 0 0;font-size:96px;line-height:1;font-weight:300;color:var(--dorado);font-variant-numeric:tabular-nums}}
-.grande-t{{margin:4px 0 0;color:var(--tenue)}}
-.anotado{{display:inline-block;margin:14px 0 0;border:1px solid var(--dorado);color:var(--dorado);border-radius:999px;padding:4px 14px;font-size:15px}}
+.casillas{{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:24px 0 0}}
+.casilla{{display:flex;flex-direction:column;gap:6px;align-items:flex-start;text-align:left;background:var(--caja);
+border:1px solid var(--borde);border-radius:18px;padding:16px;color:var(--tenue);font:inherit;font-size:13px;min-height:44px}}
+.casilla-t{{color:var(--texto);font-size:15px;font-weight:600}}
+.casilla b{{font-size:30px;font-weight:300;color:var(--dorado);font-variant-numeric:tabular-nums}}
+.casilla:hover,.casilla:focus-visible{{border-color:var(--dorado)}}
 .tarjetas{{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:24px 0 0}}
 .tarjeta{{background:var(--caja);border:1px solid var(--borde);border-radius:18px;padding:16px 8px;text-align:center;color:var(--tenue);font:inherit;font-size:14px;min-height:44px}}
 .tarjeta b{{display:block;font-size:40px;font-weight:300;color:var(--texto);margin-bottom:4px}}
@@ -548,22 +611,15 @@ form.escribir input{{flex:1;min-width:0;padding:12px 16px;border-radius:999px;bo
 button{{padding:8px 16px;border-radius:999px;border:1px solid var(--borde);background:var(--caja);color:var(--texto);cursor:pointer;font:inherit}}
 button:hover{{border-color:var(--dorado)}}
 button[value=approved]{{background:var(--dorado);border-color:var(--dorado);color:#1c1606;font-weight:600}}
-@media (max-width:520px){{.grande{{font-size:76px}} .tarjeta b{{font-size:32px}} dialog.bloque{{width:100%;max-height:100vh;border-radius:0}}}}
+@media (max-width:520px){{.casilla b{{font-size:24px}} .tarjeta b{{font-size:32px}} dialog.bloque{{width:100%;max-height:100vh;border-radius:0}}}}
 </style></head><body><main>
 <header class="arriba">
 <div class="marca-axel"><h1>ΛXEL</h1><span class="negocio">{negocio}</span></div>
 <span class="hora">Cali {ahora.strftime('%H:%M')}</span>
 </header>
 
-<p class="grande">{citas_hoy}</p>
-<p class="grande-t">{_a("citas hoy")}</p>
-<p class="anotado">{_a("Anotado hoy, sin cobro")} · {kb.precio_txt(anotado_hoy(pedidos))}</p>
-
-<div class="tarjetas">
-<button class="tarjeta" data-abre="dia"><b>{citas_hoy}</b>{_a("citas hoy")}</button>
-<button class="tarjeta" data-abre="dia"><b>{en_curso}</b>{_a("pedidos en curso")}</button>
-<button class="tarjeta" data-abre="aprobaciones"><b>{n_pend}{punto}</b>{_a("por aprobar")}</button>
-</div>
+{casillas}
+<p class="ficha">{_a("Envíos de producto, repartidor y contra entrega: aún no")}</p>
 <div class="otros">
 <button class="otro" data-abre="mi-negocio">{_a("Mi negocio")}</button>
 <button class="otro" data-abre="inventario">{_a("Inventario")}</button>
@@ -589,11 +645,11 @@ button[value=approved]{{background:var(--dorado);border-color:var(--dorado);colo
 </div>
 <h2>{_a("Citas")}</h2>
 <div class="tabla"><table>{_cab("Cuando", "Cliente", "Qué dijo")}{tabla_citas}</table></div>
-<h2>{_a("Cupos de la semana")}</h2>
-<div class="tabla">{_tabla_cupos()}</div>
+{f'<h2>{_a("Cupos de la semana")}</h2><div class="tabla">{_tabla_cupos()}</div>' if kb.agenda() else ""}
 <h2>Pedidos</h2>
 <div class="tabla">{_tabla_pedidos()}</div>
 </div></dialog>
+{ventanas_casilla}
 
 <dialog class="bloque" id="conversaciones"><div class="ventana">
 <div class="bloque-cab"><div class="bloque-t">{_a("Conversaciones")}</div>{cerrar}</div>

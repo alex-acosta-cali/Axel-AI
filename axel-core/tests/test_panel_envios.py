@@ -292,6 +292,49 @@ def main() -> int:
         assert 'value="6:00, 8:30"' in mi_negocio, "el campo trae las franjas guardadas"
         assert demo.AVISOS["franjas_mal"] not in h._panel("<script>"), "solo códigos conocidos"
         assert "<script>alert" not in h._panel("<script>alert(1)</script>")
+
+        # Muro D: cuatro casillas en el home, sin "sin cobro". Cada una abre sus clientes con canal.
+        with memory._conn() as conn:
+            conn.execute("DELETE FROM pedidos")
+            conn.execute("UPDATE pending_approvals SET status = 'approved' WHERE status = 'pending'")
+        hoy_cita = f"{demo._ahora_cali().date().isoformat()} 15:00"
+        with memory._conn() as conn:
+            conn.execute(
+                "INSERT INTO conversation_summaries(customer_id, event_id, channel, intent, summary, result, created_at, cita_at)"
+                " VALUES (?, 'evt_hoy', 'whatsapp', 'reserva', 'hoy 3', 'ok', datetime('now'), ?)", (gil, hoy_cita))
+        memory.add_pedido(gil, "corte", 25000)            # anotado hoy
+        memory.add_pedido(gil, "barba", 10000)            # entregado hoy
+        memory.add_pedido(alex, "tinte", 40000)           # rechazado: no cuenta
+        with memory._conn() as conn:
+            conn.execute("UPDATE pedidos SET estado = 'entregado' WHERE servicio = 'barba'")
+            conn.execute("UPDATE pedidos SET estado = 'rechazado' WHERE servicio = 'tinte'")
+            conn.execute("INSERT INTO pedidos(customer_id, servicio, precio, created_at, estado)"
+                         " VALUES (?, 'cera', 8000, '2020-01-01 12:00:00', 'pagado')", (gil,))  # abierto, de otro día
+        memory.save_pending_approval({"event_id": "evt_d", "customer_id": gil, "intent": "reembolso", "why": "x",
+                                      "requested_action": "Quiero un reembolso", "notify_text": "x"})
+        panel = h._panel()
+        home = panel.split("<main>")[1].split("<nav")[0]
+        assert "sin cobro" not in home and home.count("class='casilla'") == 4, home
+        cifra = lambda vid: re.search(rf"data-abre='{vid}'>.*?<b>(.*?)</b>", home).group(1)
+        # Otra prueba deja una cita con fecha fija: se cuentan las de hoy, no un número fijo.
+        hoy = demo._ahora_cali().date()
+        n_citas = sum(1 for c in memory.list_confirmed_reservas(500) if (w := demo.cuando_fila(c)) and w[0] == hoy)
+        assert n_citas >= 1 and cifra("casilla-reserva") == f"{n_citas}/2", "citas de hoy / 2 pedidos sin rechazados"
+        assert cifra("casilla-gestionado") == "2 · $35.000"
+        assert cifra("casilla-proceso") == "3 · $33.000", "1 pendiente + 2 abiertos (corte y cera)"
+        assert cifra("casilla-cerrado") == "1 · $10.000"
+        cerrado = panel.split("id='casilla-cerrado'")[1].split("</dialog>")[0]
+        assert demo._a("No es un pago verificado.") in cerrado
+        assert "<td>Gil</td><td>WhatsApp</td><td>barba $10.000</td><td>entregado</td>" in cerrado, cerrado
+        proceso = panel.split("id='casilla-proceso'")[1].split("</dialog>")[0]
+        assert "Quiero un reembolso" in proceso and "cera $8.000" in proceso and "tinte" not in proceso
+        assert "Instagram" not in panel and "<td>Web</td>" not in panel, "sin canal inventado"
+        assert demo._a("Envíos de producto, repartidor y contra entrega: aún no") in home
+        # Agenda no: sin cupos; los pedidos siguen.
+        assert demo._a("Cupos de la semana") in panel
+        demo.kb.set_agenda(False)
+        dia = h._panel().split('id="dia"')[1].split('id="conversaciones"')[0]
+        assert demo._a("Cupos de la semana") not in dia and "<h2>Pedidos</h2>" in dia
     finally:
         demo.kb._kb_path = kb_original
 
