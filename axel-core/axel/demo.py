@@ -122,16 +122,32 @@ def _tabla_catalogo() -> str:
         ("Horario", f"{_hhmm(abre)} a {_hhmm(cierra)}"),
         ("Franjas", franjas),
         ("Ubicación", datos.get("ubicacion") or "—"),
+        ("Tono", kb.tono()),
+        ("Política de cancelación", (datos.get("politicas") or {}).get("cancelacion") or "—"),
+        ("Política de garantía", (datos.get("politicas") or {}).get("garantia") or "—"),
     ]
+    # Muro B: los servicios viven en Inventario. Mi negocio no repite esa tabla.
     datos_html = "".join(f"<tr><th>{_a(k)}</th><td>{html.escape(str(v))}</td></tr>" for k, v in filas)
-    servicios = "".join(
-        f"<tr><td>{html.escape(str(s['nombre']))}</td><td>{kb.precio_txt(s.get('precio') or 0)}</td></tr>"
+    return f"<table>{datos_html}</table>"
+
+
+def _tabla_servicios() -> str:
+    """Servicios de la KB: nombre, precio, stock e imagen. Sin stock: sin tope. Solo lectura; no sube fotos."""
+    def stock_txt(s: dict) -> str:
+        valor = s.get("stock")
+        return str(valor) if isinstance(valor, int) and not isinstance(valor, bool) else "sin tope"
+
+    filas = "".join(
+        "<tr>"
+        f"<td>{html.escape(str(s['nombre']))}</td>"
+        f"<td>{kb.precio_txt(s.get('precio') or 0)}</td>"
+        f"<td>{stock_txt(s)}</td>"
+        f"<td>{'con imagen' if s.get('imagen') else 'sin imagen'}</td>"
+        "</tr>"
         for s in kb.servicios()
-    ) or "<tr><td colspan='2'>Sin servicios</td></tr>"
-    return (
-        f"<table>{datos_html}</table>"
-        f"<table style='margin-top:8px'><tr><th>Servicio</th><th>Precio</th></tr>{servicios}</table>"
-    )
+    ) or "<tr><td colspan='4'>Sin servicios</td></tr>"
+    cab = "".join(f"<th>{_a(c)}</th>" for c in ("Servicio", "Precio", "Stock", "Imagen"))
+    return f"<table><tr>{cab}</tr>{filas}</table>"
 
 
 def _tabla_envios() -> str:
@@ -525,14 +541,19 @@ button[value=approved]{{background:var(--dorado);border-color:var(--dorado);colo
 
 <dialog class="bloque" id="inventario"><div class="ventana">
 <div class="bloque-cab"><div class="bloque-t">{_a("Inventario")}</div>{cerrar}</div>
+<h2>{_a("Servicios")}</h2>
+<div class="tabla">{_tabla_servicios()}</div>
 <h2>{_a("Inventario")}</h2>
 <div class="tabla">{_tabla_inventario()}</div>
 </div></dialog>
 
 <dialog class="bloque" id="mi-negocio"><div class="ventana">
 <div class="bloque-cab"><div class="bloque-t">Mi negocio</div>{cerrar}</div>
-<h2>{_a("Catálogo")}</h2>
+<h2>{_a("Datos del negocio")}</h2>
 <div class="tabla">{_tabla_catalogo()}</div>
+<p class="ficha">{_a("Redes: aún no")}</p>
+<p class="ficha">{_a("Publicar: aún no")}</p>
+<p class="ficha">{_a("Otro WhatsApp: aún no")}</p>
 </div></dialog>
 
 <dialog class="bloque" id="registro"><div class="ventana">

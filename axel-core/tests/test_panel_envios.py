@@ -65,7 +65,7 @@ def main() -> int:
     # Los bloques del dueño siguen en el panel. Ladrillo 4: una sola lista "Clientes" (antes dos tablas).
     # Ladrillo 6: "Citas" lleva la A dorada (demo._a); los demás títulos siguen en texto plano.
     # Ladrillo 8: todo título fijo con "a" la lleva dorada (demo._a). Los que no tienen "a" quedan igual.
-    for titulo in ("Reporte de hoy", demo._a("Cupos de la semana"), demo._a("Citas"), "Clientes", demo._a("Catálogo"), "Pedidos", "Envíos"):
+    for titulo in ("Reporte de hoy", demo._a("Cupos de la semana"), demo._a("Citas"), "Clientes", demo._a("Datos del negocio"), "Pedidos", "Envíos"):
         assert f"<h2>{titulo}</h2>" in panel, titulo
     assert "<h2>Clientes WhatsApp</h2>" not in panel and panel.count("<h2>Clientes</h2>") == 1
     clientes = panel.split("<h2>Clientes</h2>")[1].split("</table>")[0]
@@ -122,9 +122,32 @@ def main() -> int:
     pos = [panel.index(x) for x in orden]
     assert pos == sorted(pos), pos
     conversaciones = panel.split('id="conversaciones"')[1].split('id="aprobaciones"')[0]
-    catalogo = f"<h2>{demo._a('Catálogo')}</h2>"
+    # Muro B: el título "Catálogo" pasa a "Datos del negocio"; los servicios se fueron a Inventario.
+    catalogo = f"<h2>{demo._a('Datos del negocio')}</h2>"
     assert catalogo not in dia and "<h2>Envíos</h2>" not in conversaciones
-    assert catalogo in panel.split('id="mi-negocio"')[1].split('id="registro"')[0]
+    mi_negocio = panel.split('id="mi-negocio"')[1].split('id="registro"')[0]
+    assert catalogo in mi_negocio
+    assert "<h2>" + demo._a("Servicios") + "</h2>" not in mi_negocio and "<th>" + demo._a("Servicio") + "</th>" not in mi_negocio
+    for campo in ("Negocio", "Rubro", "Agenda", "Horario", "Franjas", "Ubicación", "Tono", "Política de cancelación", "Política de garantía"):
+        assert f"<th>{demo._a(campo)}</th>" in mi_negocio, campo
+    for linea in ("Redes: aún no", "Publicar: aún no", "Otro WhatsApp: aún no"):
+        assert f"<p class=\"ficha\">{demo._a(linea)}</p>" in mi_negocio, linea
+    final = mi_negocio.split("</table>")[1]
+    assert "<a " not in final and "<button" not in final, "las tres líneas van sin enlace ni botón"
+    inventario = panel.split('id="inventario"')[1].split('id="mi-negocio"')[0]
+    assert "<h2>" + demo._a("Servicios") + "</h2>" in inventario
+
+    # Muro B: servicios con stock o "sin tope", e imagen o "sin imagen". No se suben fotos.
+    original = demo.kb.servicios
+    demo.kb.servicios = lambda: [{"nombre": "corte", "precio": 25000, "stock": 5},
+                                 {"nombre": "barba", "precio": 10000, "imagen": "x.jpg"}]
+    try:
+        serv = demo._tabla_servicios()
+    finally:
+        demo.kb.servicios = original
+    assert "<td>corte</td><td>$25.000</td><td>5</td><td>sin imagen</td>" in serv, serv
+    assert "<td>barba</td><td>$10.000</td><td>sin tope</td><td>con imagen</td>" in serv, serv
+    assert "<img" not in serv
     assert "<h2>Envíos</h2>" in panel.split('id="registro"')[1]
 
     # Ladrillo 3: hilo de solo lectura. Sin mensajes, "Al día. Nadie espera." Sin caja de enviar.
