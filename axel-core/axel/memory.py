@@ -720,13 +720,14 @@ class Memory:
         return [dict(r) for r in rows]
 
     def list_conversaciones(self, limit: int = 20) -> list[dict[str, Any]]:
-        """Último mensaje guardado de cada cliente, los más nuevos primero. Solo lectura, para el panel."""
+        """Último mensaje vivo de cada cliente, los más nuevos primero. Sin internos (panel, prueba). Solo lectura."""
         with self._conn() as conn:
             rows = conn.execute(
                 """
-                SELECT m.customer_id, m.channel, m.direction, m.text, m.created_at, c.name, c.phone
+                SELECT m.customer_id, m.channel, m.direction, m.text, m.created_at, c.name, c.phone, c.datos_borrados
                 FROM messages m
-                JOIN (SELECT customer_id, MAX(message_id) AS ultimo FROM messages GROUP BY customer_id) u
+                JOIN (SELECT customer_id, MAX(message_id) AS ultimo FROM messages
+                      WHERE COALESCE(channel, '') IN ('whatsapp', '') GROUP BY customer_id) u
                   ON m.message_id = u.ultimo
                 LEFT JOIN customers c ON c.customer_id = m.customer_id
                 ORDER BY m.message_id DESC
@@ -737,12 +738,13 @@ class Memory:
         return [dict(r) for r in rows]
 
     def list_mensajes(self, customer_id: str, limit: int = 20) -> list[dict[str, Any]]:
-        """Últimos mensajes de un cliente, del más viejo al más nuevo. Solo lectura, para el hilo del panel."""
+        """Últimos mensajes vivos de un cliente, del más viejo al más nuevo. Sin internos. Solo lectura, para el hilo."""
         if not customer_id:
             return []
         with self._conn() as conn:
             rows = conn.execute(
-                "SELECT direction, channel, text, created_at FROM messages WHERE customer_id = ? ORDER BY message_id DESC LIMIT ?",
+                "SELECT direction, channel, text, created_at FROM messages"
+                " WHERE customer_id = ? AND COALESCE(channel, '') IN ('whatsapp', '') ORDER BY message_id DESC LIMIT ?",
                 (customer_id, limit),
             ).fetchall()
         return [dict(r) for r in reversed(rows)]

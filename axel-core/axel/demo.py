@@ -180,13 +180,16 @@ def _chats() -> tuple[str, str]:
         cel = "".join(ch for ch in str(c.get("phone") or "") if ch.isdigit())
         quien = html.escape(str(c.get("name") or (f"…{cel[-4:]}" if cel else "sin nombre")))
         hora = _creada_cali(str(c.get("created_at") or "")).strftime("%d/%m %H:%M")
+        # Datos borrados: los mensajes siguen en la base, pero el panel no los lee.
+        borrado = bool(c.get("datos_borrados"))
+        ultimo = "Datos borrados" if borrado else html.escape(str(c.get("text") or ""))
         filas.append(
             f"<button class='chat' data-abre='hilo-{i}'>"
             f"<span class='chat-1'><b>{quien}</b><span>{hora}</span></span>"
-            f"<span class='chat-2'>{html.escape(str(c.get('text') or '')[:90])}</span>"
+            f"<span class='chat-2'>{ultimo}</span>"
             f"<span class='chat-3'>{_canal_txt(c.get('channel'))}</span></button>"
         )
-        burbujas = "".join(
+        burbujas = "<p class='vacio'>Datos borrados</p>" if borrado else "".join(
             f"<div class='msj {'axel' if m.get('direction') == 'out' else 'cliente'}'>"
             f"{html.escape(str(m.get('text') or ''))}"
             f"<small>{'AXEL · ' if m.get('direction') == 'out' else ''}"

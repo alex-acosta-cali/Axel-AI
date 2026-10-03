@@ -115,6 +115,23 @@ def main() -> int:
     assert "<form method='post'" not in hilo and "Enviar" not in hilo, "el hilo no envía"
     assert "Instagram" not in panel and "Web" not in panel
 
+    # Hilo sin internos ni borrados. Chat vivo: texto completo, aunque traiga el celular.
+    largo = "Mi celular es 3001112233 y quiero saber " + "x" * 120
+    memory.save_turn(customer_id=gil, event_id="evt_largo", channel="whatsapp", intent="consulta", text=largo, reply="", result="ok")
+    alex = memory.identify_customer(business_id="biz_default", channel="panel", channel_user_id="alex_pc")["customer"]["customer_id"]
+    memory.save_turn(customer_id=alex, event_id="evt_int", channel="panel", intent="consulta", text="reporte interno", reply="ok", result="ok")
+    ana = memory.identify_customer(
+        business_id="biz_default", channel="whatsapp", channel_user_id="573004445566", phone="3004445566", name="Ana"
+    )["customer"]["customer_id"]
+    memory.save_turn(customer_id=ana, event_id="evt_ana", channel="whatsapp", intent="consulta", text="secreto de Ana", reply="", result="ok")
+    with memory._conn() as conn:
+        conn.execute("UPDATE customers SET name = NULL, datos_borrados = 1 WHERE customer_id = ?", (ana,))
+    chats, hilos = demo._chats()
+    assert "reporte interno" not in chats + hilos and "interno" not in chats, "sin internos"
+    assert "secreto de Ana" not in chats + hilos and chats.count("Datos borrados") == 1 and "Datos borrados" in hilos
+    assert largo in chats and largo in hilos, "texto completo"
+    assert memory.list_mensajes(ana), "la base no se borra"
+
     print("OK — panel: 8 envíos sin texto ni celular entero; citas con cita_at; inventario 15; hilo solo lectura")
     return 0
 
