@@ -214,8 +214,12 @@ def main() -> int:
     aprob = panel.split('id="aprobaciones"')[1].split('id="inventario"')[0]
     h2_dec = f"<h2>{demo._a('Decididas')}</h2>"
     decididas = aprob.split(h2_dec)[1]
-    assert "Gil" in decididas and "<td>aprobada</td>" in decididas and "evt_reem" not in aprob.split(h2_dec)[0]
-    assert re.search(r"<td>\d\d/\d\d \d\d:\d\d</td>", decididas), "con la hora"
+    # Muro E: la última columna es Cierre: quedó, apertura, decisión y cómo salió el aviso al cliente.
+    assert "Gil" in decididas and "evt_reem" in decididas and "evt_reem" not in aprob.split(h2_dec)[0]
+    aviso = "fallo" if ultimo["estado"] == "fallo" else "fuera de 24 h"
+    assert re.search(rf"<td class='cierre'>aprobada · abierto \d\d/\d\d \d\d:\d\d · decidido \d\d/\d\d \d\d:\d\d · {aviso}</td>",
+                     decididas), decididas
+    assert demo._a("AXEL no mueve dinero.") in aprob
 
     # Ladrillo 8: Pedido real o "sin pedido"; el texto del cliente tal cual; Chat abre su hilo; A dorada en los botones.
     for eid, cid, txt in (("evt_p8", gil, "Quiero devolver la cosa"), ("evt_p8b", ana, "Quiero un reembolso")):
@@ -227,7 +231,10 @@ def main() -> int:
     fila_ana = pend.split("<td>evt_p8b</td>")[1].split("</tr>")[0]
     assert "<td class='pedido'>P00 cosa 0 $1.000</td>" in fila_gil, fila_gil
     assert "<td class='pedido'>sin pedido</td>" in fila_ana, fila_ana
-    assert "<td class='dijo'>Quiero devolver la cosa</td>" in fila_gil and "nivel 3" not in pend, "sin motivo inventado"
+    # Muro E: Resumen en vez del texto crudo. Sin daño, pérdida ni mal servicio escritos: no se mencionan.
+    assert "<td class='resumen'>Pide reembolso. Pedido anotado: P00 cosa 0 $1.000.</td>" in fila_gil, fila_gil
+    assert "<td class='resumen'>Pide reembolso. No hay pedido anotado.</td>" in fila_ana, fila_ana
+    assert "nivel 3" not in pend and "Menciona" not in pend, "sin motivo inventado"
     for fila in (fila_gil, fila_ana):
         hid = re.search(r"class='ir-chat' data-abre='(hilo-[\w]+)'", fila).group(1)
         assert f"id='{hid}'" in panel, hid
@@ -236,6 +243,24 @@ def main() -> int:
     assert f">{demo._a('Aprobar')}</button>" in fila_gil and f">{demo._a('Rechazar')}</button>" in fila_gil
     assert "<td class='nombre'>Gil</td>" in pend, "el nombre no lleva A dorada ni decide"
     assert f"<button class=\"otro\" data-abre=\"registro\">{demo._a('Registro · operador')}</button>" in panel
+
+    # Muro E: resumen con lo que el cliente escribió; pedido solo si está anotado; atrasado a las 4 h.
+    r = demo._resumen
+    assert r("reembolso", "Llegó dañado y fue un mal servicio", None) == \
+        "Pide reembolso. No hay pedido anotado. Menciona daño, mal servicio."
+    assert r("reembolso", "se perdió el paquete", None).endswith("Menciona pérdida.")
+    assert r("descuento", "quiero precio especial", None) == "Pide descuento. No hay pedido anotado."
+    pedidos_x = [{"customer_id": "c1", "servicio": "corte", "precio": 25000, "estado": "entregado"},
+                 {"customer_id": "c1", "servicio": "barba", "precio": 10000, "estado": "anotado"}]
+    assert demo._pedido_anotado("c1", pedidos_x)["servicio"] == "barba"
+    assert demo._pedido_anotado("c1", pedidos_x[:1]) is None, "entregado no cuenta: sin pedido"
+    base = demo.datetime(2026, 10, 3, 12, 0)
+    assert demo._atrasado("2026-10-03 07:59:00", base) and not demo._atrasado("2026-10-03 08:30:00", base)
+    with memory._conn() as conn:
+        conn.execute("UPDATE pending_approvals SET created_at = datetime('now', '-5 hours') WHERE event_id = 'evt_p8'")
+    pend = h._panel().split('id="aprobaciones"')[1].split(f"<h2>{demo._a('Decididas')}</h2>")[0]
+    assert "<span class='atrasado'>atrasado</span>" in pend.split("<td>evt_p8</td>")[1].split("</tr>")[0]
+    assert "atrasado" not in pend.split("<td>evt_p8b</td>")[1].split("</tr>")[0]
 
     # Muro C: el dueño edita precio, stock y franjas en el panel. kb temporal: el real no se toca.
     import json

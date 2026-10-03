@@ -11,7 +11,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 from axel import knowledge_base as kb
 from axel import notify
@@ -334,6 +334,64 @@ def _chats() -> tuple[str, str]:
 _CERRAR = "<form method='dialog'><button class='cerrar' aria-label='Cerrar'>×</button></form>"
 
 
+# Muro E: lo que pide el cliente, en palabras del dueño. Intent desconocido: se nombra tal cual.
+_PIDE = {"reembolso": "reembolso", "descuento": "descuento", "borrar_datos": "borrar sus datos",
+         "referencia": "una referencia sin inventario", "queja": "atención a una queja"}
+# Solo si el cliente lo escribió: daño, pérdida o mal servicio.
+_MENCIONA = (
+    ("daño", re.compile(r"\bdañ(?:o|os|ado|ada|ados|adas)\b|\bdano\b|\bdanad[oa]s?\b", re.I)),
+    ("pérdida", re.compile(r"\bp[eé]rdid[oa]s?\b|\bperd(?:í|i)\b|\bse perdi[oó]\b", re.I)),
+    ("mal servicio", re.compile(r"\bmal servicio\b|\bmala atenci[oó]n\b", re.I)),
+)
+ATRASO_HORAS = 4
+
+
+def _pedido_anotado(cid: str, pedidos: list[dict]) -> dict | None:
+    """El pedido más nuevo del cliente que sigue anotado. Otro estado no cuenta."""
+    return next((p for p in pedidos if str(p.get("customer_id")) == cid and (p.get("estado") or "anotado") == "anotado"), None)
+
+
+def _resumen(intent: str, texto: str, pedido: dict | None) -> str:
+    """'Pide reembolso. No hay pedido anotado.' + lo que el cliente mencionó. Nada inventado."""
+    partes = [f"Pide {_PIDE.get(intent, intent or 'revisión')}."]
+    partes.append(f"Pedido anotado: {pedido['servicio']} {kb.precio_txt(pedido['precio'])}." if pedido
+                  else "No hay pedido anotado.")
+    dichos = [nombre for nombre, rx in _MENCIONA if rx.search(texto or "")]
+    if dichos:
+        partes.append(f"Menciona {', '.join(dichos)}.")
+    return " ".join(partes)
+
+
+def _atrasado(creado_utc: str, ahora_utc: datetime) -> bool:
+    try:
+        return ahora_utc - datetime.fromisoformat(creado_utc) > timedelta(hours=ATRASO_HORAS)
+    except ValueError:
+        return False
+
+
+_AVISO_TXT = {"enviado": "avisado", "fallo": "fallo", "fuera_24h": "fuera de 24 h",
+              "sin_celular": "sin celular", "omitido_dueno": "omitido"}
+
+
+def _cierre(d: dict, envios: list[dict]) -> str:
+    """Hora de apertura, hora de decisión y cómo quedó el aviso al cliente (fila n3_cliente de Envíos entre la
+    apertura y la decisión, al celular del cliente). Sin esa fila: 'sin aviso'."""
+    quedo = "aprobada" if d.get("status") == "approved" else "rechazada"
+    abre = _creada_cali(str(d.get("created_at") or "")).strftime("%d/%m %H:%M") if d.get("created_at") else "—"
+    decide = _creada_cali(str(d["decided_at"])).strftime("%d/%m %H:%M") if d.get("decided_at") else "—"
+    cel = "".join(ch for ch in str((memory.get_customer(str(d.get("customer_id") or "")) or {}).get("phone") or "")
+                  if ch.isdigit())[-10:]
+    desde, hasta = str(d.get("created_at") or ""), str(d.get("decided_at") or "")
+    aviso = next(
+        (e for e in envios
+         if e.get("tipo") == "n3_cliente" and cel and str(e.get("destino") or "")[-10:] == cel
+         and hasta and desde <= str(e.get("created_at") or "") <= hasta),
+        None,
+    )
+    estado = _AVISO_TXT.get(str(aviso.get("estado")), str(aviso.get("estado"))) if aviso else "sin aviso"
+    return f"{quedo} · abierto {abre} · decidido {decide} · {estado}"
+
+
 def _casillas(citas_hoy: list[dict], pedidos: list[dict], pendientes: list[dict]) -> tuple[str, str]:
     """Muro D: cuatro casillas del home y una ventana por casilla con sus clientes y canal.
     Reserva/Pedido = citas confirmadas de hoy / pedidos anotados hoy (sin rechazados). Gestionado = lo anotado hoy.
@@ -428,43 +486,48 @@ class Handler(BaseHTTPRequestHandler):
         def _cliente_txt(cid: str) -> str:
             return html.escape(str((memory.get_customer(cid) or {}).get("name") or "sin nombre"))
 
-        # Ladrillo 8: Pedido = el último pedido real del cliente (servicio y precio) o "sin pedido".
-        # "Dijo" = el texto del cliente tal cual; no se inventa motivo. Chat abre su hilo de solo lectura.
+        # Muro E: Pendientes y Decididas con las mismas columnas. Pedido = el último pedido ANOTADO del cliente.
+        # Resumen = del texto del cliente y del pedido; no se inventa. Chat abre su hilo de solo lectura.
         pend_filas = memory.list_pending()
-        chats, hilos, hilo_de = _chats_y_hilos([str(p.get("customer_id") or "") for p in pend_filas])
-        pend = []
-        for p in pend_filas:
-            eid = html.escape(str(p.get("event_id") or ""))
+        dec_filas = memory.list_decididas(10)
+        chats, hilos, hilo_de = _chats_y_hilos([str(p.get("customer_id") or "") for p in pend_filas + dec_filas])
+        todos_pedidos = memory.list_pedidos(500)
+        envios = memory.list_envios(500)
+        ahora_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+
+        def _fila_aprob(p: dict, ultima: str) -> str:
             cid = str(p.get("customer_id") or "")
-            ped = memory.last_pedido(cid)
+            ped = _pedido_anotado(cid, todos_pedidos)
             ped_txt = f"{html.escape(str(ped['servicio']))} {kb.precio_txt(ped['precio'])}" if ped else "sin pedido"
             chat = (f"<button type='button' class='ir-chat' data-abre='{hilo_de[cid]}'>{_a('Chat')}</button>"
                     if cid in hilo_de else "")
-            pend.append(
+            return (
                 "<tr>"
                 f"<td class='nombre'>{_cliente_txt(cid)}</td>"
-                f"<td>{eid}</td>"
+                f"<td>{html.escape(str(p.get('event_id') or ''))}</td>"
                 f"<td>{html.escape(str(p.get('intent') or ''))}</td>"
                 f"<td class='pedido'>{ped_txt}</td>"
-                f"<td class='dijo'>{html.escape(str(p.get('requested_action') or ''))}</td>"
+                f"<td class='resumen'>{html.escape(_resumen(str(p.get('intent') or ''), str(p.get('requested_action') or ''), ped))}</td>"
                 f"<td>{chat}</td>"
-                f"<td><form method='post' action='/decidir' style='display:inline'>"
+                f"{ultima}</tr>"
+            )
+
+        pend = []
+        for p in pend_filas:
+            eid = html.escape(str(p.get("event_id") or ""))
+            atrasado = _atrasado(str(p.get("created_at") or ""), ahora_utc)
+            pend.append(_fila_aprob(p, (
+                "<td>" + ("<span class='atrasado'>atrasado</span> " if atrasado else "")
+                + f"<form method='post' action='/decidir' style='display:inline'>"
                 f"<input type='hidden' name='event_id' value='{eid}'/>"
                 f"<button type='submit' name='decision' value='approved'>{_a('Aprobar')}</button> "
                 f"<button type='submit' name='decision' value='rejected'>{_a('Rechazar')}</button>"
-                f"</form></td></tr>"
-            )
+                f"</form></td>"
+            )))
         pendientes = "".join(pend) or "<tr><td colspan='7'>Nada por aprobar.</td></tr>"
         decididas = "".join(
-            "<tr>"
-            f"<td class='nombre'>{_cliente_txt(str(d.get('customer_id') or ''))}</td>"
-            f"<td>{html.escape(str(d.get('intent') or ''))}</td>"
-            f"<td>{html.escape(str(d.get('requested_action') or ''))}</td>"
-            f"<td>{'aprobada' if d.get('status') == 'approved' else 'rechazada'}</td>"
-            f"<td>{_creada_cali(str(d['decided_at'])).strftime('%d/%m %H:%M') if d.get('decided_at') else '—'}</td>"
-            "</tr>"
-            for d in memory.list_decididas(10)
-        ) or "<tr><td colspan='5'>Nada decidido aún.</td></tr>"
+            _fila_aprob(d, f"<td class='cierre'>{html.escape(_cierre(d, envios))}</td>") for d in dec_filas
+        ) or "<tr><td colspan='7'>Nada decidido aún.</td></tr>"
         def _cab(*cols: str) -> str:
             return "<tr>" + "".join(f"<th>{_a(c)}</th>" for c in cols) + "</tr>"
 
@@ -554,6 +617,7 @@ border:1px solid var(--borde);border-radius:18px;padding:16px;color:var(--tenue)
 .reporte b{{font-size:26px;overflow-wrap:anywhere}}
 .a{{color:var(--dorado)}}
 .palabra{{white-space:nowrap}}
+.atrasado{{display:inline-block;border:1px solid var(--mal);color:var(--mal);border-radius:999px;padding:1px 10px;font-size:12px}}
 .aviso{{border:1px solid var(--dorado);color:var(--texto);border-radius:14px;padding:10px 14px;margin:12px 0}}
 form.editar{{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:14px 0 0}}
 form.editar label{{width:100%;color:var(--tenue);font-size:14px}}
@@ -663,9 +727,10 @@ button[value=approved]{{background:var(--dorado);border-color:var(--dorado);colo
 <dialog class="bloque" id="aprobaciones"><div class="ventana">
 <div class="bloque-cab"><div class="bloque-t">{_a("Aprobaciones")} {aviso_pend}</div>{cerrar}</div>
 <h2>Pendientes</h2>
-<div class="tabla"><table>{_cab("Cliente", "Evento", "Intent", "Pedido", "Dijo", "Chat", "Decisión")}{pendientes}</table></div>
+<div class="tabla"><table>{_cab("Cliente", "Evento", "Intent", "Pedido", "Resumen", "Chat", "Decisión")}{pendientes}</table></div>
 <h2>{_a("Decididas")}</h2>
-<div class="tabla"><table>{_cab("Cliente", "Intent", "Dijo", "Quedó", "Hora Cali")}{decididas}</table></div>
+<div class="tabla"><table>{_cab("Cliente", "Evento", "Intent", "Pedido", "Resumen", "Chat", "Cierre")}{decididas}</table></div>
+<p class="ficha">{_a("AXEL no mueve dinero.")}</p>
 </div></dialog>
 
 <dialog class="bloque" id="inventario"><div class="ventana">
