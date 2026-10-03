@@ -731,6 +731,18 @@ class Memory:
             ).fetchall()
         return [dict(r) for r in rows]
 
+    def cliente_wa_por_celular(self, celular: str) -> str:
+        """customer_id de la identidad WhatsApp con esas últimas 10 cifras. '' si no hay. Solo lectura."""
+        ultimos = "".join(ch for ch in str(celular or "") if ch.isdigit())[-10:]
+        if len(ultimos) < 10:
+            return ""
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT customer_id FROM identities WHERE channel = 'whatsapp' AND substr(channel_user_id, -10) = ? LIMIT 1",
+                (ultimos,),
+            ).fetchone()
+        return str(row["customer_id"]) if row else ""
+
     def clientes_de_canal(self, channel: str) -> set[str]:
         """customer_id con identidad en ese canal. Solo lectura."""
         with self._conn() as conn:

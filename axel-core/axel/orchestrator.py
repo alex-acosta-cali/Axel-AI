@@ -643,6 +643,49 @@ def anotado_hoy(pedidos: list[dict]) -> int:
     return sum(int(p["precio"]) for p in pedidos_de_hoy(pedidos) if (p.get("estado") or "anotado") != "rechazado")
 
 
+ALERTA_CIERRE = "cierre_dueno"
+
+
+def alerta_cierre(memory: Memory, ahora=None) -> str:
+    """Muro G: texto para el dueño a la hora de cierre del horario, si hay pendientes suyos o pedidos anotados.
+    '' si aún no es la hora, si ya salió hoy (fila cierre_dueno de hoy en Avisos, cualquier estado) o si no hay nada."""
+    ahora = ahora or reservas._ahora_cali()
+    _, cierra = kb_mod.get_hours()
+    if (ahora.hour, ahora.minute) < cierra:
+        return ""
+    hoy = ahora.date()
+    if any(
+        e.get("tipo") == ALERTA_CIERRE and reservas._creada_cali(str(e.get("created_at") or "")).date() == hoy
+        for e in memory.list_envios(500)
+    ):
+        return ""
+    pendientes = len(memory.list_pending())
+    anotados = [p for p in memory.list_pedidos(500) if (p.get("estado") or "anotado") == "anotado"]
+    if not pendientes and not anotados:
+        return ""
+    valor = kb_mod.precio_txt(sum(int(p["precio"]) for p in anotados))
+    return (
+        f"Cierre del día: {pendientes} por aprobar y {len(anotados)} pedidos anotados por {valor}. "
+        "Revísalos en el panel o escribe pendientes. AXEL no cobra."
+    )
+
+
+def enviar_alerta_cierre(memory: Memory, ahora=None) -> str:
+    """Manda la alerta de cierre una sola vez al día. Si el dueño no escribió en 24 h, no sale texto libre y la
+    fila queda fuera_24h. '' si no tocaba; si no, el estado de la fila en Avisos."""
+    texto = alerta_cierre(memory, ahora)
+    if not texto:
+        return ""
+    owner = os.getenv("WA_OWNER_PHONE") or ""
+    owner_cid = memory.cliente_wa_por_celular(owner)
+    if not owner_cid:
+        # El dueño nunca escribió por WhatsApp: no hay ventana de 24 h abierta.
+        destino = "".join(ch for ch in owner if ch.isdigit())
+        memory.add_envio(destino, ALERTA_CIERRE, texto, "fuera_24h" if destino else "sin_celular")
+        return "fuera_24h" if destino else "sin_celular"
+    return notify.enviar(memory, ALERTA_CIERRE, owner, texto, owner_cid)
+
+
 def _reporte(memory: Memory) -> str:
     """Resumen de hoy en Cali: citas, pedidos y pendientes N3. Solo para el dueño."""
     hoy = reservas._ahora_cali().date()

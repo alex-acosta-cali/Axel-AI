@@ -33,7 +33,14 @@ from axel.agents.reservas import (
 from axel.connectors import whatsapp
 from axel.envelope import Envelope
 from axel.memory import Memory
-from axel.orchestrator import anotado_hoy, inventario_filas, pedidos_de_hoy, pedidos_filas, process
+from axel.orchestrator import (
+    anotado_hoy,
+    enviar_alerta_cierre,
+    inventario_filas,
+    pedidos_de_hoy,
+    pedidos_filas,
+    process,
+)
 
 def _db_path() -> str:
     """Base fija: /opt/Axel-AI/axel-core/axel.db en el VPS; si esa carpeta no existe, junto al código.
@@ -1023,6 +1030,13 @@ def _recordatorio_loop() -> None:
                     cerrar_recordatorio(memory, ahora)
         except Exception as exc:
             print("RECORDATORIO error:", exc)
+        try:
+            # Muro G: a la hora de cierre, una vez al día, pendientes y pedidos anotados al dueño. AXEL no cobra.
+            estado = enviar_alerta_cierre(memory)
+            if estado:
+                print("ALERTA CIERRE", estado)
+        except Exception as exc:
+            print("ALERTA CIERRE error:", exc)
 
 
 def main() -> None:
