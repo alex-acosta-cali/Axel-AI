@@ -1268,11 +1268,26 @@ setInterval(function () {{
         print("%s - %s" % (self.address_string(), fmt % args))
 
 
+def _base_abre() -> bool:
+    """Prueba la base del hilo: ruta absoluta, timeout 5 s, sin crearla. Si no abre, imprime y el hilo sigue."""
+    import sqlite3
+
+    ruta = Path(_db_path()).resolve()
+    try:
+        sqlite3.connect(ruta.as_uri() + "?mode=rw", uri=True, timeout=5).close()
+        return True
+    except Exception as exc:
+        print("RECORDATORIO base no abre:", ruta, exc)
+        return False
+
+
 def _recordatorio_loop() -> None:
     import time
 
     while True:
         time.sleep(60)
+        if not _base_abre():
+            continue
         try:
             # Aviso al cliente 24 h y 2 h antes. Si el demo está apagado a esa hora, se pierde.
             for fila, texto in avisos_cita(memory):
