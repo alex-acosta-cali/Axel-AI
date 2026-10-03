@@ -65,14 +65,17 @@ def main() -> int:
     # Los bloques del dueño siguen en el panel. Ladrillo 4: una sola lista "Clientes" (antes dos tablas).
     # Ladrillo 6: "Citas" lleva la A dorada (demo._a); los demás títulos siguen en texto plano.
     # Ladrillo 8: todo título fijo con "a" la lleva dorada (demo._a). Los que no tienen "a" quedan igual.
-    for titulo in ("Reporte de hoy", demo._a("Cupos de la semana"), demo._a("Citas"), "Clientes", demo._a("Datos del negocio"), "Pedidos", "Envíos"):
+    for titulo in ("Reporte de hoy", demo._a("Cupos de la semana"), demo._a("Citas"), "Clientes", demo._a("Datos del negocio"), "Pedidos", demo._a("Avisos"), "Eventos"):
         assert f"<h2>{titulo}</h2>" in panel, titulo
     assert "<h2>Clientes WhatsApp</h2>" not in panel and panel.count("<h2>Clientes</h2>") == 1
     clientes = panel.split("<h2>Clientes</h2>")[1].split("</table>")[0]
     assert "sábado 03/10 11:00" in clientes, "Clientes lee cita_at"
     assert "3001112233" in clientes, "el celular sigue en la lista de clientes"
     assert "<td>WhatsApp</td>" in clientes and "<th>ID</th>" not in clientes and gil not in clientes, "canal sí, ID no"
-    assert "3001112233" not in panel.split("<h2>Envíos</h2>")[1].split("<h2>")[0]
+    # Muro F: "Envíos" pasa a llamarse "Avisos"; sigue sin texto ni celular entero.
+    avisos_h2 = f"<h2>{demo._a('Avisos')}</h2>"
+    assert "<h2>Envíos</h2>" not in panel
+    assert "3001112233" not in panel.split(avisos_h2)[1].split("<h2>")[0]
 
     # Muro 65: inventario en el panel. 16 productos, salen 15. Disponible descuenta el pedido abierto.
     productos = [{"codigo": f"P{i:02d}", "nombre": f"cosa {i}", "precio": 1000, "stock": 3} for i in range(16)]
@@ -124,7 +127,7 @@ def main() -> int:
     conversaciones = panel.split('id="conversaciones"')[1].split('id="aprobaciones"')[0]
     # Muro B: el título "Catálogo" pasa a "Datos del negocio"; los servicios se fueron a Inventario.
     catalogo = f"<h2>{demo._a('Datos del negocio')}</h2>"
-    assert catalogo not in dia and "<h2>Envíos</h2>" not in conversaciones
+    assert catalogo not in dia and avisos_h2 not in conversaciones
     mi_negocio = panel.split('id="mi-negocio"')[1].split('id="registro"')[0]
     assert catalogo in mi_negocio
     assert "<h2>" + demo._a("Servicios") + "</h2>" not in mi_negocio and "<th>" + demo._a("Servicio") + "</th>" not in mi_negocio
@@ -150,7 +153,7 @@ def main() -> int:
     assert "name='precio' inputmode='numeric' value='25000'" in serv and "name='stock' inputmode='numeric' value='5'" in serv, serv
     assert "value='' placeholder='sin tope'" in serv and "<td>sin imagen</td>" in serv and "<td>con imagen</td>" in serv, serv
     assert "<img" not in serv
-    assert "<h2>Envíos</h2>" in panel.split('id="registro"')[1]
+    assert avisos_h2 in panel.split('id="registro"')[1]
 
     # Ladrillo 3: hilo de solo lectura. Sin mensajes, "Al día. Nadie espera." Sin caja de enviar.
     assert "Al día. Nadie espera." in demo._chats()[0]
@@ -362,6 +365,19 @@ def main() -> int:
         assert demo._a("Cupos de la semana") not in dia and "<h2>Pedidos</h2>" in dia
     finally:
         demo.kb._kb_path = kb_original
+
+    # Muro F: Registro con Eventos (Inicio, Gestión, Fin) arriba de Avisos. Sin repetir el hilo, sin internos.
+    registro = h._panel().split('id="registro"')[1]
+    assert registro.index("<h2>Eventos</h2>") < registro.index(f"<h2>{demo._a('Avisos')}</h2>")
+    eventos = registro.split("<h2>Eventos</h2>")[1].split("</table>")[0]
+    assert "<td>Inicio</td><td>Gil</td><td>¿Tienen cupo mañana?</td>" in eventos, eventos
+    assert "Mi celular es" not in eventos and "Sí, a las 10:00." not in eventos, "solo el primer mensaje, no el hilo"
+    assert "<td>Inicio</td><td>…5566</td><td>Datos borrados</td>" in eventos, "datos borrados no se leen"
+    assert "<td>Gestión</td><td>Gil</td><td>Pide reembolso. Espera tu sí.</td>" in eventos
+    assert "<td>Fin</td><td>Gil</td><td>Pidió reembolso: aprobado.</td>" in eventos
+    assert "<td>Fin</td><td>Gil</td><td>Pedido entregado: barba $10.000.</td>" in eventos
+    assert "reporte interno" not in eventos and "despacho" not in registro.lower()
+    assert demo._corto("x" * 80).endswith("…") and len(demo._corto("x" * 80)) == 60
 
     print("OK — panel: 8 envíos sin texto ni celular entero; citas con cita_at; inventario 15; hilo solo lectura")
     return 0

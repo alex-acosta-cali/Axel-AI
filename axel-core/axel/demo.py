@@ -374,7 +374,7 @@ _AVISO_TXT = {"enviado": "avisado", "fallo": "fallo", "fuera_24h": "fuera de 24 
 
 
 def _cierre(d: dict, envios: list[dict]) -> str:
-    """Hora de apertura, hora de decisión y cómo quedó el aviso al cliente (fila n3_cliente de Envíos entre la
+    """Hora de apertura, hora de decisión y cómo quedó el aviso al cliente (fila n3_cliente de Avisos entre la
     apertura y la decisión, al celular del cliente). Sin esa fila: 'sin aviso'."""
     quedo = "aprobada" if d.get("status") == "approved" else "rechazada"
     abre = _creada_cali(str(d.get("created_at") or "")).strftime("%d/%m %H:%M") if d.get("created_at") else "—"
@@ -390,6 +390,46 @@ def _cierre(d: dict, envios: list[dict]) -> str:
     )
     estado = _AVISO_TXT.get(str(aviso.get("estado")), str(aviso.get("estado"))) if aviso else "sin aviso"
     return f"{quedo} · abierto {abre} · decidido {decide} · {estado}"
+
+
+def _corto(texto: str, n: int = 60) -> str:
+    texto = " ".join(str(texto or "").split())
+    return texto if len(texto) <= n else texto[: n - 1].rstrip() + "…"
+
+
+def _tabla_eventos(limit: int = 15) -> str:
+    """Muro F: Registro en Inicio, Gestión o Fin, con un resumen corto. Inicio = primer mensaje del cliente.
+    Gestión = pendiente del dueño. Fin = aprobado, rechazado o entregado. No repite el hilo. Solo lectura."""
+    eventos = []  # (hora UTC 'AAAA-MM-DD HH:MM:SS', tipo, cid, resumen)
+    for m in memory.list_inicios(limit):
+        texto = "Datos borrados" if m.get("datos_borrados") else _corto(m.get("text"))
+        eventos.append((str(m.get("created_at") or ""), "Inicio", str(m.get("customer_id") or ""), texto))
+    for p in memory.list_pending():
+        eventos.append((str(p.get("created_at") or ""), "Gestión", str(p.get("customer_id") or ""),
+                        f"Pide {_PIDE.get(str(p.get('intent') or ''), p.get('intent') or 'revisión')}. Espera tu sí."))
+    for d in memory.list_decididas(limit):
+        quedo = "aprobado" if d.get("status") == "approved" else "rechazado"
+        pide = _PIDE.get(str(d.get("intent") or ""), d.get("intent") or "revisión")
+        eventos.append((str(d.get("decided_at") or d.get("created_at") or ""), "Fin", str(d.get("customer_id") or ""),
+                        f"Pidió {pide}: {quedo}."))
+    for p in memory.list_pedidos(100):
+        if p.get("estado") == "entregado":
+            eventos.append((str(p.get("created_at") or ""), "Fin", str(p.get("customer_id") or ""),
+                            f"Pedido entregado: {p['servicio']} {kb.precio_txt(p['precio'])}."))
+    eventos.sort(key=lambda e: e[0], reverse=True)
+
+    def quien(cid: str) -> str:
+        return _quien_txt(memory.get_customer(cid) or {})
+
+    filas = "".join(
+        "<tr>"
+        f"<td>{_creada_cali(hora).strftime('%d/%m %H:%M') if hora else '—'}</td>"
+        f"<td>{tipo}</td><td>{quien(cid)}</td><td>{html.escape(resumen)}</td>"
+        "</tr>"
+        for hora, tipo, cid, resumen in eventos[:limit]
+    ) or "<tr><td colspan='4'>Al día. Nadie espera.</td></tr>"
+    cab = "".join(f"<th>{_a(c)}</th>" for c in ("Hora Cali", "Etapa", "Cliente", "Resumen"))
+    return f"<table><tr>{cab}</tr>{filas}</table>"
 
 
 def _casillas(citas_hoy: list[dict], pedidos: list[dict], pendientes: list[dict]) -> tuple[str, str]:
@@ -586,7 +626,7 @@ class Handler(BaseHTTPRequestHandler):
         negocio = html.escape(str(kb.load_kb().get("negocio") or ""))
         punto = "<i class='punto' aria-label='hay por aprobar'></i>" if n_pend else ""
         # Muro 72: tres bloques (Día, Conversaciones, Aprobaciones), inventario abajo. Cada uno es una ventana (dialog).
-        # Catálogo vive en Mi negocio; Envíos en Registro, la puerta del operador.
+        # Catálogo vive en Mi negocio; Avisos (antes Envíos) y Eventos en Registro, la puerta del operador.
         aviso_pend = f"<span class='marca'>{n_pend}</span>" if n_pend else "<span class='marca cero'>0</span>"
         cerrar = "<form method='dialog'><button class='cerrar' aria-label='Cerrar'>×</button></form>"
         return f"""<!doctype html>
@@ -759,7 +799,9 @@ button[value=approved]{{background:var(--dorado);border-color:var(--dorado);colo
 
 <dialog class="bloque" id="registro"><div class="ventana">
 <div class="bloque-cab"><div class="bloque-t">{_a("Registro")}</div>{cerrar}</div>
-<h2>Envíos</h2>
+<h2>Eventos</h2>
+<div class="tabla">{_tabla_eventos()}</div>
+<h2>{_a("Avisos")}</h2>
 <div class="tabla">{_tabla_envios()}</div>
 <h2>Últimos</h2>
 <div class="tabla"><table>{_cab("Cuando", "Canal", "Agente", "Nivel", "Aprobación", "Entró", "Respondió")}{tabla}</table></div>
@@ -864,7 +906,7 @@ setInterval(function () {{
 
     def _decidir(self, event_id: str, decision: str) -> None:
         """Solo un botón decide: sin decision válida o sin pendiente, nada cambia. Va por el mismo camino que
-        'aprobar N' / 'rechazar N' del dueño: aviso al cliente (queda en Envíos) y luego se resuelve."""
+        'aprobar N' / 'rechazar N' del dueño: aviso al cliente (queda en Avisos) y luego se resuelve."""
         if decision not in {"approved", "rejected"}:
             return
         fila = next((p for p in memory.list_pending() if str(p.get("event_id")) == event_id), None)

@@ -755,6 +755,24 @@ class Memory:
             ).fetchall()
         return [dict(r) for r in rows]
 
+    def list_inicios(self, limit: int = 15) -> list[dict[str, Any]]:
+        """Primer mensaje entrante vivo de cada cliente (sin internos), los más nuevos primero. Solo lectura."""
+        with self._conn() as conn:
+            rows = conn.execute(
+                """
+                SELECT m.customer_id, m.text, m.created_at, c.name, c.phone, c.datos_borrados
+                FROM messages m
+                JOIN (SELECT customer_id, MIN(message_id) AS primero FROM messages
+                      WHERE direction = 'in' AND COALESCE(channel, '') IN ('whatsapp', '') GROUP BY customer_id) u
+                  ON m.message_id = u.primero
+                LEFT JOIN customers c ON c.customer_id = m.customer_id
+                ORDER BY m.message_id DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
     def list_mensajes(self, customer_id: str, limit: int = 20) -> list[dict[str, Any]]:
         """Últimos mensajes vivos de un cliente, del más viejo al más nuevo. Sin internos. Solo lectura, para el hilo."""
         if not customer_id:

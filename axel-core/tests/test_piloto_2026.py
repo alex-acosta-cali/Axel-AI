@@ -350,7 +350,8 @@ def main() -> int:
         demo.memory = memory
         memory.add_envio("573005556677", "aviso_2h", "Recordatorio 3005556677", "fallo")
         panel = demo.Handler.__new__(demo.Handler)._panel()
-        envios_html = panel.split("<h2>Envíos</h2>")[1].split("<h2>")[0]
+        # Muro F: la tabla se llama Avisos (antes Envíos).
+        envios_html = panel.split(f"<h2>{demo._a('Avisos')}</h2>")[1].split("<h2>")[0]
         assert "<td>aviso_2h</td><td>fallo</td><td>…6677</td>" in envios_html, envios_html
         assert not re.search(r"\d{10}", envios_html), envios_html
 
