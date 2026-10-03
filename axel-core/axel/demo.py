@@ -34,7 +34,6 @@ from axel.connectors import whatsapp
 from axel.envelope import Envelope
 from axel.memory import Memory
 from axel.orchestrator import (
-    anotado_hoy,
     enviar_alerta_cierre,
     inventario_filas,
     pedidos_de_hoy,
@@ -442,63 +441,122 @@ def _tabla_eventos(limit: int = 15) -> str:
     return f"<table><tr>{cab}</tr>{filas}</table>"
 
 
+_COLUMNAS_GESTION = ("Cliente", "Canal", "Tipo", "Cantidad", "Código", "Nombre", "Precio", "Estado")
+
+
+def _fila_pedido(p: dict) -> dict:
+    """Un pedido en la tabla de gestión. Producto del inventario: su código y nombre. Servicio: código "—".
+    Cantidad 1: cada pedido es una unidad (no hay columna de cantidad en la base)."""
+    prod = kb.producto_de_pedido(str(p.get("servicio") or ""))
+    estado = str(p.get("estado") or "anotado")
+    if estado == "entregado":
+        estado = f"entregado {_hora_entrega(p)}"
+    return {"cid": str(p.get("customer_id") or ""), "tipo": "producto" if prod else "servicio", "cantidad": "1",
+            "codigo": str(prod["codigo"]) if prod else "—",
+            "nombre": str(prod.get("nombre") or p["servicio"]) if prod else str(p["servicio"]),
+            "precio": int(p["precio"]), "estado": estado}
+
+
+def _filas_gestionado(citas_hoy: list[dict], pedidos: list[dict]) -> list[dict]:
+    """Muro I: lo gestionado hoy. Pedido de hoy no rechazado: una vez. Cita confirmada de hoy con servicio conocido
+    (nombrado en su texto): una vez, con el precio de la KB; si ese cliente ya tiene hoy un pedido de ese servicio,
+    no se cuenta dos veces. Reembolso aprobado hoy: fila visible, pero sin monto guardado no resta valor."""
+    filas = [_fila_pedido(p) for p in pedidos_de_hoy(pedidos) if (p.get("estado") or "anotado") != "rechazado"]
+    ya = {(f["cid"], kb.nombre_servicio(f["nombre"])) for f in filas}
+    for c in {str(c.get("event_id")): c for c in citas_hoy}.values():
+        s = kb.servicio_en(str(c.get("summary") or ""))
+        cid = str(c.get("customer_id") or "")
+        if not s or (cid, kb.nombre_servicio(str(s["nombre"]))) in ya:
+            continue
+        h, m = cuando_fila(c)[1:]
+        filas.append({"cid": cid, "tipo": "servicio", "cantidad": "1", "codigo": "—", "nombre": str(s["nombre"]),
+                      "precio": int(s.get("precio") or 0), "estado": f"cita confirmada {h}:{m:02d}"})
+    hoy = _ahora_cali().date()
+    for d in memory.list_decididas(50):
+        if d.get("intent") == "reembolso" and d.get("status") == "approved" and d.get("decided_at") \
+                and _creada_cali(str(d["decided_at"])).date() == hoy:
+            filas.append({"cid": str(d.get("customer_id") or ""), "tipo": "reembolso", "cantidad": "—", "codigo": "—",
+                          "nombre": "reembolso", "precio": None, "estado": "reembolso aprobado · sin monto"})
+    return filas
+
+
 def _casillas(citas_hoy: list[dict], pedidos: list[dict], pendientes: list[dict]) -> tuple[str, str]:
-    """Muro D: cuatro casillas del home y una ventana por casilla con sus clientes y canal.
-    Reserva/Pedido = citas confirmadas de hoy / pedidos anotados hoy (sin rechazados). Gestionado = lo anotado hoy.
-    En proceso = pendientes del dueño + pedidos abiertos (no entregados ni rechazados). Cerrado = entregados de hoy:
-    no es un pago verificado. Canal: WhatsApp si tiene esa identidad; si no, vacío."""
+    """Muro D + I: cuatro casillas del home. Gestionado, En proceso y Cerrado abren la misma tabla de gestión
+    (cliente, canal, tipo, cantidad, código, nombre, precio, estado). Reserva/Pedido abre por canal (canal,
+    cantidad, valor) y cada canal abre sus filas. Solo datos que ya existen. Canal: WhatsApp o vacío."""
     wa = memory.clientes_de_canal("whatsapp")
     hoy_vivos = [p for p in pedidos_de_hoy(pedidos) if (p.get("estado") or "anotado") != "rechazado"]
     abiertos = [p for p in pedidos if (p.get("estado") or "anotado") not in {"entregado", "rechazado"}]
-    cerrados = [p for p in pedidos if _entregado_hoy(p)]
-    suma = lambda filas: kb.precio_txt(sum(int(p["precio"]) for p in filas))
+    cerrados = [_fila_pedido(p) for p in pedidos if _entregado_hoy(p)]
+    gestionado = _filas_gestionado(citas_hoy, pedidos)
+    proceso = [{"cid": str(p.get("customer_id") or ""), "tipo": str(p.get("intent") or "aprobación"), "cantidad": "—",
+                "codigo": "—", "nombre": f"Pide {_PIDE.get(str(p.get('intent') or ''), p.get('intent') or 'revisión')}",
+                "precio": None, "estado": "espera tu sí"} for p in pendientes] + [_fila_pedido(p) for p in abiertos]
+    con_valor = lambda filas: [f for f in filas if f["precio"] is not None]
+    valor = lambda filas: kb.precio_txt(sum(f["precio"] for f in con_valor(filas)))
+    canal = lambda cid: "WhatsApp" if cid in wa else ""
 
-    def nombre(fila: dict) -> str:
-        cid = str(fila.get("customer_id") or "")
-        return html.escape(str(fila.get("name") or (memory.get_customer(cid) or {}).get("name") or "sin nombre"))
+    def nombre(cid: str) -> str:
+        return html.escape(str((memory.get_customer(cid) or {}).get("name") or "sin nombre"))
 
-    def canal(fila: dict) -> str:
-        return "WhatsApp" if str(fila.get("customer_id") or "") in wa else ""
+    def tabla(filas: list[dict]) -> str:
+        cuerpo = "".join(
+            "<tr>" + "".join(f"<td>{c}</td>" for c in (
+                nombre(f["cid"]), canal(f["cid"]), html.escape(f["tipo"]), f["cantidad"], html.escape(f["codigo"]),
+                html.escape(f["nombre"]), kb.precio_txt(f["precio"]) if f["precio"] is not None else "—",
+                html.escape(f["estado"]))) + "</tr>"
+            for f in filas
+        ) or f"<tr><td colspan='{len(_COLUMNAS_GESTION)}'>Al día. Nadie espera.</td></tr>"
+        cab = "".join(f"<th>{_a(c)}</th>" for c in _COLUMNAS_GESTION)
+        return f"<div class='tabla'><table><tr>{cab}</tr>{cuerpo}</table></div>"
 
-    def pedido(p: dict) -> list[str]:
-        estado = str(p.get("estado") or "anotado")
-        if estado == "entregado":
-            estado = f"entregado {_hora_entrega(p)}"
-        return [nombre(p), canal(p), html.escape(f"{p['servicio']} {kb.precio_txt(p['precio'])}"), html.escape(estado)]
-
-    def cita(c: dict) -> list[str]:
-        h, m = cuando_fila(c)[1:]
-        return [nombre(c), canal(c), f"cita {h}:{m:02d}", "confirmada"]
-
-    def pendiente(p: dict) -> list[str]:
-        return [nombre(p), canal(p), html.escape(str(p.get("requested_action") or "")), "espera tu sí"]
-
-    def ventana(vid: str, titulo: str, filas: list[list[str]], nota: str = "") -> str:
-        cuerpo = "".join("<tr>" + "".join(f"<td>{c}</td>" for c in f) + "</tr>" for f in filas) \
-            or "<tr><td colspan='4'>Al día. Nadie espera.</td></tr>"
-        cab = "".join(f"<th>{_a(c)}</th>" for c in ("Cliente", "Canal", "Qué", "Estado"))
+    def ventana(vid: str, titulo: str, contenido: str, nota: str = "") -> str:
         return (f"<dialog class='bloque' id='{vid}'><div class='ventana'>"
                 f"<div class='bloque-cab'><div class='bloque-t'>{_a(titulo)}</div>{_CERRAR}</div>"
-                f"{f'<p class=ficha>{_a(nota)}</p>' if nota else ''}"
-                f"<div class='tabla'><table><tr>{cab}</tr>{cuerpo}</table></div></div></dialog>")
+                f"{f'<p class=ficha>{_a(nota)}</p>' if nota else ''}{contenido}</div></dialog>")
+
+    # Reserva/Pedido por canal: citas de hoy (con su precio si el servicio se conoce) y pedidos de hoy sin rechazados.
+    reservas_filas = []
+    for c in {str(c.get("event_id")): c for c in citas_hoy}.values():
+        s = kb.servicio_en(str(c.get("summary") or ""))  # sin servicio conocido: la cita entra sin precio
+        h, m = cuando_fila(c)[1:]
+        reservas_filas.append({"cid": str(c.get("customer_id") or ""), "tipo": "servicio" if s else "cita",
+                               "cantidad": "1", "codigo": "—", "nombre": str(s["nombre"]) if s else "cita",
+                               "precio": int(s.get("precio") or 0) if s else None,
+                               "estado": f"cita confirmada {h}:{m:02d}"})
+    reservas_filas += [_fila_pedido(p) for p in hoy_vivos]
+    por_canal: dict[str, list[dict]] = {}
+    for f in reservas_filas:
+        por_canal.setdefault(canal(f["cid"]) or "sin canal", []).append(f)
+    sub_ventanas, filas_canal = [], []
+    for i, (nom, filas) in enumerate(sorted(por_canal.items())):
+        vid = f"casilla-reserva-{i}"
+        filas_canal.append(
+            f"<tr><td><button type='button' class='ir-chat' data-abre='{vid}'>{html.escape(nom)}</button></td>"
+            f"<td>{len(filas)}</td><td>{valor(filas)}</td></tr>"
+        )
+        sub_ventanas.append(ventana(vid, f"Reserva/Pedido · {nom}", tabla(filas)))
+    cab_canal = "".join(f"<th>{_a(c)}</th>" for c in ("Canal", "Cantidad", "Valor"))
+    tabla_canal = (f"<div class='tabla'><table><tr>{cab_canal}</tr>"
+                   f"{''.join(filas_canal) or '<tr><td colspan=3>Al día. Nadie espera.</td></tr>'}</table></div>")
 
     casillas = [
         ("casilla-reserva", "Reserva/Pedido", f"{len(citas_hoy)}/{len(hoy_vivos)}", "citas / pedidos de hoy",
-         [cita(c) for c in citas_hoy] + [pedido(p) for p in hoy_vivos], ""),
-        ("casilla-gestionado", "Gestionado", f"{len(hoy_vivos)} · {suma(hoy_vivos)}", "anotado hoy, sin rechazados",
-         [pedido(p) for p in hoy_vivos], ""),
-        ("casilla-proceso", "En proceso", f"{len(pendientes) + len(abiertos)} · {suma(abiertos)}",
-         "por aprobar y pedidos sin entregar", [pendiente(p) for p in pendientes] + [pedido(p) for p in abiertos], ""),
-        ("casilla-cerrado", "Cerrado", f"{len(cerrados)} · {suma(cerrados)}", "entregados hoy",
-         [pedido(p) for p in cerrados], "No es un pago verificado."),
+         tabla_canal, ""),
+        ("casilla-gestionado", "Gestionado", f"{len(con_valor(gestionado))} · {valor(gestionado)}",
+         "pedidos y citas de hoy, sin rechazados", tabla(gestionado), ""),
+        ("casilla-proceso", "En proceso", f"{len(pendientes) + len(abiertos)} · {valor(proceso)}",
+         "por aprobar y pedidos sin entregar", tabla(proceso), ""),
+        ("casilla-cerrado", "Cerrado", f"{len(cerrados)} · {valor(cerrados)}", "entregados hoy",
+         tabla(cerrados), "No es un pago verificado."),
     ]
     botones = "".join(
         f"<button class='casilla' data-abre='{vid}'><span class='casilla-t'>{_a(titulo)}</span>"
         f"<b>{html.escape(cifra)}</b><span>{_a(sub)}</span></button>"
         for vid, titulo, cifra, sub, _, _ in casillas
     )
-    ventanas = "".join(ventana(vid, titulo, filas, nota) for vid, titulo, _, _, filas, nota in casillas)
-    return f"<div class='casillas'>{botones}</div>", ventanas
+    ventanas = "".join(ventana(vid, titulo, contenido, nota) for vid, titulo, _, _, contenido, nota in casillas)
+    return f"<div class='casillas'>{botones}</div>", ventanas + "".join(sub_ventanas)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -630,9 +688,7 @@ class Handler(BaseHTTPRequestHandler):
         ahora = _ahora_cali()
         hoy = ahora.date()
         citas_de_hoy = [c for c in memory.list_confirmed_reservas(500) if (w := cuando_fila(c)) and w[0] == hoy]
-        citas_hoy = len(citas_de_hoy)
         pedidos = memory.list_pedidos(500)
-        entregados = [p for p in pedidos_de_hoy(pedidos) if p.get("estado") == "entregado"]
         casillas, ventanas_casilla = _casillas(citas_de_hoy, pedidos, pend_filas)
         negocio = html.escape(str(kb.load_kb().get("negocio") or ""))
         punto = "<i class='punto' aria-label='hay por aprobar'></i>" if n_pend else ""
@@ -661,11 +717,6 @@ border:1px solid var(--borde);border-radius:18px;padding:16px;color:var(--tenue)
 .casilla-t{{color:var(--texto);font-size:15px;font-weight:600}}
 .casilla b{{font-size:30px;font-weight:300;color:var(--dorado);font-variant-numeric:tabular-nums}}
 .casilla:hover,.casilla:focus-visible{{border-color:var(--dorado)}}
-.tarjetas{{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:24px 0 0}}
-.tarjeta{{background:var(--caja);border:1px solid var(--borde);border-radius:18px;padding:16px 8px;text-align:center;color:var(--tenue);font:inherit;font-size:14px;min-height:44px}}
-.tarjeta b{{display:block;font-size:40px;font-weight:300;color:var(--texto);margin-bottom:4px}}
-.reporte{{grid-template-columns:repeat(4,1fr);margin:0}}
-.reporte b{{font-size:26px;overflow-wrap:anywhere}}
 .a{{color:var(--dorado)}}
 .palabra{{white-space:nowrap}}
 .atrasado{{display:inline-block;border:1px solid var(--mal);color:var(--mal);border-radius:999px;padding:1px 10px;font-size:12px}}
@@ -675,14 +726,13 @@ form.editar label{{width:100%;color:var(--tenue);font-size:14px}}
 form.editar input,.tabla input{{min-width:0;padding:8px 12px;border-radius:10px;border:1px solid var(--borde);background:var(--fondo);color:var(--texto);font:inherit}}
 form.editar input{{flex:1}} .tabla input{{width:7.5em}}
 .sr{{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}
-@media (max-width:620px){{.reporte{{grid-template-columns:repeat(2,1fr)}}}}
 .otros{{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 0}}
 .otro{{background:none;border:1px solid var(--borde);border-radius:999px;color:var(--tenue);font:inherit;font-size:14px;padding:10px 18px}}
 .local{{color:var(--tenue);font-size:12px;margin:22px 0 0}}
 .puertas{{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);display:flex;gap:4px;background:var(--oscuro);
 border:1px solid var(--borde);border-radius:999px;padding:6px;width:min(560px,calc(100% - 32px))}}
 .puertas button{{flex:1;background:none;border:0;border-radius:999px;color:var(--texto);font:inherit;font-size:15px;padding:12px 6px;min-height:44px;cursor:pointer}}
-.puertas button:hover,.puertas button:focus-visible,.tarjeta:hover,.otro:hover{{background:var(--caja);border-color:var(--dorado)}}
+.puertas button:hover,.puertas button:focus-visible,.otro:hover{{background:var(--caja);border-color:var(--dorado)}}
 .punto{{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--dorado);margin-left:6px;vertical-align:middle}}
 dialog.bloque{{background:var(--fondo);color:var(--texto);border:1px solid var(--borde);border-radius:22px;padding:0;
 width:min(960px,calc(100% - 24px));max-height:calc(100vh - 24px)}}
@@ -726,7 +776,7 @@ form.escribir input{{flex:1;min-width:0;padding:12px 16px;border-radius:999px;bo
 button{{padding:8px 16px;border-radius:999px;border:1px solid var(--borde);background:var(--caja);color:var(--texto);cursor:pointer;font:inherit}}
 button:hover{{border-color:var(--dorado)}}
 button[value=approved]{{background:var(--dorado);border-color:var(--dorado);color:#1c1606;font-weight:600}}
-@media (max-width:520px){{.casilla b{{font-size:24px}} .tarjeta b{{font-size:32px}} dialog.bloque{{width:100%;max-height:100vh;border-radius:0}}}}
+@media (max-width:520px){{.casilla b{{font-size:24px}} dialog.bloque{{width:100%;max-height:100vh;border-radius:0}}}}
 </style></head><body><main>
 <header class="arriba">
 <div class="marca-axel"><h1>ΛXEL</h1><span class="negocio">{negocio}</span></div>
@@ -751,13 +801,6 @@ button[value=approved]{{background:var(--dorado);border-color:var(--dorado);colo
 
 <dialog class="bloque" id="dia"><div class="ventana">
 <div class="bloque-cab"><div class="bloque-t">{_a("Día")}</div>{cerrar}</div>
-<h2>Reporte de hoy</h2>
-<div class="tarjetas reporte">
-<div class="tarjeta"><b>{citas_hoy}</b>{_a("citas hoy")}</div>
-<div class="tarjeta"><b>{kb.precio_txt(anotado_hoy(pedidos))}</b>{_a("anotado, sin cobro")}</div>
-<div class="tarjeta"><b>{len(entregados)}</b>{_a("entregados")} · {kb.precio_txt(sum(int(p["precio"]) for p in entregados))}</div>
-<div class="tarjeta"><b>{n_pend}</b>{_a("por aprobar")}</div>
-</div>
 <h2>{_a("Citas")}</h2>
 <div class="tabla"><table>{_cab("Cuando", "Cliente", "Qué dijo")}{tabla_citas}</table></div>
 {f'<h2>{_a("Cupos de la semana")}</h2><div class="tabla">{_tabla_cupos()}</div>' if kb.agenda() else ""}

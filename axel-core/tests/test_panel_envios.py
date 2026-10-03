@@ -65,11 +65,12 @@ def main() -> int:
             (gil, f"{cita_dia.isoformat()} 11:00"),
         )
     panel = demo.Handler.__new__(demo.Handler)._panel()
-    assert panel.index("<h2>Reporte de hoy</h2>") < panel.index("<h2>Clientes</h2>")
+    # Muro I: sin "Reporte de hoy"; el Día sigue antes que Clientes.
+    assert panel.index('id="dia"') < panel.index("<h2>Clientes</h2>")
     # Los bloques del dueño siguen en el panel. Ladrillo 4: una sola lista "Clientes" (antes dos tablas).
     # Ladrillo 6: "Citas" lleva la A dorada (demo._a); los demás títulos siguen en texto plano.
     # Ladrillo 8: todo título fijo con "a" la lleva dorada (demo._a). Los que no tienen "a" quedan igual.
-    for titulo in ("Reporte de hoy", demo._a("Cupos de la semana"), demo._a("Citas"), "Clientes", demo._a("Datos del negocio"), "Pedidos", demo._a("Avisos"), "Eventos"):
+    for titulo in (demo._a("Cupos de la semana"), demo._a("Citas"), "Clientes", demo._a("Datos del negocio"), "Pedidos", demo._a("Avisos"), "Eventos"):
         assert f"<h2>{titulo}</h2>" in panel, titulo
     assert "<h2>Clientes WhatsApp</h2>" not in panel and panel.count("<h2>Clientes</h2>") == 1
     clientes = panel.split("<h2>Clientes</h2>")[1].split("</table>")[0]
@@ -101,14 +102,10 @@ def main() -> int:
     pos = [panel.index(x) for x in orden]
     assert pos == sorted(pos), pos
     dia = panel.split('id="dia"')[1].split('id="conversaciones"')[0]
-    for titulo in ("Reporte de hoy", demo._a("Citas"), "Pedidos"):
+    for titulo in (demo._a("Citas"), "Pedidos"):
         assert f"<h2>{titulo}</h2>" in dia, titulo
-    # Ladrillo 6: el reporte del panel son cuatro tarjetas, sin texto largo ni línea de pagados.
-    reporte = dia.split("<h2>Reporte de hoy</h2>")[1].split("<h2>")[0]
-    assert reporte.count("class=\"tarjeta\"") == 4 and "<pre>" not in reporte and "pagado" not in reporte, reporte
-    for rotulo in ("citas hoy", "anotado, sin cobro", "entregados", "por aprobar"):
-        assert demo._a(rotulo) in reporte, rotulo
-    assert "<button" not in reporte, "sin botones nuevos"
+    # Muro I: el Día ya no lleva el reporte de cuatro tarjetas (lo reemplazan las casillas del home).
+    assert "Reporte de hoy" not in dia and "class=\"tarjeta\"" not in panel
     assert "setInterval" in panel and "20000" in panel and "location.reload()" in panel
     # Muro A: cada a/A de un rótulo fijo se ve como la Λ dorada; la palabra va entera (nowrap) y se lee la letra real.
     assert demo._a("Día") == "<span class='palabra'>Dí<span class='a' aria-hidden='true'>&Lambda;</span><span class='sr'>a</span></span>"
@@ -365,11 +362,53 @@ def main() -> int:
         assert cifra("casilla-cerrado") == "1 · $10.000"
         cerrado = panel.split("id='casilla-cerrado'")[1].split("</dialog>")[0]
         assert demo._a("No es un pago verificado.") in cerrado
-        assert re.search(r"<td>Gil</td><td>WhatsApp</td><td>barba \$10\.000</td><td>entregado \d\d/\d\d \d\d:\d\d</td>",
-                         cerrado), cerrado
+        # Muro I: misma tabla de gestión: cliente, canal, tipo, cantidad, código, nombre, precio, estado.
+        assert re.search(r"<td>Gil</td><td>WhatsApp</td><td>servicio</td><td>1</td><td>—</td><td>barba</td>"
+                         r"<td>\$10\.000</td><td>entregado \d\d/\d\d \d\d:\d\d</td>", cerrado), cerrado
         assert "uñas" not in cerrado, "sin delivered_at no cuenta como cerrado hoy"
         proceso = panel.split("id='casilla-proceso'")[1].split("</dialog>")[0]
-        assert "Quiero un reembolso" in proceso and "cera $8.000" in proceso and "tinte" not in proceso
+        assert "<td>reembolso</td><td>—</td><td>—</td><td>Pide reembolso</td><td>—</td><td>espera tu sí</td>" in proceso
+        assert "<td>cera</td><td>$8.000</td><td>pagado</td>" in proceso and "tinte" not in proceso
+        for vid in ("casilla-gestionado", "casilla-proceso", "casilla-cerrado"):
+            tabla = panel.split(f"id='{vid}'")[1].split("</dialog>")[0]
+            assert "".join(f"<th>{demo._a(c)}</th>" for c in demo._COLUMNAS_GESTION) in tabla, vid
+
+        # Muro I: cita de hoy con servicio conocido suma en Gestionado una vez, con su precio. Sin servicio, no.
+        hoy_ana = f"{demo._ahora_cali().date().isoformat()} 16:00"
+        with memory._conn() as conn:
+            conn.execute(
+                "INSERT INTO conversation_summaries(customer_id, event_id, channel, intent, summary, result, created_at, cita_at)"
+                " VALUES (?, 'evt_ana_corte', 'whatsapp', 'reserva', 'hoy a las 4 para corte', 'ok', datetime('now'), ?)",
+                (ana, hoy_ana))
+        panel = h._panel()
+        home = panel.split("<main>")[1].split("<nav")[0]
+        precio_corte = demo.kb.buscar_servicio("corte")["precio"]
+        assert cifra("casilla-gestionado") == f"3 · {demo.kb.precio_txt(35000 + precio_corte)}", cifra("casilla-gestionado")
+        gest = panel.split("id='casilla-gestionado'")[1].split("</dialog>")[0]
+        assert gest.count("cita confirmada 16:00") == 1 and "cita confirmada 15:00" not in gest, "cita sin servicio no suma"
+        # Reembolso aprobado hoy: fila visible; sin monto guardado no resta valor.
+        assert "reembolso aprobado · sin monto" in gest and "<td>reembolso</td><td>—</td><td>—</td><td>reembolso</td><td>—</td>" in gest
+        # Rechazado no suma.
+        assert "tinte" not in gest
+
+        # Muro I: Reserva/Pedido abre por canal (canal, cantidad, valor); cada canal abre sus filas.
+        reserva = panel.split("id='casilla-reserva'")[1].split("</dialog>")[0]
+        assert "".join(f"<th>{demo._a(c)}</th>" for c in ("Canal", "Cantidad", "Valor")) in reserva
+        fila_wa = re.search(r"data-abre='(casilla-reserva-\d+)'>WhatsApp</button></td><td>(\d+)</td><td>(.*?)</td>", reserva)
+        assert fila_wa and fila_wa.group(2) == "4", reserva  # 2 citas de hoy + 2 pedidos de hoy (corte, barba)
+        assert fila_wa.group(3) == demo.kb.precio_txt(35000 + precio_corte), fila_wa.group(3)
+        sub = panel.split(f"id='{fila_wa.group(1)}'")[1].split("</dialog>")[0]
+        assert "cita confirmada 15:00" in sub and "cita confirmada 16:00" in sub and "<td>Ana</td>" not in sub
+        assert "<td>sin nombre</td>" in sub, "Ana borró sus datos: sin nombre"
+
+        # Muro I: producto del inventario lleva código y nombre; servicio, código "—".
+        prods = demo.kb.productos
+        demo.kb.productos = lambda: [{"codigo": "CAF01", "nombre": "cafe molido", "precio": 12000, "stock": 3}]
+        try:
+            f = demo._fila_pedido({"customer_id": "x", "servicio": "CAF01 cafe", "precio": 12000, "estado": "anotado"})
+            assert (f["tipo"], f["codigo"], f["nombre"], f["cantidad"]) == ("producto", "CAF01", "cafe molido", "1"), f
+        finally:
+            demo.kb.productos = prods
         assert "Instagram" not in panel and "<td>Web</td>" not in panel, "sin canal inventado"
         assert demo._a("Envíos de producto, repartidor y contra entrega: aún no") in home
         # Agenda no: sin cupos; los pedidos siguen.
