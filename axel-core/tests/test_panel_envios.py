@@ -54,11 +54,15 @@ def main() -> int:
         assert prohibido not in tabla, prohibido
 
     # Cita con hora exacta: el texto dice otra cosa, el panel usa cita_at.
+    # Muro H: fecha relativa (dentro de 10 días), para que la prueba no dependa del día en que corre.
+    from datetime import timedelta as _td
+    cita_dia = demo._ahora_cali().date() + _td(days=10)
+    cita_txt = f"{demo._NOMBRE_DIA[cita_dia.weekday()]} {cita_dia:%d/%m} 11:00"
     with memory._conn() as conn:
         conn.execute(
             "INSERT INTO conversation_summaries(customer_id, event_id, channel, intent, summary, result, created_at, cita_at)"
-            " VALUES (?, 'evt_panel', 'whatsapp', 'reserva', 'hoy a las 9:30', 'ok', '2026-10-01 13:00:00', '2026-10-03 11:00')",
-            (gil,),
+            " VALUES (?, 'evt_panel', 'whatsapp', 'reserva', 'hoy a las 9:30', 'ok', datetime('now', '-1 day'), ?)",
+            (gil, f"{cita_dia.isoformat()} 11:00"),
         )
     panel = demo.Handler.__new__(demo.Handler)._panel()
     assert panel.index("<h2>Reporte de hoy</h2>") < panel.index("<h2>Clientes</h2>")
@@ -69,7 +73,7 @@ def main() -> int:
         assert f"<h2>{titulo}</h2>" in panel, titulo
     assert "<h2>Clientes WhatsApp</h2>" not in panel and panel.count("<h2>Clientes</h2>") == 1
     clientes = panel.split("<h2>Clientes</h2>")[1].split("</table>")[0]
-    assert "sábado 03/10 11:00" in clientes, "Clientes lee cita_at"
+    assert cita_txt in clientes, ("Clientes lee cita_at", cita_txt, clientes)
     assert "3001112233" in clientes, "el celular sigue en la lista de clientes"
     assert "<td>WhatsApp</td>" in clientes and "<th>ID</th>" not in clientes and gil not in clientes, "canal sí, ID no"
     # Muro F: "Envíos" pasa a llamarse "Avisos"; sigue sin texto ni celular entero.
@@ -334,17 +338,25 @@ def main() -> int:
         memory.add_pedido(gil, "barba", 10000)            # entregado hoy
         memory.add_pedido(alex, "tinte", 40000)           # rechazado: no cuenta
         with memory._conn() as conn:
-            conn.execute("UPDATE pedidos SET estado = 'entregado' WHERE servicio = 'barba'")
+            conn.execute("UPDATE pedidos SET estado = 'pagado' WHERE servicio = 'barba'")
             conn.execute("UPDATE pedidos SET estado = 'rechazado' WHERE servicio = 'tinte'")
             conn.execute("INSERT INTO pedidos(customer_id, servicio, precio, created_at, estado)"
                          " VALUES (?, 'cera', 8000, '2020-01-01 12:00:00', 'pagado')", (gil,))  # abierto, de otro día
+            # Entregado viejo, sin delivered_at: no cuenta en Cerrado y su hora queda "—".
+            conn.execute("INSERT INTO pedidos(customer_id, servicio, precio, created_at, estado)"
+                         " VALUES (?, 'uñas', 5000, '2020-01-01 12:00:00', 'entregado')", (gil,))
+        # Muro H: entregar guarda delivered_at; Cerrado usa esa hora.
+        barba = next(p for p in memory.list_pedidos(50) if p["servicio"] == "barba")
+        assert memory.entregar_pedido(barba["pedido_id"])
+        barba = next(p for p in memory.list_pedidos(50) if p["servicio"] == "barba")
+        assert barba["estado"] == "entregado" and barba["delivered_at"], barba
         memory.save_pending_approval({"event_id": "evt_d", "customer_id": gil, "intent": "reembolso", "why": "x",
                                       "requested_action": "Quiero un reembolso", "notify_text": "x"})
         panel = h._panel()
         home = panel.split("<main>")[1].split("<nav")[0]
         assert "sin cobro" not in home and home.count("class='casilla'") == 4, home
         cifra = lambda vid: re.search(rf"data-abre='{vid}'>.*?<b>(.*?)</b>", home).group(1)
-        # Otra prueba deja una cita con fecha fija: se cuentan las de hoy, no un número fijo.
+        # Se cuentan las citas de hoy, no un número fijo.
         hoy = demo._ahora_cali().date()
         n_citas = sum(1 for c in memory.list_confirmed_reservas(500) if (w := demo.cuando_fila(c)) and w[0] == hoy)
         assert n_citas >= 1 and cifra("casilla-reserva") == f"{n_citas}/2", "citas de hoy / 2 pedidos sin rechazados"
@@ -353,7 +365,9 @@ def main() -> int:
         assert cifra("casilla-cerrado") == "1 · $10.000"
         cerrado = panel.split("id='casilla-cerrado'")[1].split("</dialog>")[0]
         assert demo._a("No es un pago verificado.") in cerrado
-        assert "<td>Gil</td><td>WhatsApp</td><td>barba $10.000</td><td>entregado</td>" in cerrado, cerrado
+        assert re.search(r"<td>Gil</td><td>WhatsApp</td><td>barba \$10\.000</td><td>entregado \d\d/\d\d \d\d:\d\d</td>",
+                         cerrado), cerrado
+        assert "uñas" not in cerrado, "sin delivered_at no cuenta como cerrado hoy"
         proceso = panel.split("id='casilla-proceso'")[1].split("</dialog>")[0]
         assert "Quiero un reembolso" in proceso and "cera $8.000" in proceso and "tinte" not in proceso
         assert "Instagram" not in panel and "<td>Web</td>" not in panel, "sin canal inventado"
@@ -376,6 +390,24 @@ def main() -> int:
     assert "<td>Gestión</td><td>Gil</td><td>Pide reembolso. Espera tu sí.</td>" in eventos
     assert "<td>Fin</td><td>Gil</td><td>Pidió reembolso: aprobado.</td>" in eventos
     assert "<td>Fin</td><td>Gil</td><td>Pedido entregado: barba $10.000.</td>" in eventos
+    # Muro H: Fin de un pedido usa delivered_at; sin ella, "—".
+    assert re.search(r"<td>\d\d/\d\d \d\d:\d\d</td><td>Fin</td><td>Gil</td><td>Pedido entregado: barba", eventos), eventos
+    assert "<td>—</td><td>Fin</td><td>Gil</td><td>Pedido entregado: uñas $5.000.</td>" in eventos, eventos
+
+    # Muro H: el aviso de una decisión guarda el event_id. Sin vínculo: "sin vínculo"; nunca el aviso de otro caso.
+    for eid in ("evt_h1", "evt_h2"):
+        memory.save_pending_approval({"event_id": eid, "customer_id": gil, "intent": "descuento", "why": "x",
+                                      "requested_action": "Quiero descuento", "notify_text": "x"})
+    h._decidir("evt_h1", "approved")
+    memory.resolve_pending("evt_h2", "rejected")  # decidido sin aviso (como el panel viejo)
+    vinculo = memory.aviso_del_caso("evt_h1")
+    assert vinculo and vinculo["tipo"] == "n3_cliente" and vinculo["estado"] in {"fallo", "fuera_24h"}, vinculo
+    assert memory.aviso_del_caso("evt_h2") is None
+    decididas = h._panel().split(f"<h2>{demo._a('Decididas')}</h2>")[1]
+    fila_h1 = decididas.split("<td>evt_h1</td>")[1].split("</tr>")[0]
+    fila_h2 = decididas.split("<td>evt_h2</td>")[1].split("</tr>")[0]
+    assert re.search(r"· (fallo|fuera de 24 h)</td>$", fila_h1), fila_h1
+    assert "· sin vínculo</td>" in fila_h2 and "fallo" not in fila_h2 and "fuera de 24 h" not in fila_h2, fila_h2
     assert "reporte interno" not in eventos and "despacho" not in registro.lower()
     assert demo._corto("x" * 80).endswith("…") and len(demo._corto("x" * 80)) == 60
 

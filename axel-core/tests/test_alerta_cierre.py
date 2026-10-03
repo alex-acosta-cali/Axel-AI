@@ -56,8 +56,13 @@ def main() -> int:
         with memory._conn() as conn:
             conn.execute("UPDATE pedidos SET estado = 'entregado' WHERE servicio = 'barba'")
         texto = alerta_cierre(memory, cierre)
-        assert texto.startswith("Cierre del día: 1 por aprobar y 1 pedidos anotados por $25.000."), texto
+        assert texto.startswith("Cierre del día: 1 por aprobar y 1 pedido anotado por $25.000."), texto
         assert "AXEL no cobra." in texto
+        # Muro H: plural correcto.
+        memory.add_pedido(cli, "cera", 8000)
+        assert "y 2 pedidos anotados por $33.000." in alerta_cierre(memory, cierre)
+        with memory._conn() as conn:
+            conn.execute("DELETE FROM pedidos WHERE servicio = 'cera'")
 
         # Día 1: el dueño nunca escribió por WhatsApp: fila fuera_24h, sin envío real.
         assert enviar_alerta_cierre(memory, cierre) == "fuera_24h"

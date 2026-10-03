@@ -143,6 +143,10 @@ class Memory:
                 ("pedidos", "business_id", "TEXT NOT NULL DEFAULT 'biz_default'"),
                 # Hora en que el dueño decidió (UTC). Las viejas quedan NULL.
                 ("pending_approvals", "decided_at", "TEXT"),
+                # Muro H: hora (UTC) en que el pedido quedó entregado. Los viejos quedan NULL.
+                ("pedidos", "delivered_at", "TEXT"),
+                # Muro H: el caso (pending_approvals.event_id) al que pertenece un aviso. Los viejos quedan NULL.
+                ("envios", "event_id", "TEXT"),
             ):
                 try:
                     conn.execute(f"ALTER TABLE {tabla} ADD COLUMN {col} {typ}")
@@ -534,13 +538,24 @@ class Memory:
             )
             return cur.rowcount == 1
 
-    def add_envio(self, destino: str, tipo: str, texto: str, estado: str) -> None:
-        """Una fila por aviso saliente: a quién, qué (corto), para qué y cómo terminó."""
+    def add_envio(self, destino: str, tipo: str, texto: str, estado: str, event_id: str = "") -> None:
+        """Una fila por aviso saliente: a quién, qué (corto), para qué y cómo terminó. event_id: el caso, si lo hay."""
         with self._conn() as conn:
             conn.execute(
-                "INSERT INTO envios(destino, tipo, texto, estado, created_at) VALUES (?,?,?,?,datetime('now'))",
-                (destino or "", tipo, (texto or "")[:80], estado),
+                "INSERT INTO envios(destino, tipo, texto, estado, created_at, event_id) VALUES (?,?,?,?,datetime('now'),?)",
+                (destino or "", tipo, (texto or "")[:80], estado, event_id or None),
             )
+
+    def aviso_del_caso(self, event_id: str) -> dict[str, Any] | None:
+        """El último aviso guardado con ese event_id. None si no hay vínculo. Solo lectura."""
+        if not event_id:
+            return None
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT tipo, estado, created_at FROM envios WHERE event_id = ? ORDER BY envio_id DESC LIMIT 1",
+                (event_id,),
+            ).fetchone()
+        return dict(row) if row else None
 
     def escribio_24h(self, customer_id: str) -> bool:
         """True si el último mensaje entrante de WhatsApp de ese cliente tiene menos de 24 h."""
@@ -620,7 +635,7 @@ class Memory:
         with self._conn() as conn:
             rows = conn.execute(
                 """
-                SELECT p.pedido_id, p.servicio, p.precio, p.estado, p.created_at, p.customer_id, c.name, c.phone
+                SELECT p.pedido_id, p.servicio, p.precio, p.estado, p.created_at, p.delivered_at, p.customer_id, c.name, c.phone
                 FROM pedidos p
                 LEFT JOIN customers c ON c.customer_id = p.customer_id
                 WHERE COALESCE(p.business_id, 'biz_default') = ?
@@ -635,7 +650,8 @@ class Memory:
         """Muro 38: solo un pedido 'pagado' o 'en camino' pasa a 'entregado'. AXEL no cobra."""
         with self._conn() as conn:
             cur = conn.execute(
-                "UPDATE pedidos SET estado = 'entregado' WHERE pedido_id = ? AND estado IN ('pagado', 'en camino')"
+                "UPDATE pedidos SET estado = 'entregado', delivered_at = datetime('now')"
+                " WHERE pedido_id = ? AND estado IN ('pagado', 'en camino')"
                 " AND COALESCE(business_id, 'biz_default') = ?",
                 (pedido_id, business_id),
             )

@@ -340,9 +340,10 @@ def main() -> int:
         assert [e["tipo"] for e in ultimos][:2] == ["n3_cliente", "aviso_24h"], ultimos
         assert ultimos[1]["estado"] == "fallo"
         env_dueno = dice("envios", DUENO).reply_text or ""
-        assert env_dueno.startswith("Envíos:\n- ") and env_dueno.count("\n- ") == 10, env_dueno
+        # Muro H: el comando responde "Avisos:", no "Envíos:".
+        assert env_dueno.startswith("Avisos:\n- ") and env_dueno.count("\n- ") == 10, env_dueno
         assert " · dueño · " in env_dueno and " · aviso_24h · " in env_dueno and " · fallo" in env_dueno, env_dueno
-        assert "Envíos:" not in (dice("envios", CLIENTE).reply_text or ""), "el cliente no ve envios"
+        assert "Avisos:" not in (dice("envios", CLIENTE).reply_text or ""), "el cliente no ve los avisos"
 
         # Panel: la tabla de envíos muestra el estado y ningún celular de 10 dígitos.
         os.environ["AXEL_DB"] = str(tmp / "axel_piloto_import.db")  # demo.py abre la base al importar: no la real.

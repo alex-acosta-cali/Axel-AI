@@ -380,23 +380,25 @@ _AVISO_TXT = {"enviado": "avisado", "fallo": "fallo", "fuera_24h": "fuera de 24 
               "sin_celular": "sin celular", "omitido_dueno": "omitido"}
 
 
-def _cierre(d: dict, envios: list[dict]) -> str:
-    """Hora de apertura, hora de decisión y cómo quedó el aviso al cliente (fila n3_cliente de Avisos entre la
-    apertura y la decisión, al celular del cliente). Sin esa fila: 'sin aviso'."""
+def _cierre(d: dict) -> str:
+    """Hora de apertura, hora de decisión y cómo quedó el aviso al cliente. Muro H: el aviso se busca solo por el
+    event_id del caso; nunca se toma el de otro caso. Sin vínculo guardado: 'sin vínculo'."""
     quedo = "aprobada" if d.get("status") == "approved" else "rechazada"
     abre = _creada_cali(str(d.get("created_at") or "")).strftime("%d/%m %H:%M") if d.get("created_at") else "—"
     decide = _creada_cali(str(d["decided_at"])).strftime("%d/%m %H:%M") if d.get("decided_at") else "—"
-    cel = "".join(ch for ch in str((memory.get_customer(str(d.get("customer_id") or "")) or {}).get("phone") or "")
-                  if ch.isdigit())[-10:]
-    desde, hasta = str(d.get("created_at") or ""), str(d.get("decided_at") or "")
-    aviso = next(
-        (e for e in envios
-         if e.get("tipo") == "n3_cliente" and cel and str(e.get("destino") or "")[-10:] == cel
-         and hasta and desde <= str(e.get("created_at") or "") <= hasta),
-        None,
-    )
-    estado = _AVISO_TXT.get(str(aviso.get("estado")), str(aviso.get("estado"))) if aviso else "sin aviso"
+    aviso = memory.aviso_del_caso(str(d.get("event_id") or ""))
+    estado = _AVISO_TXT.get(str(aviso.get("estado")), str(aviso.get("estado"))) if aviso else "sin vínculo"
     return f"{quedo} · abierto {abre} · decidido {decide} · {estado}"
+
+
+def _entregado_hoy(p: dict) -> bool:
+    """Muro H: entregado hoy según delivered_at (hora Cali). Sin delivered_at no se sabe: no cuenta."""
+    return p.get("estado") == "entregado" and bool(p.get("delivered_at")) \
+        and _creada_cali(str(p["delivered_at"])).date() == _ahora_cali().date()
+
+
+def _hora_entrega(p: dict) -> str:
+    return _creada_cali(str(p["delivered_at"])).strftime("%d/%m %H:%M") if p.get("delivered_at") else "—"
 
 
 def _corto(texto: str, n: int = 60) -> str:
@@ -421,7 +423,8 @@ def _tabla_eventos(limit: int = 15) -> str:
                         f"Pidió {pide}: {quedo}."))
     for p in memory.list_pedidos(100):
         if p.get("estado") == "entregado":
-            eventos.append((str(p.get("created_at") or ""), "Fin", str(p.get("customer_id") or ""),
+            # Muro H: hora de entrega (delivered_at). Sin ella, la hora queda "—".
+            eventos.append((str(p.get("delivered_at") or ""), "Fin", str(p.get("customer_id") or ""),
                             f"Pedido entregado: {p['servicio']} {kb.precio_txt(p['precio'])}."))
     eventos.sort(key=lambda e: e[0], reverse=True)
 
@@ -447,7 +450,7 @@ def _casillas(citas_hoy: list[dict], pedidos: list[dict], pendientes: list[dict]
     wa = memory.clientes_de_canal("whatsapp")
     hoy_vivos = [p for p in pedidos_de_hoy(pedidos) if (p.get("estado") or "anotado") != "rechazado"]
     abiertos = [p for p in pedidos if (p.get("estado") or "anotado") not in {"entregado", "rechazado"}]
-    cerrados = [p for p in pedidos_de_hoy(pedidos) if p.get("estado") == "entregado"]
+    cerrados = [p for p in pedidos if _entregado_hoy(p)]
     suma = lambda filas: kb.precio_txt(sum(int(p["precio"]) for p in filas))
 
     def nombre(fila: dict) -> str:
@@ -458,8 +461,10 @@ def _casillas(citas_hoy: list[dict], pedidos: list[dict], pendientes: list[dict]
         return "WhatsApp" if str(fila.get("customer_id") or "") in wa else ""
 
     def pedido(p: dict) -> list[str]:
-        return [nombre(p), canal(p), html.escape(f"{p['servicio']} {kb.precio_txt(p['precio'])}"),
-                html.escape(str(p.get("estado") or "anotado"))]
+        estado = str(p.get("estado") or "anotado")
+        if estado == "entregado":
+            estado = f"entregado {_hora_entrega(p)}"
+        return [nombre(p), canal(p), html.escape(f"{p['servicio']} {kb.precio_txt(p['precio'])}"), html.escape(estado)]
 
     def cita(c: dict) -> list[str]:
         h, m = cuando_fila(c)[1:]
@@ -539,7 +544,6 @@ class Handler(BaseHTTPRequestHandler):
         dec_filas = memory.list_decididas(10)
         chats, hilos, hilo_de = _chats_y_hilos([str(p.get("customer_id") or "") for p in pend_filas + dec_filas])
         todos_pedidos = memory.list_pedidos(500)
-        envios = memory.list_envios(500)
         ahora_utc = datetime.now(timezone.utc).replace(tzinfo=None)
 
         def _fila_aprob(p: dict, ultima: str) -> str:
@@ -573,7 +577,7 @@ class Handler(BaseHTTPRequestHandler):
             )))
         pendientes = "".join(pend) or "<tr><td colspan='7'>Nada por aprobar.</td></tr>"
         decididas = "".join(
-            _fila_aprob(d, f"<td class='cierre'>{html.escape(_cierre(d, envios))}</td>") for d in dec_filas
+            _fila_aprob(d, f"<td class='cierre'>{html.escape(_cierre(d))}</td>") for d in dec_filas
         ) or "<tr><td colspan='7'>Nada decidido aún.</td></tr>"
         def _cab(*cols: str) -> str:
             return "<tr>" + "".join(f"<th>{_a(c)}</th>" for c in cols) + "</tr>"

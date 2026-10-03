@@ -664,8 +664,9 @@ def alerta_cierre(memory: Memory, ahora=None) -> str:
     if not pendientes and not anotados:
         return ""
     valor = kb_mod.precio_txt(sum(int(p["precio"]) for p in anotados))
+    pedidos_txt = "1 pedido anotado" if len(anotados) == 1 else f"{len(anotados)} pedidos anotados"
     return (
-        f"Cierre del día: {pendientes} por aprobar y {len(anotados)} pedidos anotados por {valor}. "
+        f"Cierre del día: {pendientes} por aprobar y {pedidos_txt} por {valor}. "
         "Revísalos en el panel o escribe pendientes. AXEL no cobra."
     )
 
@@ -926,7 +927,7 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
         env.agent = "escalamiento"
         env.supervision_level = 1
         lineas = [f"- {' · '.join(f)}" for f in envios_filas(memory)]
-        env.reply_text = "Envíos:\n" + "\n".join(lineas) if lineas else "No hay envíos."
+        env.reply_text = "Avisos:\n" + "\n".join(lineas) if lineas else "No hay avisos."
         env.result = "ok"
         env.approval_status = "na"
         return True
@@ -991,7 +992,8 @@ def _try_owner_decision(env: Envelope, memory: Memory) -> bool:
     else:
         texto_cliente = "El dueño revisó tu caso y por ahora no se puede. Si quieres, lo vemos de otra forma."
     notify.aviso_cliente(
-        memory, "n3_cliente", str(cli.get("phone") or ""), texto_cliente, str(row.get("customer_id") or "")
+        memory, "n3_cliente", str(cli.get("phone") or ""), texto_cliente, str(row.get("customer_id") or ""),
+        event_id=str(row.get("event_id") or ""),
     )
     memory.resolve_pending(str(row.get("event_id") or ""), decision)
     env.reply_text = (

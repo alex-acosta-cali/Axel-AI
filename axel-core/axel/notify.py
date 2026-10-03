@@ -24,10 +24,13 @@ def _digitos(phone: str) -> str:
     return "".join(ch for ch in (phone or "") if ch.isdigit())
 
 
-def enviar(memory: Memory | None, tipo: str, destino: str, text: str, cliente: str | None = None) -> str:
+def enviar(
+    memory: Memory | None, tipo: str, destino: str, text: str, cliente: str | None = None, event_id: str = ""
+) -> str:
     """Envía por WhatsApp y deja una fila en envios. Un solo intento: si Meta falla, queda 'fallo'.
     Con 'cliente' (su customer_id): si su último mensaje entrante tiene más de 24 h, no se manda texto
-    libre y queda 'fuera_24h'. Sin 'cliente' (avisos al dueño) no se mira: su ventana es la suya."""
+    libre y queda 'fuera_24h'. Sin 'cliente' (avisos al dueño) no se mira: su ventana es la suya.
+    event_id: el caso al que pertenece el aviso (Muro H); queda en la fila."""
     destino = _digitos(destino)
     if not destino:
         estado = "sin_celular"
@@ -44,7 +47,7 @@ def enviar(memory: Memory | None, tipo: str, destino: str, text: str, cliente: s
             ok = False
         estado = "enviado" if ok else "fallo"
     if memory is not None:
-        memory.add_envio(destino, tipo, text, estado)
+        memory.add_envio(destino, tipo, text, estado, event_id)
     return estado
 
 
@@ -78,15 +81,17 @@ def aviso_sin_stock(codigo: str, nombre: str, memory: Memory | None = None) -> s
     return text
 
 
-def aviso_cliente(memory: Memory | None, tipo: str, phone: str, text: str, customer_id: str = "") -> str:
+def aviso_cliente(
+    memory: Memory | None, tipo: str, phone: str, text: str, customer_id: str = "", event_id: str = ""
+) -> str:
     """Aviso a un cliente. Si su celular es el del dueño, no se envía: fila 'omitido_dueno'.
-    Fuera de su ventana de 24 h tampoco: fila 'fuera_24h'."""
+    Fuera de su ventana de 24 h tampoco: fila 'fuera_24h'. event_id: el caso, si lo hay."""
     destino = _digitos(phone)
     if destino and destino == _digitos(os.getenv("WA_OWNER_PHONE") or ""):
         if memory is not None:
-            memory.add_envio(destino, tipo, text, "omitido_dueno")
+            memory.add_envio(destino, tipo, text, "omitido_dueno", event_id)
         return "omitido_dueno"
-    return enviar(memory, tipo, destino, text, customer_id or "")
+    return enviar(memory, tipo, destino, text, customer_id or "", event_id)
 
 
 def aviso_cliente_listo(phone: str, servicio: str, memory: Memory | None = None, customer_id: str = "") -> str:
