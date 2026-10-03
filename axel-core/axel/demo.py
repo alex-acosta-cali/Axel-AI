@@ -155,7 +155,7 @@ def _tabla_pedidos() -> str:
     """Últimos 15 pedidos, igual que el comando pedidos. Solo lectura."""
     filas = "".join(
         "<tr>" + "".join(f"<td>{html.escape(c)}</td>" for c in fila) + "</tr>" for fila in pedidos_filas(memory)
-    ) or "<tr><td colspan='4'>No hay pedidos.</td></tr>"
+    ) or "<tr><td colspan='4'>Hoy no hay pedidos.</td></tr>"
     return f"<table><tr><th>Hora Cali</th><th>Cliente</th><th>Pedido</th><th>Estado</th></tr>{filas}</table>"
 
 
@@ -199,7 +199,7 @@ class Handler(BaseHTTPRequestHandler):
                 f"<td>{html.escape(str(r.get('output_summary') or ''))}</td>"
                 "</tr>"
             )
-        tabla = "".join(items) or "<tr><td colspan='7'>Sin eventos aún.</td></tr>"
+        tabla = "".join(items) or "<tr><td colspan='7'>Al día. Nadie espera.</td></tr>"
         pend = []
         for p in memory.list_pending():
             eid = html.escape(str(p.get("event_id") or ""))
@@ -214,7 +214,7 @@ class Handler(BaseHTTPRequestHandler):
                 f"<button name='decision' value='rejected'>Rechazar</button>"
                 f"</form></td></tr>"
             )
-        pendientes = "".join(pend) or "<tr><td colspan='4'>Nada pendiente</td></tr>"
+        pendientes = "".join(pend) or "<tr><td colspan='4'>Nada por aprobar.</td></tr>"
         ficha = memory.find_by_identity("panel", "alex_pc")
         notas = memory.list_notes(str(ficha.get("customer_id") or ""), 3)
         notas_txt = " | ".join(str(n.get("note") or "") for n in notas) or "—"
@@ -262,54 +262,102 @@ class Handler(BaseHTTPRequestHandler):
                 "</tr>"
             )
         tabla_wa = "".join(wa) or "<tr><td colspan='4'>Sin clientes WhatsApp</td></tr>"
-        n_cli = len(memory.list_customers(50))
-        n_citas = len(memory.list_confirmed_reservas(50))
         n_pend = len(memory.list_pending())
-        # Muro 72: tres bloques (Día, Conversaciones, Aprobaciones), inventario abajo. Mismos datos, mismo orden de lectura.
+        # Piel del diseño: número grande = citas de hoy; debajo lo anotado hoy, sin cobro (pedido no es cobro).
+        ahora = _ahora_cali()
+        hoy = ahora.date()
+        citas_hoy = sum(1 for c in memory.list_confirmed_reservas(500) if (w := cuando_fila(c)) and w[0] == hoy)
+        pedidos = memory.list_pedidos(500)
+        anotado_hoy = sum(
+            int(p["precio"]) for p in pedidos
+            if (p.get("estado") or "anotado") != "rechazado"
+            and _creada_cali(str(p.get("created_at") or "")).date() == hoy
+        )
+        en_curso = sum(1 for p in pedidos if (p.get("estado") or "anotado") not in {"entregado", "rechazado"})
+        negocio = html.escape(str(kb.load_kb().get("negocio") or ""))
+        punto = "<i class='punto' aria-label='hay por aprobar'></i>" if n_pend else ""
+        # Muro 72: tres bloques (Día, Conversaciones, Aprobaciones), inventario abajo. Cada uno es una ventana (dialog).
         aviso_pend = f"<span class='marca'>{n_pend}</span>" if n_pend else "<span class='marca cero'>0</span>"
+        cerrar = "<form method='dialog'><button class='cerrar' aria-label='Cerrar'>×</button></form>"
         return f"""<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ΛXEL panel</title>
 <style>
-:root{{--fondo:#0e1014;--caja:#161a21;--borde:#262c36;--texto:#e8ebf0;--tenue:#8b93a1;--acento:#5cc8ff;
---ok:#7ee08a;--mal:#ff8f8f;--aviso:#ffcc66}}
+:root{{--fondo:#0b3d2e;--caja:#134a3b;--borde:#2b5f4e;--texto:#f4efe4;--tenue:#b9c9c0;--dorado:#c9a85c;
+--ok:#a8dcb0;--mal:#f2a08f;--oscuro:#0a2f24}}
 *{{box-sizing:border-box}}
-body{{font-family:"Segoe UI",system-ui,sans-serif;background:var(--fondo);color:var(--texto);margin:0;padding:24px 16px 48px}}
-main{{max-width:1180px;margin:0 auto}}
-.marca-axel{{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:6px}}
-.marca-axel h1{{margin:0;font-size:40px;letter-spacing:.12em;font-weight:600;color:var(--acento)}}
-.marca-axel span{{color:var(--tenue);font-size:14px}}
-.kpis{{display:flex;gap:12px;margin:18px 0 28px;flex-wrap:wrap}}
-.kpi{{background:var(--caja);border:1px solid var(--borde);border-radius:10px;padding:12px 18px;min-width:130px;color:var(--tenue)}}
-.kpi b{{display:block;font-size:26px;color:var(--texto)}}
-.bloque{{background:var(--caja);border:1px solid var(--borde);border-radius:14px;padding:6px 20px 20px;margin-bottom:24px}}
-.bloque-t{{display:flex;align-items:center;gap:10px;font-size:13px;text-transform:uppercase;letter-spacing:.14em;
-color:var(--acento);margin:16px 0 4px}}
-.bloque-t i{{font-style:normal;color:var(--tenue)}}
-h2{{font-size:16px;font-weight:600;margin:22px 0 10px;color:var(--texto)}}
-.tabla{{overflow-x:auto}}
+body{{font-family:"Segoe UI",system-ui,sans-serif;background:var(--fondo);color:var(--texto);margin:0;padding:20px 16px 120px}}
+main{{max-width:720px;margin:0 auto}}
+.arriba{{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}}
+.marca-axel{{display:flex;flex-direction:column;gap:6px}}
+.marca-axel h1{{margin:0;font-size:30px;letter-spacing:.32em;font-weight:300;color:var(--texto)}}
+.marca-axel h1::first-letter{{color:var(--dorado)}}
+.negocio{{font-size:17px}}
+.hora{{color:var(--tenue);font-size:14px;padding-top:6px}}
+.grande{{margin:28px 0 0;font-size:96px;line-height:1;font-weight:300;color:var(--dorado);font-variant-numeric:tabular-nums}}
+.grande-t{{margin:4px 0 0;color:var(--tenue)}}
+.anotado{{display:inline-block;margin:14px 0 0;border:1px solid var(--dorado);color:var(--dorado);border-radius:999px;padding:4px 14px;font-size:15px}}
+.tarjetas{{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:24px 0 0}}
+.tarjeta{{background:var(--caja);border:1px solid var(--borde);border-radius:18px;padding:16px 8px;text-align:center;color:var(--tenue);font:inherit;font-size:14px;min-height:44px}}
+.tarjeta b{{display:block;font-size:40px;font-weight:300;color:var(--texto);margin-bottom:4px}}
+.otro{{margin:18px 0 0;background:none;border:1px solid var(--borde);border-radius:999px;color:var(--tenue);font:inherit;font-size:14px;padding:10px 18px}}
+.local{{color:var(--tenue);font-size:12px;margin:22px 0 0}}
+.puertas{{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);display:flex;gap:4px;background:var(--oscuro);
+border:1px solid var(--borde);border-radius:999px;padding:6px;width:min(560px,calc(100% - 32px))}}
+.puertas button{{flex:1;background:none;border:0;border-radius:999px;color:var(--texto);font:inherit;font-size:15px;padding:12px 6px;min-height:44px;cursor:pointer}}
+.puertas button:hover,.puertas button:focus-visible,.tarjeta:hover,.otro:hover{{background:var(--caja);border-color:var(--dorado)}}
+.punto{{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--dorado);margin-left:6px;vertical-align:middle}}
+dialog.bloque{{background:var(--fondo);color:var(--texto);border:1px solid var(--borde);border-radius:22px;padding:0;
+width:min(960px,calc(100% - 24px));max-height:calc(100vh - 24px)}}
+dialog.bloque::backdrop{{background:rgba(4,20,15,.7)}}
+.ventana{{padding:6px 20px 24px}}
+.bloque-cab{{display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:var(--fondo);padding-top:10px}}
+.bloque-cab form{{margin:0}}
+.bloque-t{{display:flex;align-items:center;gap:10px;font-size:26px;font-weight:600;margin:6px 0}}
+.cerrar{{width:44px;height:44px;border-radius:50%;font-size:22px;padding:0}}
+h2{{font-size:15px;font-weight:600;margin:22px 0 10px;color:var(--dorado);letter-spacing:.04em}}
+.tabla{{overflow-x:auto;background:var(--caja);border-radius:16px;padding:4px 12px}}
 table{{border-collapse:collapse;width:100%;font-size:14px}}
-td,th{{border-bottom:1px solid var(--borde);padding:8px 10px;text-align:left;vertical-align:top}}
-th{{color:var(--tenue);font-weight:500;font-size:12px;text-transform:uppercase;letter-spacing:.06em}}
-pre{{background:var(--fondo);border:1px solid var(--borde);border-radius:8px;padding:12px;white-space:pre-wrap;margin:0}}
+td,th{{border-bottom:1px solid var(--borde);padding:9px 8px;text-align:left;vertical-align:top}}
+tr:last-child td{{border-bottom:0}}
+th{{color:var(--tenue);font-weight:500;font-size:12px;letter-spacing:.04em}}
+pre{{background:var(--caja);border-radius:16px;padding:14px;white-space:pre-wrap;margin:0;font-family:inherit;font-size:14px}}
 .ok{{color:var(--ok)}} .tomada{{color:var(--mal)}} .paso{{color:var(--tenue)}}
-.marca{{background:var(--aviso);color:#1a1300;border-radius:999px;padding:1px 9px;font-size:12px;letter-spacing:0}}
+.marca{{background:var(--dorado);color:#1c1606;border-radius:999px;padding:1px 10px;font-size:13px}}
 .marca.cero{{background:var(--borde);color:var(--tenue)}}
 .ficha{{color:var(--tenue);font-size:14px;margin:18px 0 0}}
 form.escribir{{display:flex;gap:8px;margin:16px 0 0}}
-form.escribir input{{flex:1;min-width:0;padding:10px;border-radius:8px;border:1px solid var(--borde);background:var(--fondo);color:var(--texto)}}
-button{{padding:8px 14px;border-radius:8px;border:1px solid var(--borde);background:#222a35;color:var(--texto);cursor:pointer}}
-button:hover{{border-color:var(--acento)}}
+form.escribir input{{flex:1;min-width:0;padding:12px 16px;border-radius:999px;border:1px solid var(--borde);background:var(--caja);color:var(--texto);font:inherit}}
+button{{padding:8px 16px;border-radius:999px;border:1px solid var(--borde);background:var(--caja);color:var(--texto);cursor:pointer;font:inherit}}
+button:hover{{border-color:var(--dorado)}}
+button[value=approved]{{background:var(--dorado);border-color:var(--dorado);color:#1c1606;font-weight:600}}
+@media (max-width:520px){{.grande{{font-size:76px}} .tarjeta b{{font-size:32px}} dialog.bloque{{width:100%;max-height:100vh;border-radius:0}}}}
 </style></head><body><main>
-<header class="marca-axel"><h1>ΛXEL</h1><span>panel local · solo 127.0.0.1</span></header>
-<div class="kpis">
-<div class="kpi"><b>{n_cli}</b>clientes</div>
-<div class="kpi"><b>{n_citas}</b>citas</div>
-<div class="kpi"><b>{n_pend}</b>pendientes</div>
-</div>
+<header class="arriba">
+<div class="marca-axel"><h1>ΛXEL</h1><span class="negocio">{negocio}</span></div>
+<span class="hora">Cali {ahora.strftime('%H:%M')}</span>
+</header>
 
-<section class="bloque" id="dia">
-<div class="bloque-t">Día</div>
+<p class="grande">{citas_hoy}</p>
+<p class="grande-t">citas hoy</p>
+<p class="anotado">Anotado hoy, sin cobro · {kb.precio_txt(anotado_hoy)}</p>
+
+<div class="tarjetas">
+<button class="tarjeta" data-abre="dia"><b>{citas_hoy}</b>citas hoy</button>
+<button class="tarjeta" data-abre="dia"><b>{en_curso}</b>pedidos en curso</button>
+<button class="tarjeta" data-abre="aprobaciones"><b>{n_pend}{punto}</b>por aprobar</button>
+</div>
+<button class="otro" data-abre="inventario">Inventario</button>
+<p class="local">panel local · solo 127.0.0.1</p>
+
+<nav class="puertas" aria-label="Puertas">
+<button data-abre="dia">Día</button>
+<button data-abre="conversaciones">Conversaciones</button>
+<button data-abre="aprobaciones">Aprobaciones{punto}</button>
+</nav>
+
+<dialog class="bloque" id="dia"><div class="ventana">
+<div class="bloque-cab"><div class="bloque-t">Día</div>{cerrar}</div>
 <h2>Reporte de hoy</h2>
 <pre>{html.escape(_reporte(memory))}</pre>
 <h2>Citas</h2>
@@ -320,10 +368,10 @@ button:hover{{border-color:var(--acento)}}
 <div class="tabla">{_tabla_pedidos()}</div>
 <h2>Catálogo</h2>
 <div class="tabla">{_tabla_catalogo()}</div>
-</section>
+</div></dialog>
 
-<section class="bloque" id="conversaciones">
-<div class="bloque-t">Conversaciones</div>
+<dialog class="bloque" id="conversaciones"><div class="ventana">
+<div class="bloque-cab"><div class="bloque-t">Conversaciones</div>{cerrar}</div>
 <h2>Últimos</h2>
 <div class="tabla"><table><tr><th>Cuando</th><th>Canal</th><th>Agente</th><th>Nivel</th><th>Aprobación</th><th>Entró</th><th>Respondió</th></tr>{tabla}</table></div>
 <h2>Envíos</h2>
@@ -337,19 +385,29 @@ button:hover{{border-color:var(--acento)}}
 <input name="text" placeholder="Escribe a AXEL" />
 <button type="submit">Enviar</button>
 </form>
-</section>
+</div></dialog>
 
-<section class="bloque" id="aprobaciones">
-<div class="bloque-t">Aprobaciones {aviso_pend}</div>
+<dialog class="bloque" id="aprobaciones"><div class="ventana">
+<div class="bloque-cab"><div class="bloque-t">Aprobaciones {aviso_pend}</div>{cerrar}</div>
 <h2>Pendientes</h2>
 <div class="tabla"><table><tr><th>Evento</th><th>Intent</th><th>Pedido</th><th>Decisión</th></tr>{pendientes}</table></div>
-</section>
+</div></dialog>
 
-<section class="bloque" id="inventario">
+<dialog class="bloque" id="inventario"><div class="ventana">
+<div class="bloque-cab"><div class="bloque-t">Inventario</div>{cerrar}</div>
 <h2>Inventario</h2>
 <div class="tabla">{_tabla_inventario()}</div>
-</section>
-</main></body></html>"""
+</div></dialog>
+</main>
+<script>
+document.querySelectorAll("[data-abre]").forEach(function (b) {{
+  b.addEventListener("click", function () {{ document.getElementById(b.dataset.abre).showModal(); }});
+}});
+document.querySelectorAll("dialog").forEach(function (d) {{
+  d.addEventListener("click", function (e) {{ if (e.target === d) d.close(); }});
+}});
+</script>
+</body></html>"""
 
     def _es_local(self) -> bool:
         """Local = Host 127.0.0.1/localhost y sin cabeceras de proxy. Cualquier otro Host es público.
